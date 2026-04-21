@@ -3,8 +3,8 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+asyncpg://coach:coach@localhost:5432/fitness_coach"
-    REDIS_URL: str = "redis://localhost:6379"
+    DATABASE_URL: str = "postgresql+asyncpg://coach:coach@db:5433/fitness_coach"
+    REDIS_URL: str = "redis://redis:6380"
     OPENAI_API_KEY: str = ""
     LINQ_API_TOKEN: str = ""
     LINQ_WEBHOOK_SECRET: str = ""
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PRICE_ID: str = ""
-    ALLOWED_ORIGINS: str = "http://localhost:3000"
+    ALLOWED_ORIGINS: str = "https://hercules.chat"
     DEFAULT_LANGUAGE: str = "de"
     PROACTIVE_MAX_PER_DAY: int = 3
     PROACTIVE_IDLE_HOURS: int = 2
