@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: fitness_coach
+      POSTGRES_USER: coach
+      POSTGRES_PASSWORD: coach
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+  worker:
+    build: .
+    command: python -m app.workers.proactive_worker
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+volumes:
+  pgdata:

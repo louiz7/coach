@@ -1,0 +1,34 @@
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, Integer, Float, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+from app.database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    phone = Column(String(20), unique=True, nullable=False)
+    email = Column(String(255), unique=True, nullable=True)
+    password_hash = Column(String(255), nullable=False)
+    name = Column(String(100), nullable=False)
+    sport = Column(String(50), nullable=True)
+    fitness_level = Column(String(20), nullable=True)
+    goal = Column(String(50), nullable=True)
+    training_frequency = Column(Integer, nullable=True)
+    injuries = Column(Text, nullable=True)
+    age = Column(Integer, nullable=True)
+    gender = Column(String(10), nullable=True)
+    weight_kg = Column(Float, nullable=True)
+    height_cm = Column(Float, nullable=True)
+    persona_id = Column(UUID(as_uuid=True), ForeignKey("coach_personas.id"), nullable=True)
+    linq_chat_id = Column(String(100), nullable=True)
+    pool_number = Column(String(20), nullable=True)
+    onboarding_complete = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    language = Column(String(5), default="de")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    persona = relationship("CoachPersona")
