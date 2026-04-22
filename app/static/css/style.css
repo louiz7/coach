@@ -75,7 +75,7 @@ body {
 .hero {
   position: relative;
   width: 100%;
-  height: clamp(600px, calc(100vh - 16px), 870px);
+  height: calc(100vh - 16px);
   margin: 0 auto;
   background: #e1e1d9;
   border-radius: 10px;
@@ -122,7 +122,7 @@ body {
 
 @media (max-width: 768px) and (min-height: 853px) {
   .hero__sculptures {
-    height: 40vh;
+    height: 50vh;
   }
 }
 
@@ -347,13 +347,17 @@ body {
     align-items: center;
     gap: 15px;
   }
-}
 
-@media (max-width: 480px) {
   .frame {
     padding: 4px;
   }
 
+  .hero {
+    height: calc(100vh - 8px);
+  }
+}
+
+@media (max-width: 480px) {
   .hero {
     border-radius: 6px;
   }
