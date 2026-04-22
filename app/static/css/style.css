@@ -75,7 +75,7 @@ body {
 .hero {
   position: relative;
   width: 100%;
-  height: clamp(785px, calc(100vh - 16px), 870px);
+  height: clamp(600px, calc(100vh - 16px), 870px);
   margin: 0 auto;
   background: #e1e1d9;
   border-radius: 10px;
@@ -84,15 +84,22 @@ body {
 
 .hero__content {
   position: absolute;
-  top: 95px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  width: 712px;
+  transform: translate(-50%, -50%);
+  width: min(90vw, 712px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: clamp(16px, 4vw, 24px);
   z-index: 2;
+  padding: 0 1rem;
+}
+
+@media (max-width: 768px) {
+  .hero__content {
+    top: 45%;
+  }
 }
 
 /* ---------- Sculptures bottom image ---------- */
@@ -108,6 +115,15 @@ body {
   pointer-events: none;
   user-select: none;
   z-index: 1;
+  max-width: 150vw;
+}
+
+@media (max-width: 768px) {
+  .hero__sculptures {
+    width: auto;
+    height: auto;
+    max-height: 40vh;
+  }
 }
 
 /* ---------- Testimonial pill ---------- */
@@ -115,6 +131,7 @@ body {
   background: #fff;
   border-radius: 1000px;
   padding: 5px;
+  max-width: min(90vw, 100%);
 }
 
 .pill__inner {
@@ -128,12 +145,12 @@ body {
   border-radius: 1000px;
   color: #0057c3;
   font-family: "Albertus Nova", "Inter", sans-serif;
-  font-size: 14px;
+  font-size: clamp(11px, 2.5vw, 14px);
   font-style: normal;
   font-weight: 300;
-  line-height: 14px;
+  line-height: 1.3;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
   leading-trim: both;
   text-edge: cap;
 }
@@ -165,9 +182,9 @@ body {
   margin: 0;
   font-family: "Albertus Nova", "Inter", sans-serif;
   font-weight: 700;
-  font-size: 60px;
+  font-size: clamp(28px, 8vw, 60px);
   line-height: 1.1;
-  letter-spacing: -0.6px;
+  letter-spacing: clamp(-0.3px, -0.5vw, -0.6px);
   color: #000;
   text-align: center;
 }
@@ -181,12 +198,13 @@ body {
   margin: 0;
   font-family: "Albertus Nova", "Inter", sans-serif;
   font-weight: 300;
-  font-size: 25px;
-  line-height: 1.1;
-  letter-spacing: -0.25px;
+  font-size: clamp(14px, 4vw, 25px);
+  line-height: 1.2;
+  letter-spacing: clamp(-0.1px, -0.2vw, -0.25px);
   color: rgba(0, 0, 0, 0.5);
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+  word-wrap: break-word;
 }
 
 /* ---------- CTA block ---------- */
@@ -195,6 +213,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 
 .cta__button {
@@ -209,6 +228,8 @@ body {
   text-decoration: none;
   color: inherit;
   transition: filter 120ms ease, transform 120ms ease;
+  width: 100%;
+  max-width: 314px;
 }
 
 .cta__button::before {
@@ -226,12 +247,13 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 15px;
-  width: 314px;
-  height: 60px;
-  padding: 20px 40px;
+  gap: clamp(10px, 3vw, 15px);
+  width: 100%;
+  height: auto;
+  padding: clamp(12px, 3vw, 20px) clamp(20px, 4vw, 40px);
   border-radius: 10px;
   box-sizing: border-box;
+  flex-wrap: wrap;
 }
 
 .cta__button:hover {
@@ -243,8 +265,8 @@ body {
 }
 
 .cta__icon {
-  width: 30px;
-  height: 30px;
+  width: clamp(24px, 6vw, 30px);
+  height: clamp(24px, 6vw, 30px);
   object-fit: cover;
   filter: drop-shadow(0 4px 50px rgba(0, 0, 0, 0.2));
   flex-shrink: 0;
@@ -253,28 +275,38 @@ body {
 .cta__label {
   font-family: "Inter", sans-serif;
   font-weight: 600;
-  font-size: 16px;
+  font-size: clamp(13px, 3vw, 16px);
   line-height: 1;
   color: #fff;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .cta__legal {
   margin: 0;
   font-family: "Inter", sans-serif;
   font-weight: 400;
-  font-size: 10px;
-  line-height: 1.1;
+  font-size: clamp(8px, 2vw, 10px);
+  line-height: 1.2;
   letter-spacing: -0.1px;
   color: rgba(0, 0, 0, 0.5);
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 90vw;
 }
 
-/* When the card is clamped at its 785px min (viewport ≤ 801px), pull the
-   hero content up so it doesn't collide with the sculpture image. */
-@media (max-height: 801px) {
+/* When the card is clamped at its 600px min (viewport ≤ 616px), adjust spacing */
+@media (max-height: 616px) {
   .hero__content {
-    top: 70px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .frame {
+    padding: 4px;
+  }
+
+  .hero {
+    border-radius: 6px;
   }
 }
