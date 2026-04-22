@@ -19,8 +19,14 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 def run_migrations_offline():
+    """Run migrations in 'offline' mode (generates SQL)."""
     url = settings.DATABASE_URL
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
     with context.begin_transaction():
         context.run_migrations()
 
@@ -30,6 +36,7 @@ def do_run_migrations(connection):
         context.run_migrations()
 
 async def run_migrations_online():
+    """Run migrations in 'online' mode."""
     connectable = create_async_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
@@ -38,11 +45,5 @@ async def run_migrations_online():
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    # Use offline mode for Alembic to generate SQL without connecting immediately
-    import os
-    if os.getenv("ALEMBIC_OFFLINE", "false").lower() != "true":
-        # Default to offline mode
-        run_migrations_offline()
-    else:
-        # Only run online migrations if explicitly requested
-        asyncio.run(run_migrations_online())
+    # Run online migrations
+    asyncio.run(run_migrations_online())
