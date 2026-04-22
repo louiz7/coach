@@ -1,0 +1,280 @@
+/*
+ * Drop Albertus Nova .otf files into /app/static/fonts/ and these
+ * @font-face blocks will pick them up. Inter is loaded from Google Fonts.
+ */
+@font-face {
+  font-family: "Albertus Nova";
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+  src: url("../fonts/albertusnovathin.otf") format("opentype");
+}
+
+@font-face {
+  font-family: "Albertus Nova";
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url("../fonts/albertusnovalight.otf") format("opentype");
+}
+
+@font-face {
+  font-family: "Albertus Nova";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("../fonts/albertusnova.otf") format("opentype");
+}
+
+@font-face {
+  font-family: "Albertus Nova";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("../fonts/albertusnova_bold.otf") format("opentype");
+}
+
+@font-face {
+  font-family: "Albertus Nova";
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("../fonts/albertusnovablack.otf") format("opentype");
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: #b9b9b9;
+  color: #000;
+  font-family: "Albertus Nova", "Inter", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Outer frame ---------- */
+.frame {
+  min-height: 100vh;
+  padding: 8px;
+  background: #b9b9b9;
+}
+
+/* ---------- Hero card ---------- */
+.hero {
+  position: relative;
+  width: 100%;
+  height: clamp(785px, calc(100vh - 16px), 870px);
+  margin: 0 auto;
+  background: #e1e1d9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.hero__content {
+  position: absolute;
+  top: 95px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 712px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  z-index: 2;
+}
+
+/* ---------- Sculptures bottom image ---------- */
+.hero__sculptures {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1299px;
+  height: 336px;
+  object-fit: cover;
+  object-position: center top;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+/* ---------- Testimonial pill ---------- */
+.pill {
+  background: #fff;
+  border-radius: 1000px;
+  padding: 5px;
+}
+
+.pill__inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 10px 10px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  border-radius: 1000px;
+  color: #0057c3;
+  font-family: "Albertus Nova", "Inter", sans-serif;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 300;
+  line-height: 14px;
+  text-align: center;
+  white-space: nowrap;
+  leading-trim: both;
+  text-edge: cap;
+}
+
+/* Sizer reserves width for the longest message so the pill never reflows.
+   It inherits all pill__inner font styling via the cascade. */
+.pill__sizer {
+  visibility: hidden;
+}
+
+.pill__text {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 300ms ease;
+}
+
+.pill__text.is-fading {
+  opacity: 0;
+}
+
+/* ---------- Headline ---------- */
+.headline {
+  margin: 0;
+  font-family: "Albertus Nova", "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 60px;
+  line-height: 1.1;
+  letter-spacing: -0.6px;
+  color: #000;
+  text-align: center;
+}
+
+.headline__accent {
+  color: #0057c3;
+}
+
+/* ---------- Subtext ---------- */
+.subtext {
+  margin: 0;
+  font-family: "Albertus Nova", "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 25px;
+  line-height: 1.1;
+  letter-spacing: -0.25px;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ---------- CTA block ---------- */
+.cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.cta__button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  background: #0057c3;
+  border-radius: 20px;
+  box-shadow: inset 0 0 3px 0 rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  color: inherit;
+  transition: filter 120ms ease, transform 120ms ease;
+}
+
+.cta__button::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 1px solid #1174cb;
+  border-radius: 10px;
+  box-shadow: inset 0 0 3px 0 rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+.cta__button__inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  width: 314px;
+  height: 60px;
+  padding: 20px 40px;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.cta__button:hover {
+  filter: brightness(1.05);
+}
+
+.cta__button:active {
+  transform: translateY(1px);
+}
+
+.cta__icon {
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+  filter: drop-shadow(0 4px 50px rgba(0, 0, 0, 0.2));
+  flex-shrink: 0;
+}
+
+.cta__label {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.cta__legal {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 1.1;
+  letter-spacing: -0.1px;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* When the card is clamped at its 785px min (viewport ≤ 801px), pull the
+   hero content up so it doesn't collide with the sculpture image. */
+@media (max-height: 801px) {
+  .hero__content {
+    top: 70px;
+  }
+}

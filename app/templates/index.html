@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hercules — Lock in.</title>
+    <meta
+      name="description"
+      content="Hercules wants you to lock in. Become the best version of yourself. It all starts with one text."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
+  </head>
+  <body>
+    <main class="frame">
+      <section class="hero">
+        <div class="hero__content">
+          <div class="pill">
+            <span class="pill__inner">
+              <span class="pill__sizer" aria-hidden="true"
+                >Hercules turned Mia's Sunday slump into her best training day.</span
+              >
+              <span
+                class="pill__text"
+                id="rotating-pill"
+                aria-live="polite"
+              >Hercules kept Lisa consistent when her motivation ran out.</span>
+            </span>
+          </div>
+
+          <h1 class="headline">
+            Hercules wants you to<br />lock in. <span class="headline__accent">Do you?</span>
+          </h1>
+
+          <p class="subtext">
+            Become the best version of yourself.<br />It all starts with one text.
+          </p>
+
+          <div class="cta">
+            <a
+              class="cta__button"
+              href="sms:+19453943079?&body=whats%20hercules%3F"
+              aria-label="Get started on iMessage with Hercules"
+            >
+              <span class="cta__button__inner">
+                <img
+                  class="cta__icon"
+                  src="{{ url_for('static', path='images/imessage.png') }}"
+                  alt=""
+                  width="30"
+                  height="30"
+                />
+                <span class="cta__label">Get started on iMessage</span>
+              </span>
+            </a>
+            <p class="cta__legal">By continuing, you agree to our Terms and Privacy</p>
+          </div>
+        </div>
+
+        <img
+          class="hero__sculptures"
+          src="{{ url_for('static', path='images/sculptures.png') }}"
+          alt=""
+          aria-hidden="true"
+        />
+      </section>
+    </main>
+    <script src="{{ url_for('static', path='js/pill-rotator.js') }}" defer></script>
+  </body>
+</html>
