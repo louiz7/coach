@@ -2,7 +2,7 @@ import asyncio
 import sys
 import os
 from logging.config import fileConfig
-from sqlalchemy import pool
+from sqlalchemy import pool, create_engine
 from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 
@@ -18,8 +18,23 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 target_metadata = Base.metadata
 
-def run_migrations_offline():
-    """Run migrations in 'offline' mode (generates SQL)."""
+def do_run_migrations(connection):
+    context.configure(connection=connection, target_metadata=target_metadata)
+    with context.begin_transaction():
+        context.run_migrations()
+
+def run_migrations_online():
+    """Run migrations using a synchronous connection (not asyncpg)."""
+    # Convert asyncpg URL to psycopg2 for synchronous access
+    sync_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+    engine = create_engine(sync_url, poolclass=pool.NullPool)
+    
+    with engine.connect() as connection:
+        do_run_migrations(connection)
+    engine.dispose()
+
+if context.is_offline_mode():
+    # For offline mode, configure and run without connection
     url = settings.DATABASE_URL
     context.configure(
         url=url,
@@ -29,22 +44,6 @@ def run_migrations_offline():
     )
     with context.begin_transaction():
         context.run_migrations()
-
-def do_run_migrations(connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
-    with context.begin_transaction():
-        context.run_migrations()
-
-async def run_migrations_online():
-    """Run migrations in 'online' mode."""
-    connectable = create_async_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-    await connectable.dispose()
-
-if context.is_offline_mode():
-    run_migrations_offline()
 else:
-    # For standard online mode, just run offline with literal_binds
-    # This avoids async connection issues with asyncpg
-    run_migrations_offline()
+    # For online mode, use synchronous connection
+    run_migrations_online()
