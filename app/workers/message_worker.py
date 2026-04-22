@@ -82,8 +82,8 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
             # Send Hercules intro message
             welcome = (
-                "Hey! Ich bin Hercules — dein persönlicher Trainer für deine Fitness-Reise 💪 "
-                "Wie darf ich dich nennen?"
+                "Hey! I'm Hercules — your personal AI coach for your fitness journey 💪 "
+                "What's your name?"
             )
             await linq.send_message(chat_id, welcome)
             await add_message(user.id, "assistant", welcome, db)
@@ -190,7 +190,7 @@ async def _handle_onboarding(user: User, chat_id: str, text: str, db) -> None:
         user.onboarding_state = OnboardingState.CHAT_GOAL
         await db.commit()
 
-        reply = f"Freut mich, dich kennenzulernen, {user.name}! 🙌 Was möchtest du erreichen?"
+        reply = f"Nice to meet you, {user.name}! 🙌 What's your fitness goal?"
         await linq.send_message(chat_id, reply)
         await add_message(user.id, "assistant", reply, db)
 
@@ -201,19 +201,19 @@ async def _handle_onboarding(user: User, chat_id: str, text: str, db) -> None:
         await db.commit()
 
         pitch = (
-            f"Ich verstehe — {user.goal.lower()} ist ein starkes Ziel 🔥\n\n"
-            "Hercules ist dein persönlicher KI-Coach, der dich jeden Tag per iMessage begleitet. "
-            "Kein App-Download, kein Gym-Abo nötig — nur du, dein Handy und ein Plan, "
-            "der wirklich zu dir passt.\n\n"
-            "Bist du ready, dein Leben zu verändern? 💪"
+            f"I got it — {user.goal.lower()} is an awesome goal 🔥\n\n"
+            "I'm Hercules, your personal AI coach who guides you every day via iMessage. "
+            "No app downloads, no gym memberships needed — just you, your phone, and a training plan "
+            "that's actually customized for you.\n\n"
+            "Ready to change your life? 💪"
         )
         await linq.send_message(chat_id, pitch)
         await add_message(user.id, "assistant", pitch, db)
 
     elif state == OnboardingState.CHAT_PITCH:
         text_lower = text.lower().strip()
-        is_yes = any(w in text_lower for w in ["ja", "yes", "jo", "klar", "ready", "let's go", "lets go", "yep", "yup", "auf jeden", "natürlich"])
-        is_no = any(w in text_lower for w in ["nein", "no", "nö", "nicht", "nope"])
+        is_yes = any(w in text_lower for w in ["ja", "yes", "jo", "klar", "ready", "let's go", "lets go", "yep", "yup", "auf jeden", "natürlich", "yeah", "absolutely", "definitely"])
+        is_no = any(w in text_lower for w in ["nein", "no", "nö", "nicht", "nope", "pass"])
 
         if is_yes:
             user.onboarding_state = OnboardingState.FORM
@@ -223,31 +223,31 @@ async def _handle_onboarding(user: User, chat_id: str, text: str, db) -> None:
             form_url = "https://hercules.chat/start"
             reply = (
                 f"Let's go, {user.name}! 🚀\n\n"
-                f"Füll hier kurz dein Profil aus — dauert nur 2 Minuten:\n{form_url}\n\n"
-                "Danach geht's sofort los 🔥"
+                f"Complete your profile here — takes just 2 minutes:\n{form_url}\n\n"
+                "Then we'll jump right in! 🔥"
             )
             await linq.send_message(chat_id, reply)
             await add_message(user.id, "assistant", reply, db)
 
         elif is_no:
             reply = (
-                "Kein Problem! Falls du doch noch Fragen hast oder bereit bist — "
-                "ich bin jederzeit hier. Schreib mir einfach nochmal 💬"
+                "No problem! If you have any questions or change your mind later — "
+                "I'm always here. Just message me anytime 💬"
             )
             await linq.send_message(chat_id, reply)
             await add_message(user.id, "assistant", reply, db)
 
         else:
             # Unclear answer, re-ask
-            reply = "Kurze Ja/Nein Frage 😄 — Bist du ready, loszulegen?"
+            reply = "Quick yes/no question 😄 — Are you ready to get started?"
             await linq.send_message(chat_id, reply)
             await add_message(user.id, "assistant", reply, db)
 
     elif state == OnboardingState.FORM:
         # User texted again while form is pending
         reply = (
-            f"Hey {user.name}! Du hast noch das Formular offen 👆 "
-            "Füll es kurz aus und dann legen wir direkt los! 🚀"
+            f"Hey {user.name}! You still have the form open 👆 "
+            "Just fill it out and we'll get right to it! 🚀"
         )
         await linq.send_message(chat_id, reply)
         await add_message(user.id, "assistant", reply, db)
