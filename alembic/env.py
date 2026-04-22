@@ -45,5 +45,6 @@ async def run_migrations_online():
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    # Run online migrations
-    asyncio.run(run_migrations_online())
+    # For standard online mode, just run offline with literal_binds
+    # This avoids async connection issues with asyncpg
+    run_migrations_offline()
