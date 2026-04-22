@@ -120,7 +120,13 @@ body {
   }
 }
 
-@media (max-width: 768px) and (min-height: 853px) {
+@media (max-width: 768px) and (min-height: 700px) {
+  .hero__sculptures {
+    height: 40vh;
+  }
+}
+
+@media (max-width: 768px) and (min-height: 820px) {
   .hero__sculptures {
     height: 50vh;
   }
