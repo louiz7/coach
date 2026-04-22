@@ -84,9 +84,9 @@ body {
 
 .hero__content {
   position: absolute;
-  top: 50%;
+  top: 60px;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   width: min(90vw, 712px);
   display: flex;
   flex-direction: column;
@@ -94,12 +94,6 @@ body {
   gap: clamp(16px, 4vw, 24px);
   z-index: 2;
   padding: 0 1rem;
-}
-
-@media (max-width: 768px) {
-  .hero__content {
-    top: 45%;
-  }
 }
 
 /* ---------- Sculptures bottom image ---------- */
@@ -228,8 +222,8 @@ body {
   text-decoration: none;
   color: inherit;
   transition: filter 120ms ease, transform 120ms ease;
-  width: 100%;
-  max-width: 314px;
+  width: auto;
+  max-width: 100%;
 }
 
 .cta__button::before {
@@ -248,12 +242,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: clamp(10px, 3vw, 15px);
-  width: 100%;
+  width: auto;
   height: auto;
   padding: clamp(12px, 3vw, 20px) clamp(20px, 4vw, 40px);
   border-radius: 10px;
   box-sizing: border-box;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .cta__button:hover {
@@ -278,7 +272,7 @@ body {
   font-size: clamp(13px, 3vw, 16px);
   line-height: 1;
   color: #fff;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .cta__legal {
