@@ -45,7 +45,8 @@ async def landing(request: Request) -> HTMLResponse:
 # Onboarding form page (linked from iMessage chat)
 @app.get("/start", response_class=HTMLResponse)
 async def start(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "start.html")
+    token = request.query_params.get("token", "")
+    return templates.TemplateResponse(request, "start.html", {"token": token})
 
 # Routes
 from app.api import health, auth, users, onboarding, training_plans, webhooks, payments

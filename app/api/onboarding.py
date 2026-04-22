@@ -1,16 +1,129 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from pydantic import BaseModel
+from typing import Any
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, OnboardingState
 from app.models.coach_persona import CoachPersona
 from app.schemas.onboarding import OnboardingQuiz, PersonaSelect, PersonaResponse
 from app.schemas.user import UserProfile
 from app.utils.auth import get_current_user
 from app.services import linq
+from app.services.token import verify_onboarding_token
 from app.services.training_plan import generate_plan
 
 router = APIRouter(prefix="/api/v1/onboarding", tags=["onboarding"])
+
+
+# ---------------------------------------------------------------------------
+# Token-based form submission (no login required — identified by iMessage token)
+# ---------------------------------------------------------------------------
+
+class TokenFormSubmit(BaseModel):
+    """
+    Flexible schema for the iMessage-to-form onboarding submission.
+
+    Only `token` is strictly required — everything else is optional for now
+    so the frontend can evolve without breaking the backend.
+    Known fields are applied when present; unknown extra fields are ignored.
+    Once the frontend is finalised, add validation here.
+    """
+
+    token: str
+
+    # Profile fields — all optional until frontend is locked
+    sport: str | None = None
+    fitness_level: str | None = None
+    goal: str | None = None
+    training_frequency: int | None = None
+    injuries: str | None = None
+    age: int | None = None
+    gender: str | None = None
+    weight_kg: float | None = None
+    height_cm: float | None = None
+
+    model_config = {"extra": "allow"}  # accept unknown fields gracefully
+
+
+class TokenFormResponse(BaseModel):
+    status: str
+    message: str
+    user_id: str
+
+
+@router.post("/form-submit", response_model=TokenFormResponse)
+async def form_submit(
+    data: TokenFormSubmit,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Submit onboarding form data identified by the token sent in the iMessage link.
+
+    The token encodes the user's phone number — no login/password required at
+    this stage.  All profile fields are optional so the frontend can change
+    the form without needing a backend deploy.
+    """
+    # Verify token and extract phone number
+    try:
+        payload = verify_onboarding_token(data.token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    phone = payload["phone"]
+
+    # Look up user by phone
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found. Please start the chat again.")
+
+    # Apply whichever fields the frontend sent — skip None values
+    KNOWN_FIELDS = [
+        "sport", "fitness_level", "goal", "training_frequency",
+        "injuries", "age", "gender", "weight_kg", "height_cm",
+    ]
+    for field in KNOWN_FIELDS:
+        value = getattr(data, field, None)
+        if value is not None:
+            setattr(user, field, value)
+
+    # Mark form as completed
+    user.onboarding_state = OnboardingState.DONE
+
+    await db.commit()
+    await db.refresh(user)
+
+    return TokenFormResponse(
+        status="success",
+        message="Profile saved! We'll be in touch via iMessage shortly.",
+        user_id=str(user.id),
+    )
+
+
+@router.get("/verify-token")
+async def verify_token(token: str, db: AsyncSession = Depends(get_db)):
+    """
+    Verify an onboarding token and return basic user info to pre-fill the form.
+    Called by the frontend when the /start page loads.
+    """
+    try:
+        payload = verify_onboarding_token(token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    phone = payload["phone"]
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    return {
+        "valid": True,
+        "name": user.name,
+        "goal": user.goal,
+        "phone": user.phone,
+    }
 
 
 @router.post("/quiz", response_model=UserProfile)

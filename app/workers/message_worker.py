@@ -219,8 +219,9 @@ async def _handle_onboarding(user: User, chat_id: str, text: str, db) -> None:
             user.onboarding_state = OnboardingState.FORM
             await db.commit()
 
-            # TODO: replace with real token-based URL once web form is ready
-            form_url = "https://hercules.chat/start"
+            from app.services.token import create_onboarding_token
+            token = create_onboarding_token(user.phone)
+            form_url = f"https://hercules.chat/start?token={token}"
             reply = (
                 f"Let's go, {user.name}! 🚀\n\n"
                 f"Complete your profile here — takes just 2 minutes:\n{form_url}\n\n"
