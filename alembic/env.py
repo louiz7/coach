@@ -38,4 +38,11 @@ async def run_migrations_online():
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    asyncio.run(run_migrations_online())
+    # Use offline mode for Alembic to generate SQL without connecting immediately
+    import os
+    if os.getenv("ALEMBIC_OFFLINE", "false").lower() != "true":
+        # Default to offline mode
+        run_migrations_offline()
+    else:
+        # Only run online migrations if explicitly requested
+        asyncio.run(run_migrations_online())
