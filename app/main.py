@@ -41,6 +41,12 @@ app.add_middleware(
 async def landing(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "index.html")
 
+
+# Onboarding form page (linked from iMessage chat)
+@app.get("/start", response_class=HTMLResponse)
+async def start(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "start.html")
+
 # Routes
 from app.api import health, auth, users, onboarding, training_plans, webhooks, payments
 
