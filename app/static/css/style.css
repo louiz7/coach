@@ -84,7 +84,7 @@ body {
 
 .hero__content {
   position: absolute;
-  top: 60px;
+  top: 90px;
   left: 50%;
   transform: translateX(-50%);
   width: min(90vw, 712px);
@@ -115,8 +115,14 @@ body {
 @media (max-width: 768px) {
   .hero__sculptures {
     width: auto;
-    height: auto;
-    max-height: 40vh;
+    height: 33vh;
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) and (min-height: 853px) {
+  .hero__sculptures {
+    height: 40vh;
   }
 }
 
@@ -292,6 +298,54 @@ body {
 @media (max-height: 616px) {
   .hero__content {
     gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pill {
+    width: 240px;
+    max-width: 240px;
+  }
+
+  .pill__inner {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+    color: #0057c3;
+    text-align: center;
+    font-family: "Albertus Nova", "Inter", sans-serif;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 300;
+    line-height: 130%;
+    white-space: normal;
+  }
+
+  .headline {
+    color: #000;
+    font-size: 30px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 120%;
+    letter-spacing: -0.3px;
+  }
+
+  .subtext {
+    font-size: 18px;
+    font-style: normal;
+    font-weight: 300;
+    line-height: 110%;
+    letter-spacing: -0.18px;
+  }
+
+  .cta__button__inner {
+    display: flex;
+    width: 270px;
+    height: 50px;
+    padding: 20px 40px;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
   }
 }
 
