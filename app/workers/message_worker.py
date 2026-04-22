@@ -25,6 +25,12 @@ async def process_message(chat_id: str, text: str, event_id: str, phone: str = N
             return
         await redis_pool.set(dedup_key, "1", ex=86400)
 
+    # NEW: Check message content FIRST before database lookup
+    text_lower = text.lower().strip()
+    is_hercules_init = any(phrase in text_lower for phrase in [
+        "whats hercules", "what's hercules", "what is hercules", "whatis hercules"
+    ])
+
     async with async_session() as db:
         # Find user by chat_id
         result = await db.execute(
@@ -32,21 +38,24 @@ async def process_message(chat_id: str, text: str, event_id: str, phone: str = N
         )
         user = result.scalar_one_or_none()
 
-        # --- PROJECT ROUTING ---
-        # If user exists but belongs to another project, ignore
-        if user and user.project != ProjectEnum.HERCULES:
+        # --- PROJECT ROUTING (message-content first) ---
+        # If user exists but not Hercules, AND this is NOT a Hercules init message → skip
+        if user and user.project != ProjectEnum.HERCULES.value:
+            if not is_hercules_init:
+                # Non-Hercules traffic, let other project handle it
+                return
+            # User exists in other project but typed "whats hercules?"
+            # This is an edge case (user switching projects)
+            # For now, we'll ignore this
             return
 
-        # If no user exists, check if this is a Hercules entry message
-        if not user:
-            text_lower = text.lower().strip()
-            is_hercules_entry = any(p in text_lower for p in [
-                "whats hercules", "what's hercules", "what is hercules"
-            ])
-            if not is_hercules_entry:
-                # Not a Hercules message, ignore (likely for another project)
-                return
+        # If no user exists but message doesn't contain Hercules keyword → skip
+        if not user and not is_hercules_init:
+            # Not a Hercules entry message, let other project handle it
+            return
 
+        # --- NEW HERCULES USER ---
+        if not user:
             # Create new pre-onboarding user tagged as Hercules
             user = User(
                 linq_chat_id=chat_id,
