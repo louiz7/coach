@@ -25,6 +25,7 @@ async def linq_webhook(request: Request, bg: BackgroundTasks):
     msg_data = data.get("data", {})
     chat_id = msg_data.get("chat_id")
     from_handle = msg_data.get("from_handle", {})
+    phone = from_handle.get("value")  # Extract sender phone number
     is_from_me = msg_data.get("is_from_me", False)
 
     # Ignore our own messages
@@ -43,12 +44,12 @@ async def linq_webhook(request: Request, bg: BackgroundTasks):
 
     event_id = data.get("id", "")
 
-    # Process async
-    bg.add_task(_process_inbound, chat_id, text, event_id)
+    # Process async, pass phone for new user creation
+    bg.add_task(_process_inbound, chat_id, text, event_id, phone)
     return {"ok": True}
 
 
-async def _process_inbound(chat_id: str, text: str, event_id: str):
+async def _process_inbound(chat_id: str, text: str, event_id: str, phone: str = None):
     """Background: route to message worker."""
     from app.workers.message_worker import process_message
-    await process_message(chat_id, text, event_id)
+    await process_message(chat_id, text, event_id, phone)

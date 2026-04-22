@@ -6,6 +6,21 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
+# Project identifiers for shared Linq number routing
+class ProjectEnum:
+    HERCULES = "hercules"
+    UNKNOWN = "unknown"
+
+
+# Onboarding states for the iMessage chat funnel
+class OnboardingState:
+    CHAT_NAME = "CHAT_NAME"       # Waiting for user's name
+    CHAT_GOAL = "CHAT_GOAL"       # Waiting for user's goal
+    CHAT_PITCH = "CHAT_PITCH"     # Waiting for yes/no after pitch
+    FORM = "FORM"                 # Sent web form link, waiting
+    DONE = "DONE"                 # Fully onboarded
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -27,6 +42,8 @@ class User(Base):
     linq_chat_id = Column(String(100), nullable=True)
     pool_number = Column(String(20), nullable=True)
     onboarding_complete = Column(Boolean, default=False)
+    project = Column(String(20), default=ProjectEnum.UNKNOWN, nullable=False)
+    onboarding_state = Column(String(20), nullable=True)
     is_active = Column(Boolean, default=True)
     language = Column(String(5), default="de")
     created_at = Column(DateTime, default=datetime.utcnow)

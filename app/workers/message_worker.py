@@ -13,8 +13,9 @@ from app.services.billing import check_subscription
 from app.redis import redis_pool
 
 
-async def process_message(chat_id: str, text: str, event_id: str):
+async def process_message(chat_id: str, text: str, event_id: str, phone: str = None):
     """Process an inbound message: classify, call LLM, reply."""
+    from app.models.user import ProjectEnum, OnboardingState
 
     # Dedup
     dedup_key = f"event:{event_id}"
@@ -30,7 +31,55 @@ async def process_message(chat_id: str, text: str, event_id: str):
             select(User).where(User.linq_chat_id == chat_id)
         )
         user = result.scalar_one_or_none()
+
+        # --- PROJECT ROUTING ---
+        # If user exists but belongs to another project, ignore
+        if user and user.project != ProjectEnum.HERCULES:
+            return
+
+        # If no user exists, check if this is a Hercules entry message
         if not user:
+            text_lower = text.lower().strip()
+            is_hercules_entry = any(p in text_lower for p in [
+                "whats hercules", "what's hercules", "what is hercules"
+            ])
+            if not is_hercules_entry:
+                # Not a Hercules message, ignore (likely for another project)
+                return
+
+            # Create new pre-onboarding user tagged as Hercules
+            user = User(
+                linq_chat_id=chat_id,
+                phone=phone or chat_id,  # fallback to chat_id if phone not available
+                name="Unbekannt",
+                password_hash="pending",
+                project=ProjectEnum.HERCULES,
+                onboarding_state=OnboardingState.CHAT_NAME,
+                onboarding_complete=False,
+                is_active=True,
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+
+            # Send Hercules intro message
+            welcome = (
+                "Hey! Ich bin Hercules — dein persönlicher Trainer für deine Fitness-Reise 💪 "
+                "Wie darf ich dich nennen?"
+            )
+            await linq.send_message(chat_id, welcome)
+            await add_message(user.id, "assistant", welcome, db)
+            return
+
+        # --- ONBOARDING STATE MACHINE ---
+        # Handle users still in the iMessage onboarding funnel
+        if user.onboarding_state in (
+            OnboardingState.CHAT_NAME,
+            OnboardingState.CHAT_GOAL,
+            OnboardingState.CHAT_PITCH,
+            OnboardingState.FORM,
+        ):
+            await _handle_onboarding(user, chat_id, text, db)
             return
 
         # Check subscription
@@ -108,6 +157,81 @@ async def process_message(chat_id: str, text: str, event_id: str):
                 await linq.send_message(chat_id, chunk)
 
             await add_message(user.id, "assistant", chunk, db)
+
+
+async def _handle_onboarding(user: User, chat_id: str, text: str, db) -> None:
+    """Handle the iMessage onboarding state machine."""
+    from app.models.user import OnboardingState
+
+    state = user.onboarding_state
+
+    if state == OnboardingState.CHAT_NAME:
+        # Save name from user's reply
+        user.name = text.strip().split()[0].capitalize()  # Use first word as name
+        user.onboarding_state = OnboardingState.CHAT_GOAL
+        await db.commit()
+
+        reply = f"Freut mich, dich kennenzulernen, {user.name}! 🙌 Was möchtest du erreichen?"
+        await linq.send_message(chat_id, reply)
+        await add_message(user.id, "assistant", reply, db)
+
+    elif state == OnboardingState.CHAT_GOAL:
+        # Save goal from user's reply
+        user.goal = text.strip()
+        user.onboarding_state = OnboardingState.CHAT_PITCH
+        await db.commit()
+
+        pitch = (
+            f"Ich verstehe — {user.goal.lower()} ist ein starkes Ziel 🔥\n\n"
+            "Hercules ist dein persönlicher KI-Coach, der dich jeden Tag per iMessage begleitet. "
+            "Kein App-Download, kein Gym-Abo nötig — nur du, dein Handy und ein Plan, "
+            "der wirklich zu dir passt.\n\n"
+            "Bist du ready, dein Leben zu verändern? 💪"
+        )
+        await linq.send_message(chat_id, pitch)
+        await add_message(user.id, "assistant", pitch, db)
+
+    elif state == OnboardingState.CHAT_PITCH:
+        text_lower = text.lower().strip()
+        is_yes = any(w in text_lower for w in ["ja", "yes", "jo", "klar", "ready", "let's go", "lets go", "yep", "yup", "auf jeden", "natürlich"])
+        is_no = any(w in text_lower for w in ["nein", "no", "nö", "nicht", "nope"])
+
+        if is_yes:
+            user.onboarding_state = OnboardingState.FORM
+            await db.commit()
+
+            # TODO: replace with real token-based URL once web form is ready
+            form_url = "https://hercules.chat/start"
+            reply = (
+                f"Let's go, {user.name}! 🚀\n\n"
+                f"Füll hier kurz dein Profil aus — dauert nur 2 Minuten:\n{form_url}\n\n"
+                "Danach geht's sofort los 🔥"
+            )
+            await linq.send_message(chat_id, reply)
+            await add_message(user.id, "assistant", reply, db)
+
+        elif is_no:
+            reply = (
+                "Kein Problem! Falls du doch noch Fragen hast oder bereit bist — "
+                "ich bin jederzeit hier. Schreib mir einfach nochmal 💬"
+            )
+            await linq.send_message(chat_id, reply)
+            await add_message(user.id, "assistant", reply, db)
+
+        else:
+            # Unclear answer, re-ask
+            reply = "Kurze Ja/Nein Frage 😄 — Bist du ready, loszulegen?"
+            await linq.send_message(chat_id, reply)
+            await add_message(user.id, "assistant", reply, db)
+
+    elif state == OnboardingState.FORM:
+        # User texted again while form is pending
+        reply = (
+            f"Hey {user.name}! Du hast noch das Formular offen 👆 "
+            "Füll es kurz aus und dann legen wir direkt los! 🚀"
+        )
+        await linq.send_message(chat_id, reply)
+        await add_message(user.id, "assistant", reply, db)
 
 
 def _split_response(text: str) -> list[str]:
