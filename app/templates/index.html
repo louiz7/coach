@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
+    <link rel="stylesheet" href="/static/css/style.css" />
   </head>
   <body>
     <main class="frame">
@@ -50,7 +50,7 @@
               <span class="cta__button__inner">
                 <img
                   class="cta__icon"
-                  src="{{ url_for('static', path='images/imessage.png') }}"
+                  src="/static/images/imessage.png"
                   alt=""
                   width="30"
                   height="30"
@@ -64,12 +64,12 @@
 
         <img
           class="hero__sculptures"
-          src="{{ url_for('static', path='images/sculptures.png') }}"
+          src="/static/images/sculptures.png"
           alt=""
           aria-hidden="true"
         />
       </section>
     </main>
-    <script src="{{ url_for('static', path='js/pill-rotator.js') }}" defer></script>
+    <script src="/static/js/pill-rotator.js" defer></script>
   </body>
 </html>
