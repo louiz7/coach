@@ -15,6 +15,15 @@ from app.redis import redis_pool
 
 async def process_message(chat_id: str, text: str, event_id: str, phone: str = None):
     """Process an inbound message: classify, call LLM, reply."""
+    try:
+        await _process_message_inner(chat_id, text, event_id, phone)
+    except Exception as e:
+        import traceback
+        print(f"[process_message ERROR] chat_id={chat_id} text={text!r}: {e}")
+        traceback.print_exc()
+
+
+async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: str = None):
     from app.models.user import ProjectEnum, OnboardingState
 
     # Dedup
@@ -40,7 +49,7 @@ async def process_message(chat_id: str, text: str, event_id: str, phone: str = N
 
         # --- PROJECT ROUTING (message-content first) ---
         # If user exists but not Hercules, AND this is NOT a Hercules init message → skip
-        if user and user.project != ProjectEnum.HERCULES.value:
+        if user and user.project != ProjectEnum.HERCULES:
             if not is_hercules_init:
                 # Non-Hercules traffic, let other project handle it
                 return
@@ -82,12 +91,13 @@ async def process_message(chat_id: str, text: str, event_id: str, phone: str = N
 
         # --- ONBOARDING STATE MACHINE ---
         # Handle users still in the iMessage onboarding funnel
-        if user.onboarding_state in (
+        _onboarding_states = {
             OnboardingState.CHAT_NAME,
             OnboardingState.CHAT_GOAL,
             OnboardingState.CHAT_PITCH,
             OnboardingState.FORM,
-        ):
+        }
+        if user.onboarding_state in _onboarding_states:
             await _handle_onboarding(user, chat_id, text, db)
             return
 
