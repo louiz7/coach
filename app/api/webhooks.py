@@ -1,8 +1,13 @@
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from app.config import settings
 from app.utils.webhook_verify import verify_linq_signature
+import sys
 
 router = APIRouter(tags=["webhooks"])
+
+
+def _log(msg):
+    print(f"[WEBHOOK] {msg}", flush=True, file=sys.stderr)
 
 
 @router.post("/api/v1/webhooks/linq")
@@ -13,23 +18,34 @@ async def linq_webhook(request: Request, bg: BackgroundTasks):
     body = await request.body()
 
     if not verify_linq_signature(timestamp, body, signature, settings.LINQ_WEBHOOK_SECRET):
+        _log("Invalid signature, rejecting")
         raise HTTPException(401, "Invalid signature")
 
     data = await request.json()
     event = request.headers.get("X-Webhook-Event", "")
+    _log(f"event={event} data_keys={list(data.keys())}")
+
+    data = await request.json()
+    # Linq sends event_type in the body (not X-Webhook-Event header)
+    event = data.get("event_type") or request.headers.get("X-Webhook-Event", "")
+    _log(f"event={event} data_keys={list(data.keys())}")
 
     if event != "message.received":
+        _log(f"Ignoring non-message event: {event}")
         return {"ok": True}
 
-    # Extract message data
+    # Extract message data (Linq v3 payload format)
     msg_data = data.get("data", {})
-    chat_id = msg_data.get("chat_id")
-    from_handle = msg_data.get("from_handle", {})
-    phone = from_handle.get("value")  # Extract sender phone number
-    is_from_me = msg_data.get("is_from_me", False)
+    chat = msg_data.get("chat", {})
+    chat_id = chat.get("id") or msg_data.get("chat_id")
+
+    sender = msg_data.get("sender_handle") or msg_data.get("from_handle", {})
+    phone = sender.get("handle") or sender.get("value")
+    is_from_me = sender.get("is_me", False) or msg_data.get("is_from_me", False)
 
     # Ignore our own messages
     if is_from_me:
+        _log("Ignoring own message")
         return {"ok": True}
 
     # Extract text from parts
@@ -40,9 +56,11 @@ async def linq_webhook(request: Request, bg: BackgroundTasks):
             text += part.get("value", "")
 
     if not text or not chat_id:
+        _log(f"Missing text or chat_id: text={text!r} chat_id={chat_id!r}")
         return {"ok": True}
 
-    event_id = data.get("id", "")
+    event_id = data.get("event_id") or data.get("id", "")
+    _log(f"Processing: chat_id={chat_id} phone={phone} text={text!r}")
 
     # Process async, pass phone for new user creation
     bg.add_task(_process_inbound, chat_id, text, event_id, phone)
