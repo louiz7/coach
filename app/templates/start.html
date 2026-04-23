@@ -223,6 +223,18 @@
           <button type="button" class="back-link" data-back>Previous Step</button>
         </div>
       </section>
+
+      <!-- Success screen (hidden until form submitted) -->
+      <section class="onboarding__card onboarding__success" id="success-screen" style="display:none;">
+        <div style="text-align:center; padding: 2rem 1rem;">
+          <img src="/static/images/hercules-logo.svg" alt="Hercules" width="126" height="20" style="margin-bottom:2rem;" />
+          <h1 class="step-panel__title">You're all set! 🎉</h1>
+          <p style="margin-top:1rem; color: var(--color-text-muted, #888); font-size:1rem; line-height:1.6;">
+            Your profile has been saved.<br />
+            Hercules will reach out to you via iMessage shortly.
+          </p>
+        </div>
+      </section>
     </main>
 
     <script>
@@ -233,6 +245,9 @@
         const state = {};
         let currentIndex = 0;
         let hasRendered = false;
+
+        // Read token from the server-rendered template (injected by Jinja2) or URL fallback
+        const TOKEN = "{{ token }}" || new URLSearchParams(window.location.search).get('token') || '';
 
         function render() {
           const currentKey = STEPS[currentIndex];
@@ -268,6 +283,28 @@
           }
         }
 
+        async function submitForm() {
+          try {
+            const payload = { token: TOKEN, ...state };
+            const res = await fetch('/api/v1/onboarding/form-submit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+
+            if (res.ok) {
+              // Show success screen
+              document.querySelector('.onboarding__card:not(#success-screen)').style.display = 'none';
+              document.getElementById('success-screen').style.display = '';
+            } else {
+              const err = await res.json().catch(() => ({}));
+              alert(err.detail || 'Something went wrong. Please try again.');
+            }
+          } catch (e) {
+            alert('Network error. Please check your connection and try again.');
+          }
+        }
+
         function goTo(index) {
           if (index < 0 || index >= STEPS.length) return;
           currentIndex = index;
@@ -286,7 +323,14 @@
               opt.classList.add('is-selected');
               opt.setAttribute('aria-checked', 'true');
               state[field] = opt.dataset.value;
-              window.setTimeout(() => goTo(currentIndex + 1), 180);
+
+              const isLastStep = currentIndex === STEPS.length - 1;
+              if (isLastStep) {
+                // Small delay so the selected state is visible, then submit
+                window.setTimeout(() => submitForm(), 300);
+              } else {
+                window.setTimeout(() => goTo(currentIndex + 1), 180);
+              }
             });
           });
         });

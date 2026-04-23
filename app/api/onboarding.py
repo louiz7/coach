@@ -22,28 +22,45 @@ router = APIRouter(prefix="/api/v1/onboarding", tags=["onboarding"])
 
 class TokenFormSubmit(BaseModel):
     """
-    Flexible schema for the iMessage-to-form onboarding submission.
+    Matches the 5-step onboarding form in start.html.
 
-    Only `token` is strictly required — everything else is optional for now
-    so the frontend can evolve without breaking the backend.
-    Known fields are applied when present; unknown extra fields are ignored.
-    Once the frontend is finalised, add validation here.
+    Fields map directly to the data-field attributes on each step panel.
+    All profile fields are optional — the backend saves whatever is present.
+    Extra/unknown fields are accepted gracefully so the frontend can evolve
+    without needing a backend deploy.
+
+    Field mapping:
+      goal            → user.goal           (lose_weight, increase_muscle_mass, …)
+      status          → user.training_frequency (none/1_2_week/3_4_week/5_plus_week → 0/1/3/5)
+      challenge       → user.challenge      (motivation, dont_know, consistency, …)
+      coach_style     → user.coach_style    (high_energy, calm, drill_sergeant, humor)
+      coach_intensity → user.coach_intensity (easy, moderate, hard, maximum)
     """
 
     token: str
 
-    # Profile fields — all optional until frontend is locked
-    sport: str | None = None
-    fitness_level: str | None = None
+    # Step 1
     goal: str | None = None
-    training_frequency: int | None = None
-    injuries: str | None = None
-    age: int | None = None
-    gender: str | None = None
-    weight_kg: float | None = None
-    height_cm: float | None = None
+    # Step 2 — string frequency label from the form
+    status: str | None = None
+    # Step 3
+    challenge: str | None = None
+    # Step 4
+    coach_style: str | None = None
+    # Step 5
+    coach_intensity: str | None = None
 
-    model_config = {"extra": "allow"}  # accept unknown fields gracefully
+    model_config = {"extra": "allow"}  # accept any future fields gracefully
+
+
+# Maps the string status values from the form to an integer training_frequency
+_STATUS_TO_FREQ: dict[str, int] = {
+    "none": 0,
+    "1_2_week": 1,
+    "3_4_week": 3,
+    "5_plus_week": 5,
+    "not_sure": 0,
+}
 
 
 class TokenFormResponse(BaseModel):
@@ -78,15 +95,17 @@ async def form_submit(
     if not user:
         raise HTTPException(status_code=404, detail="User not found. Please start the chat again.")
 
-    # Apply whichever fields the frontend sent — skip None values
-    KNOWN_FIELDS = [
-        "sport", "fitness_level", "goal", "training_frequency",
-        "injuries", "age", "gender", "weight_kg", "height_cm",
-    ]
-    for field in KNOWN_FIELDS:
-        value = getattr(data, field, None)
-        if value is not None:
-            setattr(user, field, value)
+    # Apply the form fields that are present
+    if data.goal is not None:
+        user.goal = data.goal
+    if data.status is not None:
+        user.training_frequency = _STATUS_TO_FREQ.get(data.status, 0)
+    if data.challenge is not None:
+        user.challenge = data.challenge
+    if data.coach_style is not None:
+        user.coach_style = data.coach_style
+    if data.coach_intensity is not None:
+        user.coach_intensity = data.coach_intensity
 
     # Mark form as completed
     user.onboarding_state = OnboardingState.DONE

@@ -46,7 +46,21 @@ async def landing(request: Request) -> HTMLResponse:
 @app.get("/start", response_class=HTMLResponse)
 async def start(request: Request) -> HTMLResponse:
     token = request.query_params.get("token", "")
-    return templates.TemplateResponse(request, "start.html", {"token": token})
+    name = ""
+    if token:
+        try:
+            from app.services.token import verify_onboarding_token
+            payload = verify_onboarding_token(token)
+            # Quick DB lookup to get the real name
+            from app.database import async_session
+            from app.models.user import User
+            from sqlalchemy import select
+            async with async_session() as db:
+                result = await db.execute(select(User.name).where(User.phone == payload["phone"]))
+                name = result.scalar_one_or_none() or ""
+        except Exception:
+            pass  # Invalid/expired token — template will fall back to default
+    return templates.TemplateResponse(request, "start.html", {"token": token, "name": name})
 
 # Routes
 from app.api import health, auth, users, onboarding, training_plans, webhooks, payments
