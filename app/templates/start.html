@@ -18,7 +18,15 @@
   <body>
     <main class="onboarding">
       <section class="onboarding__card">
-        <nav class="steps" aria-label="Onboarding progress">
+        <div class="onboarding__header">
+          <img
+            class="onboarding__logo"
+            src="/static/images/hercules-logo.svg"
+            alt="Hercules"
+            width="126"
+            height="20"
+          />
+          <nav class="steps" aria-label="Onboarding progress">
           <button type="button" class="step is-active" data-step="goal" aria-current="step">
             <span class="step__label">Your Goal</span>
             <span class="step__dot" aria-hidden="true"></span>
@@ -40,6 +48,7 @@
             <span class="step__dot" aria-hidden="true"></span>
           </button>
         </nav>
+        </div>
 
         <!-- Step 1: Goal -->
         <div class="step-panel is-active" data-panel="goal">
@@ -48,21 +57,31 @@
           </h1>
 
           <div class="options" role="radiogroup" aria-label="Fitness goal" data-field="goal">
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="lose_weight">
-              Lose weight
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="increase_muscle_mass">
-              Increase muscle mass
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="health_longevity">
-              Improve health and longevity
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="athlete">
-              Improve as an athlete or competitor
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="not_sure">
-              I&rsquo;m not sure
-            </button>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="lose_weight">
+                Lose weight
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="increase_muscle_mass">
+                Increase muscle mass
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="health_longevity">
+                Improve health and longevity
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="athlete">
+                Improve as an athlete or competitor
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="not_sure">
+                I&rsquo;m not sure
+              </button>
+            </div>
           </div>
         </div>
 
@@ -73,21 +92,31 @@
           </h1>
 
           <div class="options" role="radiogroup" aria-label="Current training frequency" data-field="status">
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="none">
-              I don&rsquo;t train at all
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="1_2_week">
-              1–2x per week
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="3_4_week">
-              3–4x per week
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="5_plus_week">
-              5+ times per week
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="not_sure">
-              I&rsquo;m not sure
-            </button>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="none">
+                I don&rsquo;t train at all
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="1_2_week">
+                1–2x per week
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="3_4_week">
+                3–4x per week
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="5_plus_week">
+                5+ times per week
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="not_sure">
+                I&rsquo;m not sure
+              </button>
+            </div>
           </div>
 
           <button type="button" class="back-link" data-back>Previous Step</button>
@@ -100,21 +129,31 @@
           </h1>
 
           <div class="options" role="radiogroup" aria-label="Biggest challenge" data-field="challenge">
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="motivation">
-              Lack of motivation
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="dont_know">
-              I don&rsquo;t know what to do
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="consistency">
-              No consistency / I keep quitting
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="no_time">
-              Too busy / no time
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="alone">
-              I&rsquo;ve been doing it alone
-            </button>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="motivation">
+                Lack of motivation
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="dont_know">
+                I don&rsquo;t know what to do
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="consistency">
+                No consistency / I keep quitting
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="no_time">
+                Too busy / no time
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="alone">
+                I&rsquo;ve been doing it alone
+              </button>
+            </div>
           </div>
 
           <button type="button" class="back-link" data-back>Previous Step</button>
@@ -127,18 +166,26 @@
           </h1>
 
           <div class="options" role="radiogroup" aria-label="Coach style" data-field="coach_style">
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="high_energy">
-              High-energy
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="calm">
-              Calm, cool and collected
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="drill_sergeant">
-              Drill sergeant
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="humor">
-              Has a sense of humor
-            </button>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="high_energy">
+                High-energy
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="calm">
+                Calm, cool and collected
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="drill_sergeant">
+                Drill sergeant
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="humor">
+                Has a sense of humor
+              </button>
+            </div>
           </div>
 
           <button type="button" class="back-link" data-back>Previous Step</button>
@@ -151,18 +198,26 @@
           </h1>
 
           <div class="options" role="radiogroup" aria-label="Coach intensity" data-field="coach_intensity">
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="easy">
-              Easy &mdash; keep it manageable
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="moderate">
-              Moderate &mdash; challenge me
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="hard">
-              Hard &mdash; I want to be pushed
-            </button>
-            <button type="button" class="option" role="radio" aria-checked="false" data-value="maximum">
-              Maximum &mdash; no excuses
-            </button>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="easy">
+                Easy &mdash; keep it manageable
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="moderate">
+                Moderate &mdash; challenge me
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="hard">
+                Hard &mdash; I want to be pushed
+              </button>
+            </div>
+            <div class="option-ring">
+              <button type="button" class="option" role="radio" aria-checked="false" data-value="maximum">
+                Maximum &mdash; no excuses
+              </button>
+            </div>
           </div>
 
           <button type="button" class="back-link" data-back>Previous Step</button>
