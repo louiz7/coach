@@ -101,6 +101,18 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             await _handle_onboarding(user, chat_id, text, db)
             return
 
+        # WHOOP connect keyword trigger
+        _whoop_keywords = ["connect whoop", "link whoop", "whoop connect", "connect my whoop", "add whoop"]
+        if any(kw in text_lower for kw in _whoop_keywords):
+            from app.services.token import create_onboarding_token
+            token = create_onboarding_token(user.phone)
+            whoop_msg = (
+                f"Tap the link below to connect your WHOOP 🟢\n"
+                f"https://hercules.chat/whoop/connect?token={token}"
+            )
+            await linq.send_message(chat_id, whoop_msg)
+            return
+
         # Check subscription
         has_sub = await check_subscription(user.id, db)
         if not has_sub:
