@@ -1,61 +1,244 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Hercules — Lock in.</title>
-    <meta name="description" content="Starte deine Fitness-Reise mit Hercules." />
+    <title>Hercules — Onboarding</title>
+    <meta name="description" content="Set up your Hercules coach." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/style.css" />
-    <style>
-      .start-wrap {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem 1.5rem;
-        text-align: center;
-      }
-      .start-wrap .headline {
-        font-size: clamp(1.8rem, 5vw, 3rem);
-        margin-bottom: 1rem;
-      }
-      .start-wrap .subtext {
-        font-size: 1.1rem;
-        opacity: 0.7;
-        max-width: 480px;
-        margin-bottom: 2.5rem;
-      }
-      .coming-soon-badge {
-        display: inline-block;
-        background: rgba(255,255,255,0.08);
-        border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 999px;
-        padding: 0.4rem 1.2rem;
-        font-size: 0.85rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        margin-bottom: 2rem;
-        opacity: 0.6;
-      }
-    </style>
+    <link rel="stylesheet" href="/static/css/onboarding.css" />
   </head>
   <body>
-    <main class="start-wrap">
-      <span class="coming-soon-badge">Onboarding</span>
-      <h1 class="headline">
-        Dein Profil wartet auf dich.<br />
-        <span class="headline__accent">Bist du ready?</span>
-      </h1>
-      <p class="subtext">
-        Das Formular kommt in Kürze. Wir melden uns per iMessage, sobald es live ist.
-      </p>
+    <main class="onboarding">
+      <section class="onboarding__card">
+        <nav class="steps" aria-label="Onboarding progress">
+          <button type="button" class="step is-active" data-step="goal" aria-current="step">
+            <span class="step__label">Your Goal</span>
+            <span class="step__dot" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="step" data-step="status">
+            <span class="step__label">Status Quo</span>
+            <span class="step__dot" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="step" data-step="challenge">
+            <span class="step__label">Challenge</span>
+            <span class="step__dot" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="step" data-step="coach-style">
+            <span class="step__label">Coach Style</span>
+            <span class="step__dot" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="step" data-step="coach-intensity">
+            <span class="step__label">Coach Intensity</span>
+            <span class="step__dot" aria-hidden="true"></span>
+          </button>
+        </nav>
+
+        <!-- Step 1: Goal -->
+        <div class="step-panel is-active" data-panel="goal">
+          <h1 class="step-panel__title">
+            What's your top<br />fitness goal, {{ name | default("Milan") }}?
+          </h1>
+
+          <div class="options" role="radiogroup" aria-label="Fitness goal" data-field="goal">
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="lose_weight">
+              Lose weight
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="increase_muscle_mass">
+              Increase muscle mass
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="health_longevity">
+              Improve health and longevity
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="athlete">
+              Improve as an athlete or competitor
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="not_sure">
+              I&rsquo;m not sure
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: Status Quo -->
+        <div class="step-panel" data-panel="status">
+          <h1 class="step-panel__title">
+            How often do you<br />currently train?
+          </h1>
+
+          <div class="options" role="radiogroup" aria-label="Current training frequency" data-field="status">
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="none">
+              I don&rsquo;t train at all
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="1_2_week">
+              1–2x per week
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="3_4_week">
+              3–4x per week
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="5_plus_week">
+              5+ times per week
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="not_sure">
+              I&rsquo;m not sure
+            </button>
+          </div>
+
+          <button type="button" class="back-link" data-back>Previous Step</button>
+        </div>
+
+        <!-- Step 3: Challenge -->
+        <div class="step-panel" data-panel="challenge">
+          <h1 class="step-panel__title">
+            What's your biggest<br />challenge so far?
+          </h1>
+
+          <div class="options" role="radiogroup" aria-label="Biggest challenge" data-field="challenge">
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="motivation">
+              Lack of motivation
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="dont_know">
+              I don&rsquo;t know what to do
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="consistency">
+              No consistency / I keep quitting
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="no_time">
+              Too busy / no time
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="alone">
+              I&rsquo;ve been doing it alone
+            </button>
+          </div>
+
+          <button type="button" class="back-link" data-back>Previous Step</button>
+        </div>
+
+        <!-- Step 4: Coach Style -->
+        <div class="step-panel" data-panel="coach-style">
+          <h1 class="step-panel__title">
+            How should Hercules<br />talk to you?
+          </h1>
+
+          <div class="options" role="radiogroup" aria-label="Coach style" data-field="coach_style">
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="high_energy">
+              High-energy
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="calm">
+              Calm, cool and collected
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="drill_sergeant">
+              Drill sergeant
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="humor">
+              Has a sense of humor
+            </button>
+          </div>
+
+          <button type="button" class="back-link" data-back>Previous Step</button>
+        </div>
+
+        <!-- Step 5: Coach Intensity -->
+        <div class="step-panel" data-panel="coach-intensity">
+          <h1 class="step-panel__title">
+            How hard should<br />Hercules push you?
+          </h1>
+
+          <div class="options" role="radiogroup" aria-label="Coach intensity" data-field="coach_intensity">
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="easy">
+              Easy &mdash; keep it manageable
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="moderate">
+              Moderate &mdash; challenge me
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="hard">
+              Hard &mdash; I want to be pushed
+            </button>
+            <button type="button" class="option" role="radio" aria-checked="false" data-value="maximum">
+              Maximum &mdash; no excuses
+            </button>
+          </div>
+
+          <button type="button" class="back-link" data-back>Previous Step</button>
+        </div>
+      </section>
     </main>
+
+    <script>
+      (function () {
+        const STEPS = ['goal', 'status', 'challenge', 'coach-style', 'coach-intensity'];
+        const stepButtons = document.querySelectorAll('.step');
+        const panels = document.querySelectorAll('.step-panel');
+        const state = {};
+        let currentIndex = 0;
+
+        function render() {
+          const currentKey = STEPS[currentIndex];
+
+          stepButtons.forEach((btn, i) => {
+            btn.classList.remove('is-active', 'is-visited');
+            btn.removeAttribute('aria-current');
+            if (i < currentIndex) {
+              btn.classList.add('is-visited');
+            } else if (i === currentIndex) {
+              btn.classList.add('is-active');
+              btn.setAttribute('aria-current', 'step');
+            }
+          });
+
+          panels.forEach((panel) => {
+            panel.classList.toggle('is-active', panel.dataset.panel === currentKey);
+          });
+
+          const nav = document.querySelector('.steps');
+          const activeBtn = stepButtons[currentIndex];
+          if (nav && activeBtn) {
+            const target =
+              activeBtn.offsetLeft - nav.clientWidth / 2 + activeBtn.clientWidth / 2;
+            nav.scrollTo({ left: target, behavior: 'smooth' });
+          }
+        }
+
+        function goTo(index) {
+          if (index < 0 || index >= STEPS.length) return;
+          currentIndex = index;
+          render();
+        }
+
+        document.querySelectorAll('.options').forEach((group) => {
+          const field = group.dataset.field;
+          const options = group.querySelectorAll('.option');
+          options.forEach((opt) => {
+            opt.addEventListener('click', () => {
+              options.forEach((o) => {
+                o.classList.remove('is-selected');
+                o.setAttribute('aria-checked', 'false');
+              });
+              opt.classList.add('is-selected');
+              opt.setAttribute('aria-checked', 'true');
+              state[field] = opt.dataset.value;
+              window.setTimeout(() => goTo(currentIndex + 1), 180);
+            });
+          });
+        });
+
+        document.querySelectorAll('[data-back]').forEach((btn) => {
+          btn.addEventListener('click', () => goTo(currentIndex - 1));
+        });
+
+        stepButtons.forEach((btn, i) => {
+          btn.addEventListener('click', () => {
+            if (i <= currentIndex || btn.classList.contains('is-visited')) goTo(i);
+          });
+        });
+
+        render();
+      })();
+    </script>
   </body>
 </html>
