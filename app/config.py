@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     PROACTIVE_MAX_PER_DAY: int = 3
     PROACTIVE_IDLE_HOURS: int = 2
     LINQ_BASE_URL: str = "https://api.linqapp.com/api/partner/v3"
+    WHOOP_CLIENT_ID: str = ""
+    WHOOP_CLIENT_SECRET: str = ""
 
     class Config:
         env_file = ".env"

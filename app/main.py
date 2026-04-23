@@ -63,7 +63,7 @@ async def start(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "start.html", {"token": token, "name": name})
 
 # Routes
-from app.api import health, auth, users, onboarding, training_plans, webhooks, payments
+from app.api import health, auth, users, onboarding, training_plans, webhooks, payments, whoop
 
 app.include_router(health.router)
 app.include_router(auth.router)
@@ -72,11 +72,13 @@ app.include_router(onboarding.router)
 app.include_router(training_plans.router)
 app.include_router(webhooks.router)
 app.include_router(payments.router)
+app.include_router(whoop.router)
 
 
 @app.get("/success", response_class=HTMLResponse)
 async def success(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "success.html")
+    token = request.query_params.get("token", "")
+    return templates.TemplateResponse(request, "success.html", {"token": token})
 
 
 @app.get("/cancel", response_class=HTMLResponse)

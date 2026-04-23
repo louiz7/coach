@@ -47,6 +47,11 @@ class User(Base):
     coach_style = Column(String(30), nullable=True)       # high_energy, calm, drill_sergeant, humor
     coach_intensity = Column(String(20), nullable=True)   # easy, moderate, hard, maximum
     challenge = Column(String(30), nullable=True)         # motivation, dont_know, consistency, no_time, alone
+    # WHOOP OAuth
+    whoop_user_id = Column(String(50), nullable=True)
+    whoop_access_token = Column(Text, nullable=True)
+    whoop_refresh_token = Column(Text, nullable=True)
+    whoop_token_expires_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     language = Column(String(5), default="de")
     created_at = Column(DateTime, default=datetime.utcnow)

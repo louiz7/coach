@@ -16,3 +16,5 @@ jobs:
             cd /root/coach
             git pull origin main
             docker compose up -d --build
+            sleep 5
+            docker compose exec -T app alembic upgrade head

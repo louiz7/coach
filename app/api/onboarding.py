@@ -171,7 +171,7 @@ async def create_checkout_session(
         customer=customer_id,
         mode="subscription",
         line_items=[{"price": settings.STRIPE_PRICE_ID, "quantity": 1}],
-        success_url=f"{base_url}/success",
+        success_url=f"{base_url}/success?token={data.token}",
         cancel_url=f"{base_url}/start?token={data.token}",
         metadata={"user_id": str(user.id), "phone": user.phone},
     )

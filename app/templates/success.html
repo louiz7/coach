@@ -30,6 +30,18 @@
           Head back to iMessage and lock in with Hercules.
         </p>
 
+        {% if token %}
+        <div style="margin-top: 2.5rem;">
+          <a
+            href="/whoop/connect?token={{ token }}"
+            style="display:inline-flex;align-items:center;gap:0.6rem;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:0.9rem 1.4rem;color:#fff;text-decoration:none;font-size:0.95rem;font-weight:500;width:100%;justify-content:center;box-sizing:border-box;"
+          >
+            <span style="font-size:1.1rem;">🟢</span> Connect your WHOOP
+          </a>
+          <p style="font-size:0.8rem;color:#555;margin-top:0.6rem;">Unlock biometric-aware coaching — recovery scores, sleep quality, strain tracking.</p>
+        </div>
+        {% endif %}
+
         <div style="margin-top: 2.5rem; text-align: left;">
           <p style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted, #888); margin-bottom: 1rem;">
             Try saying to Hercules
