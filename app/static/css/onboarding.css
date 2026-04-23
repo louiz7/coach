@@ -166,15 +166,7 @@
   color: #000;
   text-align: left;
   transition: background-color 120ms ease, color 120ms ease,
-    border-color 120ms ease, transform 120ms ease;
-}
-
-.option:hover {
-  background: #f6f6ef;
-}
-
-.option:active {
-  transform: translateY(1px);
+    border-color 120ms ease;
 }
 
 .option-ring:has(.option.is-selected) {
