@@ -285,6 +285,7 @@
 
         async function submitForm() {
           try {
+            // Step 1: Save form data
             const payload = { token: TOKEN, ...state };
             const res = await fetch('/api/v1/onboarding/form-submit', {
               method: 'POST',
@@ -292,14 +293,28 @@
               body: JSON.stringify(payload),
             });
 
-            if (res.ok) {
-              // Show success screen
-              document.querySelector('.onboarding__card:not(#success-screen)').style.display = 'none';
-              document.getElementById('success-screen').style.display = '';
-            } else {
+            if (!res.ok) {
               const err = await res.json().catch(() => ({}));
               alert(err.detail || 'Something went wrong. Please try again.');
+              return;
             }
+
+            // Step 2: Create Stripe checkout session and redirect
+            const checkoutRes = await fetch('/api/v1/onboarding/create-checkout-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: TOKEN }),
+            });
+
+            if (!checkoutRes.ok) {
+              const err = await checkoutRes.json().catch(() => ({}));
+              alert(err.detail || 'Could not start payment. Please try again.');
+              return;
+            }
+
+            const { checkout_url } = await checkoutRes.json();
+            window.location.href = checkout_url;
+
           } catch (e) {
             alert('Network error. Please check your connection and try again.');
           }

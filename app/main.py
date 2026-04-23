@@ -72,3 +72,13 @@ app.include_router(onboarding.router)
 app.include_router(training_plans.router)
 app.include_router(webhooks.router)
 app.include_router(payments.router)
+
+
+@app.get("/success", response_class=HTMLResponse)
+async def success(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "success.html")
+
+
+@app.get("/cancel", response_class=HTMLResponse)
+async def cancel(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "start.html", {"token": "", "name": ""})

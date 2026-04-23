@@ -93,7 +93,35 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
     data = event["data"]["object"]
 
-    if event["type"] == "customer.subscription.created":
+    if event["type"] == "checkout.session.completed":
+        # Payment confirmed — mark user as fully onboarded
+        user_id = data.get("metadata", {}).get("user_id")
+        phone = data.get("metadata", {}).get("phone")
+        customer_id = data.get("customer")
+
+        if user_id:
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+            if user:
+                from app.models.user import OnboardingState
+                user.onboarding_complete = True
+                user.onboarding_state = OnboardingState.DONE
+                await db.commit()
+
+                # Send welcome iMessage
+                if user.linq_chat_id:
+                    from app.services import linq as linq_svc
+                    try:
+                        welcome = (
+                            f"You're in, {user.name}! 🎉\n\n"
+                            "I'm your Hercules coach and I'll be texting you right here on iMessage. "
+                            "Let's get to work 💪"
+                        )
+                        await linq_svc.send_message(user.linq_chat_id, welcome)
+                    except Exception as e:
+                        print(f"[STRIPE WEBHOOK] Failed to send welcome iMessage: {e}")
+
+    elif event["type"] == "customer.subscription.created":
         user_id = data.get("metadata", {}).get("user_id")
         if not user_id:
             # Try to find by customer

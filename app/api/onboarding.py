@@ -1,10 +1,13 @@
+import stripe
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Any
+from app.config import settings
 from app.database import get_db
 from app.models.user import User, OnboardingState
+from app.models.subscription import Subscription
 from app.models.coach_persona import CoachPersona
 from app.schemas.onboarding import OnboardingQuiz, PersonaSelect, PersonaResponse
 from app.schemas.user import UserProfile
@@ -12,6 +15,8 @@ from app.utils.auth import get_current_user
 from app.services import linq
 from app.services.token import verify_onboarding_token
 from app.services.training_plan import generate_plan
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 router = APIRouter(prefix="/api/v1/onboarding", tags=["onboarding"])
 
@@ -107,17 +112,72 @@ async def form_submit(
     if data.coach_intensity is not None:
         user.coach_intensity = data.coach_intensity
 
-    # Mark form as completed
-    user.onboarding_state = OnboardingState.DONE
+    # Mark form as completed — payment step is next
+    user.onboarding_state = OnboardingState.FORM  # stays FORM until payment confirmed
 
     await db.commit()
     await db.refresh(user)
 
     return TokenFormResponse(
         status="success",
-        message="Profile saved! We'll be in touch via iMessage shortly.",
+        message="Profile saved!",
         user_id=str(user.id),
     )
+
+
+class CheckoutSessionRequest(BaseModel):
+    token: str
+
+
+@router.post("/create-checkout-session")
+async def create_checkout_session(
+    data: CheckoutSessionRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Create a Stripe Checkout session for the onboarding flow.
+    Identified by the same token as the form — no login required.
+    Returns { checkout_url } which the frontend should redirect to.
+    """
+    try:
+        payload = verify_onboarding_token(data.token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    phone = payload["phone"]
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # Find or create Stripe customer
+    sub_result = await db.execute(
+        select(Subscription).where(Subscription.user_id == user.id)
+    )
+    existing_sub = sub_result.scalar_one_or_none()
+
+    if existing_sub and existing_sub.stripe_customer_id:
+        customer_id = existing_sub.stripe_customer_id
+    else:
+        customer = stripe.Customer.create(
+            email=user.email or f"{user.phone}@hercules.chat",
+            name=user.name,
+            phone=user.phone,
+            metadata={"user_id": str(user.id), "phone": user.phone},
+        )
+        customer_id = customer.id
+
+    base_url = settings.ALLOWED_ORIGINS.split(",")[0]
+    session = stripe.checkout.Session.create(
+        customer=customer_id,
+        mode="subscription",
+        line_items=[{"price": settings.STRIPE_PRICE_ID, "quantity": 1}],
+        success_url=f"{base_url}/success",
+        cancel_url=f"{base_url}/start?token={data.token}",
+        metadata={"user_id": str(user.id), "phone": user.phone},
+    )
+
+    return {"checkout_url": session.url}
 
 
 @router.get("/verify-token")
