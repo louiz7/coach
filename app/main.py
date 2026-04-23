@@ -82,3 +82,8 @@ async def success(request: Request) -> HTMLResponse:
 @app.get("/cancel", response_class=HTMLResponse)
 async def cancel(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "start.html", {"token": "", "name": ""})
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "privacy.html")
