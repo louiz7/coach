@@ -176,6 +176,7 @@
         const panels = document.querySelectorAll('.step-panel');
         const state = {};
         let currentIndex = 0;
+        let hasRendered = false;
 
         function render() {
           const currentKey = STEPS[currentIndex];
@@ -198,9 +199,16 @@
           const nav = document.querySelector('.steps');
           const activeBtn = stepButtons[currentIndex];
           if (nav && activeBtn) {
-            const target =
-              activeBtn.offsetLeft - nav.clientWidth / 2 + activeBtn.clientWidth / 2;
-            nav.scrollTo({ left: target, behavior: 'smooth' });
+            if (!hasRendered) {
+              nav.scrollLeft = 0;
+              hasRendered = true;
+            } else {
+              const maxScroll = Math.max(0, nav.scrollWidth - nav.clientWidth);
+              const raw =
+                activeBtn.offsetLeft - nav.clientWidth / 2 + activeBtn.clientWidth / 2;
+              const target = Math.max(0, Math.min(maxScroll, raw));
+              nav.scrollTo({ left: target, behavior: 'smooth' });
+            }
           }
         }
 
