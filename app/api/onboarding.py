@@ -160,7 +160,6 @@ async def create_checkout_session(
         customer_id = existing_sub.stripe_customer_id
     else:
         customer = stripe.Customer.create(
-            email=user.email or f"{user.phone}@hercules.chat",
             name=user.name,
             phone=user.phone,
             metadata={"user_id": str(user.id), "phone": user.phone},
