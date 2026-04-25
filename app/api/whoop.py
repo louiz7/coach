@@ -161,14 +161,11 @@ async def whoop_webhook(request: Request, bg: BackgroundTasks):
             _log("Invalid WHOOP webhook signature — rejected")
             raise HTTPException(401, "Invalid signature")
 
+    import json
     try:
-        data = request.json()
+        data = json.loads(body)
     except Exception:
         raise HTTPException(400, "Invalid JSON body")
-
-    # Resolve async json if needed
-    import json
-    data = json.loads(body)
 
     event_type = data.get("type", "")
     whoop_user_id = str(data.get("user_id", ""))
@@ -177,13 +174,23 @@ async def whoop_webhook(request: Request, bg: BackgroundTasks):
 
     _log(f"event={event_type} whoop_user_id={whoop_user_id} id={event_id} trace={trace_id}")
 
-    bg.add_task(_handle_whoop_event, event_type, whoop_user_id, event_id)
+    # Deduplicate by trace_id — WHOOP may retry the same event
+    if trace_id:
+        from app.redis import redis_pool
+        dedup_key = f"whoop:dedup:{trace_id}"
+        already = await redis_pool.get(dedup_key)
+        if already:
+            _log(f"Duplicate trace_id={trace_id}, skipping")
+            return {"ok": True}
+        await redis_pool.set(dedup_key, "1", ex=3600)  # 1h TTL
+
+    bg.add_task(_handle_whoop_event, event_type, whoop_user_id, event_id, trace_id)
     return {"ok": True}
 
 
 # ─── Background event handlers ───────────────────────────────────────────────
 
-async def _handle_whoop_event(event_type: str, whoop_user_id: str, event_id: str) -> None:
+async def _handle_whoop_event(event_type: str, whoop_user_id: str, event_id: str, trace_id: str = "") -> None:
     try:
         from app.database import async_session
         async with async_session() as db:
@@ -201,10 +208,11 @@ async def _handle_whoop_event(event_type: str, whoop_user_id: str, event_id: str
                 return
 
             if event_type == "recovery.updated":
-                await _handle_recovery(user, access_token)
+                await _handle_recovery(user, access_token, db)
+            elif event_type == "sleep.updated":
+                await _handle_sleep(user, access_token, event_id, db)
             elif event_type == "workout.updated":
                 await _handle_workout(user, access_token, event_id)
-            # sleep.updated → recovery.updated fires afterwards, that's the primary trigger
             # *.deleted → no action needed
 
     except Exception as exc:
@@ -241,7 +249,7 @@ async def _ensure_fresh_token(user: User, db) -> str | None:
     return user.whoop_access_token
 
 
-async def _handle_recovery(user: User, access_token: str) -> None:
+async def _handle_recovery(user: User, access_token: str, db) -> None:
     """Fetch latest recovery and send a personalised coaching iMessage."""
     recovery = await whoop_svc.get_latest_recovery(access_token)
     if not recovery:
@@ -254,6 +262,19 @@ async def _handle_recovery(user: User, access_token: str) -> None:
 
     if recovery_score is None:
         return
+
+    # Cache biometrics on user
+    user.last_recovery_score = int(recovery_score)
+    if hrv is not None:
+        user.last_hrv = float(hrv)
+    await db.commit()
+
+    # Mark that a morning message was already sent today — prevents sleep.updated
+    # from sending a duplicate when both events fire for the same sleep
+    from app.redis import redis_pool
+    from datetime import date
+    morning_key = f"whoop:morning_sent:{user.id}:{date.today().isoformat()}"
+    await redis_pool.set(morning_key, "1", ex=86400)
 
     from openai import AsyncOpenAI
     from app.config import settings as cfg
@@ -295,6 +316,69 @@ async def _handle_recovery(user: User, access_token: str) -> None:
     if user.linq_chat_id:
         await linq_svc.send_message(user.linq_chat_id, message)
         _log(f"Sent recovery message to {user.name} (score={recovery_score}%)")
+
+
+async def _handle_sleep(user: User, access_token: str, sleep_id: str, db) -> None:
+    """Fetch sleep data, cache performance score, send message ONLY if no recovery message today."""
+    from app.redis import redis_pool
+    from datetime import date
+
+    # Skip if recovery.updated already triggered a morning message today
+    morning_key = f"whoop:morning_sent:{user.id}:{date.today().isoformat()}"
+    if await redis_pool.get(morning_key):
+        _log(f"Skipping sleep message for {user.name} — recovery message already sent today")
+        return
+
+    sleep = await whoop_svc.get_sleep(access_token, sleep_id)
+    if not sleep:
+        return
+
+    score_data = sleep.get("score", {})
+    performance = score_data.get("sleep_performance_percentage")   # 0-100
+    total_secs = score_data.get("total_in_bed_time_milli", 0) // 1000
+    hours = total_secs // 3600
+    mins = (total_secs % 3600) // 60
+    respiratory_rate = score_data.get("respiratory_rate")
+
+    # Cache sleep performance
+    if performance is not None:
+        user.last_sleep_performance = int(performance)
+        await db.commit()
+
+    # Set morning-sent flag so no further duplicate today
+    await redis_pool.set(morning_key, "1", ex=86400)
+
+    from openai import AsyncOpenAI
+    from app.config import settings as cfg
+
+    client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+
+    sleep_detail = f"{hours}h {mins}m sleep"
+    if performance is not None:
+        sleep_detail += f", {performance:.0f}% performance"
+    if respiratory_rate:
+        sleep_detail += f", {respiratory_rate:.1f} breaths/min"
+
+    prompt = (
+        f"You are Hercules, a personal fitness coach on iMessage. Be very concise (2-3 sentences max).\n\n"
+        f"User: {user.name} | Goal: {user.goal or 'general fitness'} | "
+        f"Coach style: {user.coach_style or 'direct'}\n\n"
+        f"Sleep data just recorded: {sleep_detail}\n\n"
+        f"Write a short morning message about their sleep. Give ONE actionable tip for the day based on this sleep quality. "
+        f"Be direct and personal — no filler."
+    )
+
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=120,
+        temperature=0.7,
+    )
+    message = response.choices[0].message.content.strip()
+
+    if user.linq_chat_id:
+        await linq_svc.send_message(user.linq_chat_id, message)
+        _log(f"Sent sleep message to {user.name} (performance={performance}%)")
 
 
 # WHOOP sport ID → display name (most common)

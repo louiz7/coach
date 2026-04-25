@@ -88,7 +88,7 @@ async def get_profile(access_token: str) -> dict:
     """Fetch the authenticated user's WHOOP profile (includes user_id)."""
     async with httpx.AsyncClient() as client:
         resp = await client.get(
-            f"{WHOOP_API_BASE}/v1/user/profile/basic",
+            f"{WHOOP_API_BASE}/v2/user/profile/basic",
             headers={"Authorization": f"Bearer {access_token}"},
         )
         resp.raise_for_status()
@@ -96,10 +96,10 @@ async def get_profile(access_token: str) -> dict:
 
 
 async def get_latest_recovery(access_token: str) -> Optional[dict]:
-    """Fetch the most recent recovery record."""
+    """Fetch the most recent recovery record (v2 API)."""
     async with httpx.AsyncClient() as client:
         resp = await client.get(
-            f"{WHOOP_API_BASE}/v1/recovery",
+            f"{WHOOP_API_BASE}/v2/recovery",
             params={"limit": 1},
             headers={"Authorization": f"Bearer {access_token}"},
         )

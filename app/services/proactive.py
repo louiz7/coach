@@ -63,6 +63,22 @@ async def send_checkin(user: User, db: AsyncSession):
         "Send a quick nutrition tip relevant to their goal.",
     ]
 
+    # Build WHOOP context if user has biometric data cached
+    whoop_context = ""
+    if user.last_recovery_score is not None:
+        if user.last_recovery_score >= 67:
+            whoop_emoji = "🟢"
+        elif user.last_recovery_score >= 34:
+            whoop_emoji = "🟡"
+        else:
+            whoop_emoji = "🔴"
+        whoop_context = f"Latest WHOOP recovery: {whoop_emoji} {user.last_recovery_score}%"
+        if user.last_hrv:
+            whoop_context += f", HRV {user.last_hrv:.0f}ms"
+        if user.last_sleep_performance is not None:
+            whoop_context += f", sleep performance {user.last_sleep_performance}%"
+        whoop_context = f"\nBiometric context: {whoop_context}"
+
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
@@ -73,7 +89,8 @@ async def send_checkin(user: User, db: AsyncSession):
                     {"role": "system", "content": (
                         f"{persona.system_prompt}\n\n"
                         f"User: {user.sport}, {user.fitness_level}, {user.goal}\n"
-                        f"Language: {user.language}\n\n"
+                        f"Language: {user.language}"
+                        f"{whoop_context}\n\n"
                         f"Task: {random.choice(checkin_types)}\n"
                         "Write exactly 1 short sentence. No markdown."
                     )},
