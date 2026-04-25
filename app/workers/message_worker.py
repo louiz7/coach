@@ -5,10 +5,10 @@ from app.database import async_session
 from app.models.user import User
 from app.models.coach_persona import CoachPersona
 from app.services import linq
-from app.services.coach import build_system_prompt, call_llm, classify_intent
+from app.services.coach import build_system_prompt, call_llm
+from app.services.intent_classifier import classify_intents
+from app.services.intent_handlers import run_handlers
 from app.services.memory import get_conversation, add_message
-from app.services.progress import parse_and_store_progress
-from app.services.training_plan import generate_plan
 from app.services.billing import check_subscription
 from app.redis import redis_pool
 
@@ -129,27 +129,11 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # Start typing
         await linq.start_typing(chat_id)
 
-        # Classify intent
-        try:
-            intent = await classify_intent(text)
-        except Exception:
-            intent = "GENERAL"
+        # Classify intents (multi-intent)
+        intents = await classify_intents(text)
 
-        # Handle progress logging
-        if intent == "PROGRESS_LOG":
-            try:
-                await parse_and_store_progress(user.id, text, db)
-            except Exception:
-                pass
-
-        # Handle plan requests
-        modification_context = None
-        if intent == "PLAN_REQUEST":
-            try:
-                plan = await generate_plan(user, db, modification=text)
-                modification_context = f"New plan generated. Summary: {plan.raw_text[:300]}"
-            except Exception:
-                modification_context = "Failed to generate plan, apologize and try again."
+        # Run all matched handlers in parallel, collect context
+        handler_context = await run_handlers(intents, user, text, db)
 
         # Load persona
         result = await db.execute(
@@ -161,8 +145,8 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
         # Build context
         system_prompt = await build_system_prompt(user, persona, db)
-        if modification_context:
-            system_prompt += f"\nCONTEXT: {modification_context}\n"
+        if handler_context:
+            system_prompt += f"\nCONTEXT:\n{handler_context}\n"
 
         conversation = await get_conversation(user.id, db)
 
@@ -182,7 +166,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
                 await asyncio.sleep(random.uniform(0.5, 2.0))
 
             # Send with confetti for PRs
-            if intent == "PROGRESS_LOG" and any(w in reply.lower() for w in ["pr", "record", "bestleistung", "persönlich"]):
+            if "PROGRESS_LOG" in intents and any(w in reply.lower() for w in ["pr", "record", "bestleistung", "persönlich"]):
                 await linq.send_message_with_effect(chat_id, chunk, "screen", "confetti")
             else:
                 await linq.send_message(chat_id, chunk)
