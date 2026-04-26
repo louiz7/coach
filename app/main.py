@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startuphow 
     print("Starting up...")
     yield
     # Shutdown
