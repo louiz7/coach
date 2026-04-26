@@ -18,11 +18,47 @@ from app.redis import redis_pool
 # ---------------------------------------------------------------------------
 
 async def handle_progress_log(user: User, text: str, db: AsyncSession) -> Optional[str]:
-    """Parse and store workout / progress log. Returns coaching context."""
+    """Parse and store workout / progress log. Updates fitness profile + stores vector memory."""
     try:
-        await parse_and_store_progress(user.id, text, db)
-        return "User just logged a workout. Acknowledge it enthusiastically and give brief feedback."
-    except Exception:
+        from app.services.fitness_profile import (
+            update_profile_from_workout,
+        )
+        from app.services.memory_search import store_memory
+        from datetime import date
+
+        entries = await parse_and_store_progress(user.id, text, db)
+        if not entries:
+            return None
+
+        for e in entries:
+            # Rule-based profile update (zero tokens)
+            try:
+                await update_profile_from_workout(
+                    user.id, db,
+                    label=e.label,
+                    value=e.value,
+                    unit=e.unit or "",
+                    category=e.category or "exercise",
+                )
+            except Exception as ex:
+                print(f"[handle_progress_log profile ERROR] {ex}")
+
+            # Vector memory (semantic recall later)
+            try:
+                detail = f"{e.label} {e.value}{e.unit or ''}"
+                if e.sets and e.reps:
+                    detail += f" ({e.sets}x{e.reps})"
+                detail += f" on {date.today().isoformat()}"
+                await store_memory(user.id, detail, "workout", db)
+            except Exception as ex:
+                print(f"[handle_progress_log memory ERROR] {ex}")
+
+        summary = ", ".join(
+            f"{e.label} {e.value}{e.unit or ''}" for e in entries[:3]
+        )
+        return f"User just logged: {summary}. Acknowledge specifically and give brief feedback."
+    except Exception as ex:
+        print(f"[handle_progress_log ERROR] {ex}")
         return None
 
 

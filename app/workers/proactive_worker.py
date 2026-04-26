@@ -77,10 +77,37 @@ async def morning_whoop_task(ctx):
     await run_morning_whoop_pull()
 
 
+async def weekly_coach_notes_task(ctx):
+    """Sunday midnight: enrich coach_notes for active users via gpt-4o-mini."""
+    from sqlalchemy import select
+    from app.models.user import User
+    from app.services.fitness_profile import enrich_profile_with_coach_notes
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(User).where(
+                User.onboarding_complete == True,
+                User.linq_chat_id.isnot(None),
+            )
+        )
+        users = list(result.scalars().all())
+
+    for user in users:
+        try:
+            async with async_session() as db:
+                added = await enrich_profile_with_coach_notes(user.id, db)
+                if added:
+                    print(f"[coach_notes] {user.name}: {added}")
+        except Exception as e:
+            print(f"[coach_notes] failed for {user.id}: {e}")
+        await asyncio.sleep(1.0)
+
+
 class WorkerSettings:
-    functions = [proactive_task, morning_whoop_task]
+    functions = [proactive_task, morning_whoop_task, weekly_coach_notes_task]
     cron_jobs = [
         {"coroutine": "proactive_task", "minute": {0, 30}},        # every 30 min
         {"coroutine": "morning_whoop_task", "minute": {0, 30}},    # every 30 min, checks local time internally
+        {"coroutine": "weekly_coach_notes_task", "weekday": 6, "hour": 0, "minute": 0},  # Sunday 00:00 UTC
     ]
     redis_settings = None  # set from env at runtime

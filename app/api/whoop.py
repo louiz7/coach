@@ -269,6 +269,22 @@ async def _handle_recovery(user: User, access_token: str, db) -> None:
         user.last_hrv = float(hrv)
     await db.commit()
 
+    # Smart memory: rule-based profile update + vector memory
+    try:
+        from app.services.fitness_profile import update_profile_from_whoop_recovery
+        from app.services.memory_search import store_memory
+        from datetime import date as _date
+        await update_profile_from_whoop_recovery(user.id, db, int(recovery_score))
+        mem = f"Recovery {int(recovery_score)}%"
+        if hrv is not None:
+            mem += f", HRV {hrv:.0f}ms"
+        if rhr is not None:
+            mem += f", resting HR {rhr}bpm"
+        mem += f" on {_date.today().isoformat()}"
+        await store_memory(user.id, mem, "recovery", db)
+    except Exception as _e:
+        _log(f"profile/memory recovery update failed: {_e}")
+
     # Mark that a morning message was already sent today — prevents sleep.updated
     # from sending a duplicate when both events fire for the same sleep
     from app.redis import redis_pool
@@ -344,6 +360,18 @@ async def _handle_sleep(user: User, access_token: str, sleep_id: str, db) -> Non
     if performance is not None:
         user.last_sleep_performance = int(performance)
         await db.commit()
+
+    # Smart memory: profile + vector memory
+    if performance is not None:
+        try:
+            from app.services.fitness_profile import update_profile_from_whoop_sleep
+            from app.services.memory_search import store_memory
+            from datetime import date as _date
+            await update_profile_from_whoop_sleep(user.id, db, int(performance))
+            mem = f"Sleep {hours}h{mins}m, performance {int(performance)}% on {_date.today().isoformat()}"
+            await store_memory(user.id, mem, "sleep", db)
+        except Exception as _e:
+            _log(f"profile/memory sleep update failed: {_e}")
 
     # Set morning-sent flag so no further duplicate today
     await redis_pool.set(morning_key, "1", ex=86400)
@@ -430,3 +458,15 @@ async def _handle_workout(user: User, access_token: str, workout_id: str) -> Non
     if user.linq_chat_id:
         await linq_svc.send_message(user.linq_chat_id, message)
         _log(f"Sent workout ack to {user.name} ({sport})")
+
+    # Vector memory for the workout
+    try:
+        from app.services.memory_search import store_memory
+        from datetime import date as _date
+        # Need a db session here — _handle_workout currently doesn't take one, so create a fresh one
+        from app.database import async_session
+        async with async_session() as _db:
+            mem = f"WHOOP {sport} workout, {', '.join(details[1:]) or 'no details'} on {_date.today().isoformat()}"
+            await store_memory(user.id, mem, "workout", _db)
+    except Exception as _e:
+        _log(f"memory workout store failed: {_e}")

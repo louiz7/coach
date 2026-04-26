@@ -12,8 +12,16 @@ from app.models.progress_entry import ProgressEntry
 from app.services.memory import get_conversation
 
 
-async def build_system_prompt(user: User, persona: CoachPersona, db: AsyncSession) -> str:
+async def build_system_prompt(
+    user: User,
+    persona: CoachPersona,
+    db: AsyncSession,
+    user_message: Optional[str] = None,
+) -> str:
     """Build the full system prompt with user context."""
+    from app.services.fitness_profile import get_or_create_profile, format_profile_for_prompt
+    from app.services.memory_search import search_memories, format_memories_for_prompt
+
     # Base persona prompt
     prompt = persona.system_prompt + "\n\n"
 
@@ -38,23 +46,24 @@ async def build_system_prompt(user: User, persona: CoachPersona, db: AsyncSessio
     if plan:
         prompt += f"\nCURRENT TRAINING PLAN:\n{plan.raw_text}\n"
 
-    # Recent progress
-    result = await db.execute(
-        select(ProgressEntry)
-        .where(ProgressEntry.user_id == user.id)
-        .order_by(ProgressEntry.recorded_at.desc())
-        .limit(5)
-    )
-    entries = result.scalars().all()
-    if entries:
-        prompt += "\nRECENT PROGRESS:\n"
-        for e in entries:
-            line = f"- {e.label}: {e.value} {e.unit}"
-            if e.sets and e.reps:
-                line += f" ({e.sets}x{e.reps})"
-            line += f" [{e.recorded_at.strftime('%d.%m')}]"
-            prompt += line + "\n"
+    # Smart fitness profile (rule-based, ~150 tokens)
+    try:
+        profile = await get_or_create_profile(user.id, db)
+        profile_str = format_profile_for_prompt(profile)
+        if profile_str:
+            prompt += "\n" + profile_str + "\n"
+    except Exception as e:
+        print(f"[build_system_prompt profile ERROR] {e}")
 
+    # Vector memory search — only when we have a user message
+    if user_message:
+        try:
+            memories = await search_memories(user.id, user_message, db, top_k=4)
+            mem_str = format_memories_for_prompt(memories)
+            if mem_str:
+                prompt += "\n" + mem_str + "\n"
+        except Exception as e:
+            print(f"[build_system_prompt memory ERROR] {e}")
     # Rules
     prompt += """
 RULES:
