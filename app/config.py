@@ -3,8 +3,8 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+asyncpg://coach:coach@db:5433/fitness_coach"
-    REDIS_URL: str = "redis://redis:6380"
+    DATABASE_URL: str = "postgresql+asyncpg://coach:coach@db:5432/fitness_coach"
+    REDIS_URL: str = "redis://redis:6379"
     OPENAI_API_KEY: str = ""
     LINQ_API_TOKEN: str = ""
     LINQ_WEBHOOK_SECRET: str = ""

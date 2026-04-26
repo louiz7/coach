@@ -26,7 +26,9 @@ services:
       - .:/app
   worker:
     build: .
-    command: python -m app.workers.proactive_worker
+    command: python -u -m app.workers.proactive_worker
+    environment:
+      PYTHONUNBUFFERED: "1"
     env_file: .env
     depends_on:
       - db
