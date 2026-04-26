@@ -104,6 +104,16 @@ async def weekly_coach_notes_task(ctx):
         await asyncio.sleep(1.0)
 
 
+def _build_redis_settings():
+    import os
+    from arq.connections import RedisSettings
+    redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+    print(f"[arq worker] REDIS_URL = {redis_url}", flush=True)
+    _url = redis_url.replace("redis://", "")
+    _host, _port = (_url.split(":") + ["6379"])[:2]
+    return RedisSettings(host=_host, port=int(_port))
+
+
 class WorkerSettings:
     functions = [proactive_task, morning_whoop_task, weekly_coach_notes_task]
     cron_jobs = [
@@ -111,19 +121,7 @@ class WorkerSettings:
         cron(morning_whoop_task, minute={0, 30}),
         cron(weekly_coach_notes_task, weekday=6, hour=0, minute=0),   # Sunday 00:00 UTC
     ]
-
-    @staticmethod
-    def _build_redis_settings():
-        import os
-        from arq.connections import RedisSettings
-        redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
-        _url = redis_url.replace("redis://", "")
-        _host, _port = (_url.split(":") + ["6379"])[:2]
-        return RedisSettings(host=_host, port=int(_port))
-
-
-# arq CLI reads this attribute when starting the worker
-WorkerSettings.redis_settings = WorkerSettings._build_redis_settings()
+    redis_settings = _build_redis_settings()
 
 
 if __name__ == "__main__":
