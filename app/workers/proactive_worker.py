@@ -114,6 +114,9 @@ def _build_redis_settings():
     return RedisSettings(host=_host, port=int(_port))
 
 
+_redis_settings = _build_redis_settings()
+
+
 class WorkerSettings:
     functions = [proactive_task, morning_whoop_task, weekly_coach_notes_task]
     cron_jobs = [
@@ -121,7 +124,7 @@ class WorkerSettings:
         cron(morning_whoop_task, minute={0, 30}),
         cron(weekly_coach_notes_task, weekday=6, hour=0, minute=0),   # Sunday 00:00 UTC
     ]
-    redis_settings = _build_redis_settings()
+    redis_settings = _redis_settings
 
 
 if __name__ == "__main__":
