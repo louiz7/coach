@@ -111,17 +111,22 @@ class WorkerSettings:
         cron(morning_whoop_task, minute={0, 30}),
         cron(weekly_coach_notes_task, weekday=6, hour=0, minute=0),   # Sunday 00:00 UTC
     ]
-    redis_settings = None  # set from env at runtime
+
+    @staticmethod
+    def _build_redis_settings():
+        import os
+        from arq.connections import RedisSettings
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+        _url = redis_url.replace("redis://", "")
+        _host, _port = (_url.split(":") + ["6379"])[:2]
+        return RedisSettings(host=_host, port=int(_port))
+
+
+# arq CLI reads this attribute when starting the worker
+WorkerSettings.redis_settings = WorkerSettings._build_redis_settings()
 
 
 if __name__ == "__main__":
-    import os
+    # Fallback when invoked via `python -m`
     from arq import run_worker as _run_worker
-    from arq.connections import RedisSettings as _RedisSettings
-
-    redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
-    # Parse redis://host:port
-    _url = redis_url.replace("redis://", "")
-    _host, _port = (_url.split(":") + ["6379"])[:2]
-    WorkerSettings.redis_settings = _RedisSettings(host=_host, port=int(_port))
     _run_worker(WorkerSettings)

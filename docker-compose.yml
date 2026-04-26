@@ -26,7 +26,7 @@ services:
       - .:/app
   worker:
     build: .
-    command: python -u -m app.workers.proactive_worker
+    command: arq app.workers.proactive_worker.WorkerSettings
     environment:
       PYTHONUNBUFFERED: "1"
     env_file: .env
