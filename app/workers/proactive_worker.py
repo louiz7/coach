@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from arq.cron import cron
 from app.database import async_session
 from app.services.proactive import get_idle_users, send_checkin
 
@@ -106,9 +107,9 @@ async def weekly_coach_notes_task(ctx):
 class WorkerSettings:
     functions = [proactive_task, morning_whoop_task, weekly_coach_notes_task]
     cron_jobs = [
-        {"coroutine": "proactive_task", "minute": {0, 30}},        # every 30 min
-        {"coroutine": "morning_whoop_task", "minute": {0, 30}},    # every 30 min, checks local time internally
-        {"coroutine": "weekly_coach_notes_task", "weekday": 6, "hour": 0, "minute": 0},  # Sunday 00:00 UTC
+        cron(proactive_task, minute={0, 30}),
+        cron(morning_whoop_task, minute={0, 30}),
+        cron(weekly_coach_notes_task, weekday=6, hour=0, minute=0),   # Sunday 00:00 UTC
     ]
     redis_settings = None  # set from env at runtime
 
