@@ -37,10 +37,21 @@ async def whoop_connect(token: str, db: AsyncSession = Depends(get_db)):
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+    # Fail loudly if WHOOP credentials aren't configured — much better than
+    # silently sending an empty client_id and getting "invalid_client" from WHOOP.
+    from app.config import settings
+    if not settings.WHOOP_CLIENT_ID or not settings.WHOOP_CLIENT_SECRET:
+        raise HTTPException(
+            500,
+            "WHOOP integration is not configured on the server "
+            "(missing WHOOP_CLIENT_ID / WHOOP_CLIENT_SECRET).",
+        )
+
     phone = payload["phone"]
     # Encode phone as URL-safe base64 state so we can recover it on callback
-    state = base64.urlsafe_b64encode(phone.encode()).decode()
+    state = base64.urlsafe_b64encode(phone.encode()).decode().rstrip("=")
     auth_url = whoop_svc.build_auth_url(state=state)
+    print(f"[WHOOP] Redirecting to auth URL (client_id={settings.WHOOP_CLIENT_ID[:6]}…, state_len={len(state)})", flush=True)
     return RedirectResponse(auth_url)
 
 
@@ -55,7 +66,9 @@ async def whoop_callback(
     """Exchange authorization code for tokens and store in DB."""
     # Decode phone from state
     try:
-        phone = base64.urlsafe_b64decode(state.encode()).decode()
+        # Re-pad base64 (we strip padding when building the URL)
+        padded = state + "=" * (-len(state) % 4)
+        phone = base64.urlsafe_b64decode(padded.encode()).decode()
     except Exception:
         raise HTTPException(400, "Invalid state parameter")
 
