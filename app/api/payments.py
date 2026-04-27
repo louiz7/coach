@@ -135,14 +135,33 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 user_id = str(existing.user_id)
 
         if user_id:
-            sub = Subscription(
-                user_id=user_id,
-                stripe_customer_id=data["customer"],
-                stripe_subscription_id=data["id"],
-                status=data["status"],
-                current_period_end=data.get("current_period_end"),
+            # Upsert (checkout.session.completed may have already created the row)
+            result = await db.execute(
+                select(Subscription).where(Subscription.user_id == user_id)
             )
-            db.add(sub)
+            sub = result.scalar_one_or_none()
+
+            from datetime import datetime
+            period_end = None
+            ts = data.get("current_period_end")
+            if ts:
+                period_end = datetime.utcfromtimestamp(ts)
+
+            if sub:
+                sub.stripe_customer_id = data["customer"]
+                sub.stripe_subscription_id = data["id"]
+                sub.status = data["status"]
+                if period_end:
+                    sub.current_period_end = period_end
+            else:
+                sub = Subscription(
+                    user_id=user_id,
+                    stripe_customer_id=data["customer"],
+                    stripe_subscription_id=data["id"],
+                    status=data["status"],
+                    current_period_end=period_end,
+                )
+                db.add(sub)
             await db.commit()
 
     elif event["type"] in ("customer.subscription.updated", "customer.subscription.deleted"):

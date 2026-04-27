@@ -176,6 +176,9 @@ async def create_checkout_session(
         success_url=f"{base_url}/success?token={data.token}",
         cancel_url=f"{base_url}/start?token={data.token}",
         metadata={"user_id": str(user.id), "phone": user.phone},
+        subscription_data={
+            "metadata": {"user_id": str(user.id), "phone": user.phone},
+        },
     )
 
     return {"checkout_url": session.url}
