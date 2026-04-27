@@ -127,7 +127,6 @@ async def form_submit(
 
 class CheckoutSessionRequest(BaseModel):
     token: str
-    coupon_code: str = ""
 
 
 @router.post("/create-checkout-session")
@@ -169,61 +168,17 @@ async def create_checkout_session(
 
     base_url = settings.ALLOWED_ORIGINS.split(",")[0]
 
-    # Resolve promo code → Stripe discount
-    checkout_kwargs = {}
-    if data.coupon_code and data.coupon_code.strip():
-        try:
-            promos = stripe.PromotionCode.list(code=data.coupon_code.strip(), active=True, limit=1)
-            if promos.data:
-                checkout_kwargs["discounts"] = [{"promotion_code": promos.data[0].id}]
-            else:
-                raise HTTPException(status_code=400, detail="Invalid or expired coupon code.")
-        except stripe.error.StripeError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
     session = stripe.checkout.Session.create(
         customer=customer_id,
         mode="subscription",
         line_items=[{"price": settings.STRIPE_PRICE_ID, "quantity": 1}],
+        allow_promotion_codes=True,
         success_url=f"{base_url}/success?token={data.token}",
         cancel_url=f"{base_url}/start?token={data.token}",
         metadata={"user_id": str(user.id), "phone": user.phone},
-        **checkout_kwargs,
     )
 
     return {"checkout_url": session.url}
-
-
-@router.get("/validate-coupon")
-async def validate_coupon(code: str):
-    """Validate a Stripe promo code and return discount description."""
-    if not code or not code.strip():
-        raise HTTPException(status_code=400, detail="No code provided.")
-    try:
-        promos = stripe.PromotionCode.list(code=code.strip(), active=True, limit=1)
-        if not promos.data:
-            raise HTTPException(status_code=400, detail="Invalid or expired coupon code.")
-        promo = promos.data[0]
-        coupon = promo.coupon
-        # Build human-readable discount description
-        if coupon.percent_off:
-            desc = f"{int(coupon.percent_off)}% off"
-        elif coupon.amount_off:
-            currency = (coupon.currency or "eur").upper()
-            desc = f"{coupon.amount_off / 100:.2f} {currency} off"
-        else:
-            desc = "Discount applied"
-        if coupon.duration == "once":
-            desc += " (first payment)"
-        elif coupon.duration == "repeating" and coupon.duration_in_months:
-            desc += f" for {coupon.duration_in_months} months"
-        elif coupon.duration == "forever":
-            desc += " forever"
-        return {"valid": True, "description": desc}
-    except HTTPException:
-        raise
-    except stripe.error.StripeError as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/verify-token")
