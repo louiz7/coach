@@ -120,9 +120,11 @@ _redis_settings = _build_redis_settings()
 class WorkerSettings:
     functions = [proactive_task, morning_whoop_task, weekly_coach_notes_task]
     cron_jobs = [
-        cron(proactive_task, minute={0, 30}),
-        cron(morning_whoop_task, minute={0, 30}),
-        cron(weekly_coach_notes_task, weekday=6, hour=0, minute=0),   # Sunday 00:00 UTC
+        # Outreach crons disabled — too many messages being sent.
+        # Re-enable once we have proper rate limiting / opt-in logic.
+        # cron(proactive_task, minute={0, 30}),
+        # cron(morning_whoop_task, minute={0, 30}),
+        cron(weekly_coach_notes_task, weekday=6, hour=0, minute=0),   # Sunday 00:00 UTC (no user-facing messages)
     ]
     redis_settings = _redis_settings
 
