@@ -112,6 +112,36 @@ async def form_submit(
     if data.coach_intensity is not None:
         user.coach_intensity = data.coach_intensity
 
+    # Auto-assign a coach persona based on style/intensity (if not already set)
+    if not user.persona_id:
+        # Map coach_style → persona name preference
+        style_to_persona = {
+            "drill_sergeant": "Sergeant Max",
+            "high_energy": "Coach Alex",
+            "humor": "Coach Alex",
+            "calm": "Dr. Fit",
+        }
+        # Maximum intensity always overrides → Sergeant Max
+        if data.coach_intensity == "maximum":
+            preferred = "Sergeant Max"
+        else:
+            preferred = style_to_persona.get(data.coach_style or "", None)
+
+        persona = None
+        if preferred:
+            res = await db.execute(
+                select(CoachPersona).where(CoachPersona.name == preferred, CoachPersona.is_active == True)
+            )
+            persona = res.scalar_one_or_none()
+        if not persona:
+            # Fallback: first active persona
+            res = await db.execute(
+                select(CoachPersona).where(CoachPersona.is_active == True).limit(1)
+            )
+            persona = res.scalar_one_or_none()
+        if persona:
+            user.persona_id = persona.id
+
     # Mark form as completed — payment step is next
     user.onboarding_state = OnboardingState.FORM  # stays FORM until payment confirmed
 
