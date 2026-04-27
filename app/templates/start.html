@@ -221,6 +221,24 @@
           </div>
 
           <button type="button" class="back-link" data-back>Previous Step</button>
+
+          <div style="margin-top:1.5rem;">
+            <div id="coupon-row" style="display:flex; gap:0.5rem; align-items:center;">
+              <input
+                id="coupon-input"
+                type="text"
+                placeholder="Coupon code (optional)"
+                autocapitalize="characters"
+                style="flex:1; padding:0.75rem 1rem; border-radius:12px; border:1.5px solid #333;
+                       background:#1a1a1a; color:#fff; font-size:0.95rem; outline:none;"
+              />
+              <button type="button" id="coupon-apply" style="padding:0.75rem 1.1rem; border-radius:12px;
+                border:none; background:#333; color:#fff; font-size:0.9rem; cursor:pointer; white-space:nowrap;">
+                Apply
+              </button>
+            </div>
+            <p id="coupon-msg" style="font-size:0.85rem; margin-top:0.5rem; min-height:1.2em;"></p>
+          </div>
         </div>
       </section>
 
@@ -300,15 +318,23 @@
             }
 
             // Step 2: Create Stripe checkout session and redirect
+            const couponCode = (document.getElementById('coupon-input')?.value || '').trim();
             const checkoutRes = await fetch('/api/v1/onboarding/create-checkout-session', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ token: TOKEN }),
+              body: JSON.stringify({ token: TOKEN, coupon_code: couponCode }),
             });
 
             if (!checkoutRes.ok) {
               const err = await checkoutRes.json().catch(() => ({}));
-              alert(err.detail || 'Could not start payment. Please try again.');
+              if (err.detail && err.detail.toLowerCase().includes('coupon')) {
+                const msg = document.getElementById('coupon-msg');
+                if (msg) { msg.textContent = '❌ ' + err.detail; msg.style.color = '#ff5555'; }
+                // Scroll to coupon input
+                document.getElementById('coupon-input')?.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                alert(err.detail || 'Could not start payment. Please try again.');
+              }
               return;
             }
 
@@ -352,6 +378,28 @@
 
         document.querySelectorAll('[data-back]').forEach((btn) => {
           btn.addEventListener('click', () => goTo(currentIndex - 1));
+        });
+
+        // Coupon apply button — live validation
+        document.getElementById('coupon-apply')?.addEventListener('click', async () => {
+          const code = document.getElementById('coupon-input').value.trim();
+          const msg = document.getElementById('coupon-msg');
+          if (!code) { msg.textContent = ''; return; }
+          msg.textContent = 'Checking...'; msg.style.color = '#888';
+          try {
+            const r = await fetch('/api/v1/onboarding/validate-coupon?code=' + encodeURIComponent(code));
+            const data = await r.json();
+            if (r.ok && data.valid) {
+              msg.textContent = '✅ ' + data.description;
+              msg.style.color = '#4caf50';
+            } else {
+              msg.textContent = '❌ ' + (data.detail || 'Invalid coupon code.');
+              msg.style.color = '#ff5555';
+            }
+          } catch (e) {
+            msg.textContent = '❌ Could not validate. Try again.';
+            msg.style.color = '#ff5555';
+          }
         });
 
         stepButtons.forEach((btn, i) => {
