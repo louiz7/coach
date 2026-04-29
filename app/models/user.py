@@ -55,7 +55,7 @@ class User(Base):
     pool_number = Column(String(20), nullable=True)
     onboarding_complete = Column(Boolean, default=False)
     project = Column(String(20), default=ProjectEnum.UNKNOWN, nullable=False)
-    onboarding_state = Column(String(20), nullable=True)
+    onboarding_state = Column(String(50), nullable=True)
     coach_style = Column(String(30), nullable=True)       # high_energy, calm, drill_sergeant, humor
     coach_intensity = Column(String(20), nullable=True)   # easy, moderate, hard, maximum
     challenge = Column(String(30), nullable=True)         # motivation, dont_know, consistency, no_time, alone
