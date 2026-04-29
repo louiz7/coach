@@ -95,9 +95,10 @@ async def _send(chat_id: str, user_id, text: str, db: AsyncSession) -> None:
 
 # ─── Outgoing prompts ────────────────────────────────────────────────────────
 
-BETA_GATE_PROMPT = (
+BETA_GATE_PROMPT_TEMPLATE = (
     "Hey! I'm Hercules — your personal AI fitness coach 💪\n\n"
-    "We're in beta right now. Drop your beta access code to get in."
+    "We're in beta right now. Drop your beta access code to get in.\n\n"
+    "Don't have one? Join the community to get access:\n{url}"
 )
 
 WRONG_CODE_PROMPT = (
@@ -221,7 +222,8 @@ async def handle(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     # treat them like BETA_GATE so the user re-enters the new funnel.
     user.onboarding_state = OnboardingState.BETA_GATE
     await db.commit()
-    await _send(chat_id, user.id, BETA_GATE_PROMPT, db)
+    msg = BETA_GATE_PROMPT_TEMPLATE.format(url=settings.WHATSAPP_COMMUNITY_URL or "https://hercules.chat")
+    await _send(chat_id, user.id, msg, db)
 
 
 # --- BETA_GATE ---------------------------------------------------------------

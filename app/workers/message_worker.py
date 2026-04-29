@@ -72,7 +72,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
                 name="Unbekannt",
                 password_hash="pending",
                 project=ProjectEnum.HERCULES,
-                onboarding_state=OnboardingState.CHAT_NAME,
+                onboarding_state=OnboardingState.BETA_GATE,
                 onboarding_complete=False,
                 is_active=True,
             )
@@ -80,13 +80,11 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             await db.commit()
             await db.refresh(user)
 
-            # Send Hercules intro message
-            welcome = (
-                "Hey! I'm Hercules — your personal AI coach for your fitness journey 💪 "
-                "What's your name?"
-            )
-            await linq.send_message(chat_id, welcome)
-            await add_message(user.id, "assistant", welcome, db)
+            # Send BETA_GATE prompt with code gate + WhatsApp link
+            from app.services import onboarding_chat
+            from app.config import settings
+            msg = onboarding_chat.BETA_GATE_PROMPT_TEMPLATE.format(url=settings.WHATSAPP_COMMUNITY_URL or "https://hercules.chat")
+            await onboarding_chat._send(chat_id, user.id, msg, db)
             return
 
         # --- ONBOARDING STATE MACHINE ---
