@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     LINQ_BASE_URL: str = "https://api.linqapp.com/api/partner/v3"
     WHOOP_CLIENT_ID: str = ""
     WHOOP_CLIENT_SECRET: str = ""
+    # Beta phase
+    BETA_MODE: bool = True
+    BETA_CODE: str = "hercules2026!"
+    WHATSAPP_COMMUNITY_URL: str = "https://chat.whatsapp.com/LIOlg1tHtq07Vkebqazr6u?mode=hqctcli"
 
     class Config:
         env_file = ".env"

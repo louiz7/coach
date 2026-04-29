@@ -14,11 +14,21 @@ class ProjectEnum:
 
 # Onboarding states for the iMessage chat funnel
 class OnboardingState:
-    CHAT_NAME = "CHAT_NAME"       # Waiting for user's name
-    CHAT_GOAL = "CHAT_GOAL"       # Waiting for user's goal
-    CHAT_PITCH = "CHAT_PITCH"     # Waiting for yes/no after pitch
-    FORM = "FORM"                 # Sent web form link, waiting
-    DONE = "DONE"                 # Fully onboarded
+    # Beta-phase chat onboarding
+    BETA_GATE = "BETA_GATE"                    # Awaiting beta access code
+    CHAT_NAME = "CHAT_NAME"                    # Awaiting user's first name
+    CHAT_GOAL = "CHAT_GOAL"                    # Awaiting goal (A/B/C/D + free-text)
+    CHAT_SPORTS_FOCUS = "CHAT_SPORTS_FOCUS"    # Free-text: sports to improve
+    CHAT_STATUS = "CHAT_STATUS"                # Training frequency (A/B/C/D)
+    CHAT_CHALLENGE = "CHAT_CHALLENGE"          # Biggest challenge (A/B/C/D)
+    CHAT_STYLE = "CHAT_STYLE"                  # Coach style (A/B/C/D)
+    CHAT_INTENSITY = "CHAT_INTENSITY"          # Coach intensity (A/B/C/D)
+    CHAT_WHOOP_PROMPT = "CHAT_WHOOP_PROMPT"    # Connect WHOOP or skip
+    SPORTS_FOCUS_BACKFILL = "SPORTS_FOCUS_BACKFILL"  # One-time backfill for existing users
+    # Legacy / terminal
+    CHAT_PITCH = "CHAT_PITCH"                  # legacy: yes/no after pitch (kept for back-compat)
+    FORM = "FORM"                              # legacy: web form path
+    DONE = "DONE"                              # Fully onboarded
 
 
 class User(Base):
@@ -31,7 +41,9 @@ class User(Base):
     name = Column(String(100), nullable=False)
     sport = Column(String(50), nullable=True)
     fitness_level = Column(String(20), nullable=True)
-    goal = Column(String(50), nullable=True)
+    goal = Column(Text, nullable=True)
+    sports_focus = Column(Text, nullable=True)            # free-text list of sports to improve in
+    beta_unlocked = Column(Boolean, default=False, nullable=False)
     training_frequency = Column(Integer, nullable=True)
     injuries = Column(Text, nullable=True)
     age = Column(Integer, nullable=True)

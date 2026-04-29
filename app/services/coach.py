@@ -30,6 +30,7 @@ async def build_system_prompt(
 - Sport: {user.sport or 'not specified'}
 - Level: {user.fitness_level or 'not specified'}
 - Goal: {user.goal or 'not specified'}
+- Sports they want to improve in: {user.sports_focus or 'not specified'}
 - Training frequency: {user.training_frequency or 'not specified'}x/week
 - Injuries/limitations: {user.injuries or 'none'}
 - Age: {user.age or 'not specified'}, Gender: {user.gender or 'not specified'}

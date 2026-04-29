@@ -92,13 +92,23 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # --- ONBOARDING STATE MACHINE ---
         # Handle users still in the iMessage onboarding funnel
         _onboarding_states = {
+            OnboardingState.BETA_GATE,
             OnboardingState.CHAT_NAME,
             OnboardingState.CHAT_GOAL,
+            OnboardingState.CHAT_SPORTS_FOCUS,
+            OnboardingState.CHAT_STATUS,
+            OnboardingState.CHAT_CHALLENGE,
+            OnboardingState.CHAT_STYLE,
+            OnboardingState.CHAT_INTENSITY,
+            OnboardingState.CHAT_WHOOP_PROMPT,
+            OnboardingState.SPORTS_FOCUS_BACKFILL,
+            # Legacy states — onboarding_chat.handle() routes them back to BETA_GATE
             OnboardingState.CHAT_PITCH,
             OnboardingState.FORM,
         }
         if user.onboarding_state in _onboarding_states:
-            await _handle_onboarding(user, chat_id, text, db)
+            from app.services import onboarding_chat
+            await onboarding_chat.handle(user, chat_id, text, db)
             return
 
         # WHOOP connect keyword trigger
@@ -113,8 +123,12 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             await linq.send_message(chat_id, whoop_msg)
             return
 
-        # Check subscription
-        has_sub = await check_subscription(user.id, db)
+        # Check subscription (bypassed during beta phase)
+        from app.config import settings
+        if settings.BETA_MODE:
+            has_sub = True
+        else:
+            has_sub = await check_subscription(user.id, db)
         if not has_sub:
             paywall_msg = "Hey! Um weiter zu chatten, brauchst du ein Abo. Check die App fuer mehr Infos 🙏"
             await linq.send_message(chat_id, paywall_msg)
@@ -172,82 +186,6 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
                 await linq.send_message(chat_id, chunk)
 
             await add_message(user.id, "assistant", chunk, db)
-
-
-async def _handle_onboarding(user: User, chat_id: str, text: str, db) -> None:
-    """Handle the iMessage onboarding state machine."""
-    from app.models.user import OnboardingState
-
-    state = user.onboarding_state
-
-    if state == OnboardingState.CHAT_NAME:
-        # Save name from user's reply
-        user.name = text.strip().split()[0].capitalize()  # Use first word as name
-        user.onboarding_state = OnboardingState.CHAT_GOAL
-        await db.commit()
-
-        reply = f"Nice to meet you, {user.name}! 🙌 What's your fitness goal?"
-        await linq.send_message(chat_id, reply)
-        await add_message(user.id, "assistant", reply, db)
-
-    elif state == OnboardingState.CHAT_GOAL:
-        # Save goal from user's reply
-        user.goal = text.strip()
-        user.onboarding_state = OnboardingState.CHAT_PITCH
-        await db.commit()
-
-        pitch = (
-            f"I got it — {user.goal.lower()} is an awesome goal 🔥\n\n"
-            "I'm Hercules, your personal AI coach who guides you every day via iMessage. "
-            "No app downloads, no gym memberships needed — just you, your phone, and a training plan "
-            "that's actually customized for you.\n\n"
-            "Ready to change your life? 💪"
-        )
-        await linq.send_message(chat_id, pitch)
-        await add_message(user.id, "assistant", pitch, db)
-
-    elif state == OnboardingState.CHAT_PITCH:
-        text_lower = text.lower().strip()
-        is_yes = any(w in text_lower for w in ["ja", "yes", "jo", "klar", "ready", "let's go", "lets go", "yep", "yup", "auf jeden", "natürlich", "yeah", "absolutely", "definitely"])
-        is_no = any(w in text_lower for w in ["nein", "no", "nö", "nicht", "nope", "pass"])
-
-        if is_yes:
-            user.onboarding_state = OnboardingState.FORM
-            await db.commit()
-
-            from app.services.token import create_onboarding_token
-            token = create_onboarding_token(user.phone)
-            form_url = f"https://hercules.chat/start?token={token}"
-            reply = (
-                f"Let's go, {user.name}! 🚀\n\n"
-                f"Complete your profile here — takes just 2 minutes:\n{form_url}\n\n"
-                "Then we'll jump right in! 🔥"
-            )
-            await linq.send_message(chat_id, reply)
-            await add_message(user.id, "assistant", reply, db)
-
-        elif is_no:
-            reply = (
-                "No problem! If you have any questions or change your mind later — "
-                "I'm always here. Just message me anytime 💬"
-            )
-            await linq.send_message(chat_id, reply)
-            await add_message(user.id, "assistant", reply, db)
-
-        else:
-            # Unclear answer, re-ask
-            reply = "Quick yes/no question 😄 — Are you ready to get started?"
-            await linq.send_message(chat_id, reply)
-            await add_message(user.id, "assistant", reply, db)
-
-    elif state == OnboardingState.FORM:
-        # User texted again while form is pending
-        reply = (
-            f"Hey {user.name}! You still have the form open 👆 "
-            "Just fill it out and we'll get right to it! 🚀"
-        )
-        await linq.send_message(chat_id, reply)
-        await add_message(user.id, "assistant", reply, db)
 
 
 def _split_response(text: str) -> list[str]:
