@@ -162,6 +162,28 @@ WELCOME_DONE = (
     "ask for plans, vent about a tough session. I'm your coach 💪"
 )
 
+PLAN_OFFER_PROMPT = (
+    "Want me to build your first training plan right now based on your answers?\n\n"
+    "Reply YES to get it now — or NOT YET if you'd rather wait."
+)
+
+PLAN_BUILDING_ACK = "On it — building your plan now 💪 give me a few seconds…"
+
+PLAN_AFTER_HINT = (
+    "That's your starting plan. Tell me anytime if you want to swap, add, or "
+    "remove anything — I'll update it for you."
+)
+
+PLAN_DECLINED_ACK = (
+    "All good. Just text me whenever you're ready and I'll build one — or you "
+    "can ask me anything in the meantime 💪"
+)
+
+PLAN_ERROR_ACK = (
+    "Hmm, I couldn't build the plan just now. Text me 'build me a plan' in a bit "
+    "and I'll try again."
+)
+
 SPORTS_FOCUS_BACKFILL_PROMPT = (
     "Quick one before we continue — I want to tailor your coaching better.\n\n"
     "Which sports or activities are you focused on improving in? "
@@ -216,6 +238,10 @@ async def handle(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
 
     if state == OnboardingState.CHAT_WHOOP_PROMPT:
         await _handle_whoop_prompt(user, chat_id, text, db)
+        return
+
+    if state == OnboardingState.AWAITING_PLAN_CONFIRM:
+        await _handle_awaiting_plan_confirm(user, chat_id, text, db)
         return
 
     # Legacy CHAT_PITCH / FORM — should be migrated by SQL, but be defensive:
@@ -375,21 +401,67 @@ async def _handle_whoop_prompt(user: User, chat_id: str, text: str, db: AsyncSes
     t = (text or "").strip().lower()
     is_skip = any(t == w or t.startswith(w + " ") or t.startswith(w + "!") for w in _SKIP_WORDS)
 
-    # We complete the funnel either way — if the user clicked the link, the
-    # WHOOP callback will set whoop_access_token in the background. If they
-    # texted 'skip' or anything else, we just move on.
-    user.onboarding_state = OnboardingState.DONE
+    # Move user out of the WHOOP step. The WHOOP callback (if they tap the link)
+    # will set whoop_access_token in the background regardless.
+    user.onboarding_state = OnboardingState.AWAITING_PLAN_CONFIRM
     user.onboarding_complete = True
     await db.commit()
 
     welcome = WELCOME_DONE.format(name=user.name)
     await _send(chat_id, user.id, welcome, db)
+    await _send(chat_id, user.id, PLAN_OFFER_PROMPT, db)
 
-    # If user said something other than skip and didn't click the link,
-    # treat this message as their first real chat input later. For now we
-    # keep things simple and just send the welcome — next inbound goes through
-    # the normal LLM flow.
     _ = is_skip  # noqa: F841 (kept for future analytics)
+
+
+# --- AWAITING_PLAN_CONFIRM ---------------------------------------------------
+
+_YES_WORDS = {
+    "yes", "y", "yeah", "yep", "yup", "sure", "ok", "okay", "k", "do it",
+    "let's go", "lets go", "go", "build it", "yes please", "absolutely",
+    "ja", "klar",
+}
+_NO_WORDS = {
+    "no", "n", "nope", "not yet", "later", "skip", "pass", "nah", "not now",
+    "nein", "spaeter", "später",
+}
+
+
+def _matches_words(text: str, words: set[str]) -> bool:
+    t = (text or "").strip().lower().rstrip("!.?")
+    if t in words:
+        return True
+    return any(t.startswith(w + " ") for w in words)
+
+
+async def _handle_awaiting_plan_confirm(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    if _matches_words(text, _NO_WORDS):
+        user.onboarding_state = OnboardingState.DONE
+        await db.commit()
+        await _send(chat_id, user.id, PLAN_DECLINED_ACK, db)
+        return
+
+    if _matches_words(text, _YES_WORDS):
+        # Acknowledge, then generate + send the plan
+        await _send(chat_id, user.id, PLAN_BUILDING_ACK, db)
+        try:
+            from app.services.training_plan import generate_plan, chunk_plan_text
+            plan = await generate_plan(user, db)
+            for i, chunk in enumerate(chunk_plan_text(plan.raw_text)):
+                if i > 0:
+                    import asyncio as _aio
+                    await _aio.sleep(0.6)
+                await _send(chat_id, user.id, chunk, db)
+            await _send(chat_id, user.id, PLAN_AFTER_HINT, db)
+        except Exception as ex:
+            print(f"[awaiting_plan_confirm generate ERROR] {ex}")
+            await _send(chat_id, user.id, PLAN_ERROR_ACK, db)
+        user.onboarding_state = OnboardingState.DONE
+        await db.commit()
+        return
+
+    # Unclear answer — re-ask
+    await _send(chat_id, user.id, PLAN_OFFER_PROMPT, db)
 
 
 # --- SPORTS_FOCUS_BACKFILL (one-shot for existing users) ---------------------
@@ -400,7 +472,9 @@ async def _handle_sports_focus_backfill(user: User, chat_id: str, text: str, db:
         await _send(chat_id, user.id, SPORTS_FOCUS_BACKFILL_PROMPT, db)
         return
     user.sports_focus = cleaned[:2000]
-    user.onboarding_state = OnboardingState.DONE
+    # Move existing onboarded users into the plan-offer flow as well
+    user.onboarding_state = OnboardingState.AWAITING_PLAN_CONFIRM
     await db.commit()
-    ack = "Got it — thanks! Now we're back. What can I help you with? 💪"
+    ack = "Got it — thanks! 💪"
     await _send(chat_id, user.id, ack, db)
+    await _send(chat_id, user.id, PLAN_OFFER_PROMPT, db)

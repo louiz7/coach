@@ -8,9 +8,21 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+from app.services import linq
+from app.services.memory import add_message
 from app.services.progress import parse_and_store_progress
-from app.services.training_plan import generate_plan
+from app.services.training_plan import generate_plan, chunk_plan_text
 from app.redis import redis_pool
+
+
+# Modification verbs/phrases — when the user has an active plan AND their
+# message contains one of these, we treat the request as a modification.
+_MODIFICATION_KEYWORDS = (
+    "swap", "replace", "change", "remove", "add", "drop", "skip",
+    "make it", "instead of", "more", "less", "fewer", "shorter", "longer",
+    "harder", "easier", "tweak", "adjust", "modify", "update",
+)
+
 
 
 # ---------------------------------------------------------------------------
@@ -63,11 +75,37 @@ async def handle_progress_log(user: User, text: str, db: AsyncSession) -> Option
 
 
 async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Optional[str]:
-    """Generate or modify training plan. Returns plan summary as context."""
+    """Generate or modify the training plan AND send it to the user via iMessage.
+
+    The full plan text is sent in chunks directly from this handler — the
+    main LLM reply afterwards just acknowledges it (using the returned context).
+    """
     try:
-        plan = await generate_plan(user, db, modification=text)
-        return f"New training plan generated. Summary: {plan.raw_text[:300]}"
-    except Exception:
+        plan = await generate_plan(user, db, user_request=text)
+
+        # Send the full plan to the user as iMessage chunks (skip if no chat_id)
+        if user.linq_chat_id and plan.raw_text:
+            chunks = chunk_plan_text(plan.raw_text)
+            import asyncio as _aio
+            for i, chunk in enumerate(chunks):
+                if i > 0:
+                    await _aio.sleep(0.6)
+                await linq.send_message(user.linq_chat_id, chunk)
+                await add_message(user.id, "assistant", chunk, db)
+
+        # Decide whether this was a creation or modification (best-effort
+        # signal for the follow-up LLM acknowledgment)
+        text_lower = (text or "").lower()
+        is_modification = any(kw in text_lower for kw in _MODIFICATION_KEYWORDS)
+        verb = "updated" if is_modification else "ready"
+        return (
+            f"The training plan was just {verb} and sent to the user as a "
+            "separate message. In your reply, briefly acknowledge it in 1 "
+            "short sentence and invite them to tell you if they want to tweak anything. "
+            "Do NOT repeat the plan."
+        )
+    except Exception as ex:
+        print(f"[handle_plan_request ERROR] {ex}")
         return "Failed to generate training plan. Apologize briefly and ask them to try again."
 
 

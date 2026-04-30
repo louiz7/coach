@@ -99,6 +99,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             OnboardingState.CHAT_STYLE,
             OnboardingState.CHAT_INTENSITY,
             OnboardingState.CHAT_WHOOP_PROMPT,
+            OnboardingState.AWAITING_PLAN_CONFIRM,
             OnboardingState.SPORTS_FOCUS_BACKFILL,
             # Legacy states — onboarding_chat.handle() routes them back to BETA_GATE
             OnboardingState.CHAT_PITCH,

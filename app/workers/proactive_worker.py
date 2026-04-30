@@ -1,9 +1,15 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, date as _date
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from arq.cron import cron
 from app.database import async_session
 from app.services.proactive import get_idle_users, send_checkin
+
+
+# Hour at which the morning brief is sent (in each user's local timezone).
+# Cron fires every 30 min; each user gets at most ONE brief per day thanks
+# to a Redis dedup key (whoop:morning_sent:{user_id}:{YYYY-MM-DD}).
+_MORNING_HOUR = 8
 
 
 async def run_proactive_checkins():
@@ -18,21 +24,24 @@ async def run_proactive_checkins():
             await asyncio.sleep(0.5)  # rate limit
 
 
-async def run_morning_whoop_pull():
-    """
-    Every 30 min: for each WHOOP-connected user whose local time is 8:00–8:29 AM,
-    fetch latest recovery from WHOOP and send a morning briefing.
-    Acts as a reconciliation fallback in case the recovery.updated webhook was missed.
+async def run_morning_brief():
+    """Daily morning brief for ALL onboarded Hercules users.
+
+    - Fires every 30 min via cron; only acts when a user's local hour matches
+      _MORNING_HOUR (so each user is processed at most twice per day).
+    - A Redis dedup key (whoop:morning_sent:{user_id}:{YYYY-MM-DD}) ensures
+      every user gets exactly ONE brief per day even if the cron retries.
+    - WHOOP-connected users get a recovery-aware brief.
+    - Non-WHOOP users get a plan-only brief (today's planned workout).
+    - Users with no active plan + no WHOOP are skipped silently.
     """
     from sqlalchemy import select
     from app.models.user import User
     from app.redis import redis_pool
-    from app.api.whoop import _ensure_fresh_token, _handle_recovery
 
     async with async_session() as db:
         result = await db.execute(
             select(User).where(
-                User.whoop_access_token.isnot(None),
                 User.onboarding_complete == True,
                 User.linq_chat_id.isnot(None),
             )
@@ -48,25 +57,150 @@ async def run_morning_whoop_pull():
                 tz = ZoneInfo("Europe/Berlin")
 
             local_now = datetime.now(tz)
-            if local_now.hour != 8:
+            if local_now.hour != _MORNING_HOUR:
                 continue
 
-            # Guard: only send once per day per user
+            # Per-day dedup — set inside _send_morning_brief on success
             today_key = f"whoop:morning_sent:{user.id}:{local_now.strftime('%Y-%m-%d')}"
+            if await redis_pool.get(today_key):
+                continue
+
             async with async_session() as db:
-                if await redis_pool.get(today_key):
-                    continue
-
-                access_token = await _ensure_fresh_token(user, db)
-                if not access_token:
-                    continue
-
-                print(f"[MORNING PULL] Fetching recovery for {user.name} (local={local_now.strftime('%H:%M')} {tz_name})")
-                await _handle_recovery(user, access_token, db)
+                await _send_morning_brief(user, db, today_key, local_now)
 
         except Exception as e:
-            print(f"Morning WHOOP pull failed for {user.id}: {e}")
+            print(f"[morning_brief] failed for {user.id}: {e}")
         await asyncio.sleep(0.5)
+
+
+async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> None:
+    """Build + send a single morning brief for one user, then set dedup key."""
+    from sqlalchemy import select
+    from app.models.training_plan import TrainingPlan
+    from app.services.training_plan import get_workout_for_today
+    from app.services import linq as linq_svc
+    from app.services.memory import add_message
+    from app.redis import redis_pool
+    from app.config import settings as cfg
+    from openai import AsyncOpenAI
+
+    # Active plan (optional)
+    plan_result = await db.execute(
+        select(TrainingPlan)
+        .where(TrainingPlan.user_id == user.id, TrainingPlan.is_current == True)
+        .order_by(TrainingPlan.created_at.desc())
+    )
+    active_plan = plan_result.scalars().first()
+    today_workout = None
+    if active_plan and active_plan.plan_json:
+        today_workout = get_workout_for_today(
+            active_plan.plan_json, local_now.strftime("%A")
+        )
+
+    # WHOOP recovery (optional)
+    recovery_score: int | None = None
+    hrv: float | None = None
+    rhr: int | None = None
+    if user.whoop_access_token:
+        try:
+            from app.api.whoop import _ensure_fresh_token
+            from app.services import whoop as whoop_svc
+            access_token = await _ensure_fresh_token(user, db)
+            if access_token:
+                rec = await whoop_svc.get_latest_recovery(access_token)
+                if rec:
+                    score = rec.get("score", {}) or {}
+                    rs = score.get("recovery_score")
+                    if rs is not None:
+                        recovery_score = int(rs)
+                        user.last_recovery_score = recovery_score
+                    if score.get("hrv_rmssd_milli") is not None:
+                        hrv = float(score["hrv_rmssd_milli"])
+                        user.last_hrv = hrv
+                    if score.get("resting_heart_rate") is not None:
+                        rhr = int(score["resting_heart_rate"])
+                    await db.commit()
+        except Exception as ex:
+            print(f"[morning_brief] WHOOP fetch failed for {user.name}: {ex}")
+
+    # Skip silently if there's nothing to say (no plan AND no recovery)
+    if not today_workout and recovery_score is None and not active_plan:
+        await redis_pool.set(dedup_key, "1", ex=86400)
+        return
+
+    # Build the LLM prompt
+    if recovery_score is not None:
+        if recovery_score >= 67:
+            emoji = "🟢"
+        elif recovery_score >= 34:
+            emoji = "🟡"
+        else:
+            emoji = "🔴"
+        bio_bits = []
+        if hrv:
+            bio_bits.append(f"{hrv:.0f}ms HRV")
+        if rhr:
+            bio_bits.append(f"{rhr}bpm RHR")
+        bio_str = f" ({', '.join(bio_bits)})" if bio_bits else ""
+        recovery_line = f"Today's WHOOP: {emoji} Recovery {recovery_score}%{bio_str}"
+    else:
+        recovery_line = "No WHOOP data today."
+
+    if today_workout:
+        ex_lines = []
+        for ex in today_workout.get("exercises", [])[:8]:
+            ex_lines.append(
+                f"- {ex.get('name','')}: {ex.get('sets','?')}x{ex.get('reps','?')}"
+            )
+        plan_line = (
+            f"Today's planned workout — {today_workout.get('day','')} "
+            f"({today_workout.get('focus','')}):\n" + "\n".join(ex_lines)
+        )
+    elif active_plan:
+        plan_line = "Today is a rest day per their training plan."
+    else:
+        plan_line = "No active training plan yet."
+
+    prompt = (
+        "You are Hercules, a personal fitness coach on iMessage. Be very concise "
+        "(3-5 short sentences max). No markdown.\n\n"
+        f"User: {user.name} | Goal: {user.goal or 'general fitness'} | "
+        f"Sports focus: {user.sports_focus or 'general'} | "
+        f"Coach style: {user.coach_style or 'direct'} | "
+        f"Intensity preference: {user.coach_intensity or 'moderate'}\n\n"
+        f"{recovery_line}\n\n"
+        f"{plan_line}\n\n"
+        "Write a short MORNING BRIEF in this structure:\n"
+        "1) One line on recovery (or skip if no WHOOP data).\n"
+        "2) Recap today's planned workout in ONE compact line (or say it's a rest day).\n"
+        "3) ONE specific, actionable recommendation that combines recovery + today's plan "
+        "(e.g. 'go all out', 'cap squats at 70%', 'swap heavy for mobility', "
+        "'great recovery — push your top set'). Keep it real. No filler."
+    )
+
+    try:
+        client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0.7,
+        )
+        message = response.choices[0].message.content.strip()
+    except Exception as ex:
+        print(f"[morning_brief] LLM failed for {user.name}: {ex}")
+        return
+
+    if user.linq_chat_id:
+        await linq_svc.send_message(user.linq_chat_id, message)
+        try:
+            await add_message(user.id, "assistant", message, db)
+        except Exception:
+            pass
+        print(f"[morning_brief] sent to {user.name} (recovery={recovery_score}, has_plan={active_plan is not None})")
+
+    # Set dedup AFTER successful send to avoid silently skipping a future retry
+    await redis_pool.set(dedup_key, "1", ex=86400)
 
 
 # For arq worker
@@ -75,7 +209,9 @@ async def proactive_task(ctx):
 
 
 async def morning_whoop_task(ctx):
-    await run_morning_whoop_pull()
+    # Renamed conceptually — kept the function name for cron compatibility.
+    # Sends ONE morning brief per user per day (with or without WHOOP data).
+    await run_morning_brief()
 
 
 async def weekly_coach_notes_task(ctx):
@@ -120,10 +256,14 @@ _redis_settings = _build_redis_settings()
 class WorkerSettings:
     functions = [proactive_task, morning_whoop_task, weekly_coach_notes_task]
     cron_jobs = [
-        # Outreach crons disabled — too many messages being sent.
-        # Re-enable once we have proper rate limiting / opt-in logic.
+        # Proactive idle-user pings stay disabled for now (too chatty pre-beta).
         # cron(proactive_task, minute={0, 30}),
-        # cron(morning_whoop_task, minute={0, 30}),
+        #
+        # Morning brief: cron fires twice an hour but each user is processed
+        # at most ONCE per day thanks to the Redis dedup key set inside
+        # _send_morning_brief. The local-hour filter (==8) gives us a 1-hour
+        # window for the cron to land on each user's tz.
+        cron(morning_whoop_task, minute={0, 30}),
         cron(weekly_coach_notes_task, weekday=6, hour=0, minute=0),   # Sunday 00:00 UTC (no user-facing messages)
     ]
     redis_settings = _redis_settings

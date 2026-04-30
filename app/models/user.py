@@ -24,6 +24,7 @@ class OnboardingState:
     CHAT_STYLE = "CHAT_STYLE"                  # Coach style (A/B/C/D)
     CHAT_INTENSITY = "CHAT_INTENSITY"          # Coach intensity (A/B/C/D)
     CHAT_WHOOP_PROMPT = "CHAT_WHOOP_PROMPT"    # Connect WHOOP or skip
+    AWAITING_PLAN_CONFIRM = "AWAITING_PLAN_CONFIRM"  # Post-onboarding: build first plan?
     SPORTS_FOCUS_BACKFILL = "SPORTS_FOCUS_BACKFILL"  # One-time backfill for existing users
     # Legacy / terminal
     CHAT_PITCH = "CHAT_PITCH"                  # legacy: yes/no after pitch (kept for back-compat)
