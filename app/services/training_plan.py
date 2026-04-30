@@ -62,6 +62,18 @@ def _render_plan_text(plan_data: dict) -> str:
                 line += f" — {ex['notes']}"
             lines.append(line)
         lines.append("")
+    
+    # Add progression tips if provided
+    if "progression_tips" in plan_data:
+        lines.append("📈 Progression:\n")
+        for tip in plan_data.get("progression_tips", []):
+            lines.append(f"  • {tip}")
+        lines.append("")
+    
+    # Add motivational closing if provided
+    if "motivational_note" in plan_data:
+        lines.append(f"💪 {plan_data.get('motivational_note', '')}")
+    
     return "\n".join(lines).strip()
 
 
@@ -125,14 +137,19 @@ async def generate_plan(
         '{"days":[{"day":"Monday","focus":"Push (Chest/Shoulders/Triceps)",'
         '"exercises":[{"name":"Bench Press","sets":4,"reps":"8-10",'
         '"rest_seconds":90,"notes":"Controlled tempo"}]}]}\n\n'
-        "RULES:\n"
-        f"- Exactly {freq} training days per week (the rest are rest days — do not include rest days in the JSON).\n"
-        "- Tailor every choice to the user's goal and sports focus.\n"
-        "- Match volume and intensity to the user's intensity preference.\n"
+        "PLAN REQUIREMENTS:\n"
+        f"- Exactly {freq} training days per week (rest days not included).\n"
+        "- Total ~1200-1500 words when rendered.\n"
+        "- Each day has a clear focus and 5-7 exercises.\n"
+        "- Exercise format: {name} {sets}x{reps} @ RPE {rpe}, {rest_seconds}s rest.\n"
+        "- Include 1-2 progression tips per week (e.g. 'Week 3: add 2-3 reps to top sets').\n"
+        "- Add 1 motivational closing line (e.g. 'Trust the process — consistency wins').\n"
+        "- Tailor volume and intensity to the user's goal and intensity preference.\n"
+        "- Match exercise selection to their sports focus.\n"
         "- Be specific with rep ranges and rest times.\n"
-        "- Use English day names (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday).\n"
-        "- Each day must have a clear `focus` and at least 4 exercises.\n"
-        "- Return ONLY the JSON object — no prose, no markdown code fences."
+        "- Use English day names (Monday–Sunday).\n"
+        "- Do NOT include macros, stretches, or theory — just the workout structure.\n"
+        "- Return ONLY the JSON object — no prose, no code fences."
     )
 
     async with httpx.AsyncClient(timeout=45) as client:
@@ -190,7 +207,7 @@ def get_workout_for_today(plan_json: dict, weekday_name: str) -> Optional[dict]:
     return None
 
 
-def chunk_plan_text(text: str, max_len: int = 1200) -> list[str]:
+def chunk_plan_text(text: str, max_len: int = 800) -> list[str]:
     """Split a plan's raw_text into iMessage-friendly chunks at day boundaries."""
     if len(text) <= max_len:
         return [text]
