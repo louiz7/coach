@@ -435,33 +435,30 @@ def _matches_words(text: str, words: set[str]) -> bool:
 
 
 async def _handle_awaiting_plan_confirm(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    # Only decline if they clearly say no. Any other reply (yes, nice, sure,
+    # "create my plan", "okay", silence, emoji, etc.) → build the plan.
     if _matches_words(text, _NO_WORDS):
         user.onboarding_state = OnboardingState.DONE
         await db.commit()
         await _send(chat_id, user.id, PLAN_DECLINED_ACK, db)
         return
 
-    if _matches_words(text, _YES_WORDS):
-        # Acknowledge, then generate + send the plan
-        await _send(chat_id, user.id, PLAN_BUILDING_ACK, db)
-        try:
-            from app.services.training_plan import generate_plan, chunk_plan_text
-            plan = await generate_plan(user, db)
-            for i, chunk in enumerate(chunk_plan_text(plan.raw_text)):
-                if i > 0:
-                    import asyncio as _aio
-                    await _aio.sleep(0.6)
-                await _send(chat_id, user.id, chunk, db)
-            await _send(chat_id, user.id, PLAN_AFTER_HINT, db)
-        except Exception as ex:
-            print(f"[awaiting_plan_confirm generate ERROR] {ex}")
-            await _send(chat_id, user.id, PLAN_ERROR_ACK, db)
-        user.onboarding_state = OnboardingState.DONE
-        await db.commit()
-        return
-
-    # Unclear answer — re-ask
-    await _send(chat_id, user.id, PLAN_OFFER_PROMPT, db)
+    # Everything else → build the plan
+    await _send(chat_id, user.id, PLAN_BUILDING_ACK, db)
+    try:
+        from app.services.training_plan import generate_plan, chunk_plan_text
+        plan = await generate_plan(user, db)
+        for i, chunk in enumerate(chunk_plan_text(plan.raw_text)):
+            if i > 0:
+                import asyncio as _aio
+                await _aio.sleep(0.6)
+            await _send(chat_id, user.id, chunk, db)
+        await _send(chat_id, user.id, PLAN_AFTER_HINT, db)
+    except Exception as ex:
+        print(f"[awaiting_plan_confirm generate ERROR] {ex}")
+        await _send(chat_id, user.id, PLAN_ERROR_ACK, db)
+    user.onboarding_state = OnboardingState.DONE
+    await db.commit()
 
 
 # --- SPORTS_FOCUS_BACKFILL (one-shot for existing users) ---------------------
