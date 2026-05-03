@@ -11,6 +11,6 @@ class Message(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     role = Column(String(10), nullable=False)  # user or assistant
-    text = Column(Text, nullable=False)
+    content = Column(Text, nullable=False)
     linq_message_id = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

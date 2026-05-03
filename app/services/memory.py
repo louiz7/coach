@@ -26,7 +26,7 @@ async def get_conversation(user_id: UUID, db: AsyncSession) -> list[dict]:
     )
     messages = result.scalars().all()
     messages.reverse()
-    history = [{"role": m.role, "content": m.text} for m in messages]
+    history = [{"role": m.role, "content": m.content} for m in messages]
 
     # Cache in Redis
     if history:
@@ -42,7 +42,7 @@ async def get_conversation(user_id: UUID, db: AsyncSession) -> list[dict]:
 
 async def add_message(user_id: UUID, role: str, text: str, db: AsyncSession, linq_message_id: str = None):
     """Save message to DB and Redis."""
-    msg = Message(user_id=user_id, role=role, text=text, linq_message_id=linq_message_id)
+    msg = Message(user_id=user_id, role=role, content=text, linq_message_id=linq_message_id)
     db.add(msg)
     await db.commit()
 
