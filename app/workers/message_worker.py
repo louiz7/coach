@@ -188,7 +188,16 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
 
 def _split_response(text: str) -> list[str]:
-    """Split response into chunks at sentence boundaries for double-texting."""
+    """Split response into chunks for double-texting.
+
+    If the model used the `[MSG]` separator (per the persona prompt's
+    "output format" instruction), honor that split directly. Otherwise
+    fall back to a sentence-boundary heuristic.
+    """
+    if "[MSG]" in text:
+        parts = [p.strip() for p in text.split("[MSG]")]
+        return [p for p in parts if p]
+
     if len(text) < 80:
         return [text]
 
