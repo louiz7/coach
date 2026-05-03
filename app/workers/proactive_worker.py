@@ -123,59 +123,90 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         except Exception as ex:
             print(f"[morning_brief] WHOOP fetch failed for {user.name}: {ex}")
 
-    # Skip silently if there's nothing to say (no plan AND no recovery)
+    # Skip silently if there's nothing to say
     if not today_workout and recovery_score is None and not active_plan:
         await redis_pool.set(dedup_key, "1", ex=86400)
         return
 
-    # Build the LLM prompt
+    # ── Recovery context ──────────────────────────────────────────────────
     if recovery_score is not None:
         if recovery_score >= 67:
             emoji = "🟢"
+            intensity_guidance = "HIGH: great recovery — push hard today, top sets encouraged."
         elif recovery_score >= 34:
             emoji = "🟡"
+            intensity_guidance = "MODERATE: decent recovery — keep planned loads but don't max out."
         else:
             emoji = "🔴"
+            intensity_guidance = "LOW: poor recovery — reduce all loads by ~20-30%, cut sets by 1, prioritise form over weight. Consider swapping any heavy compound lifts for lighter accessory work or mobility."
         bio_bits = []
         if hrv:
             bio_bits.append(f"{hrv:.0f}ms HRV")
         if rhr:
             bio_bits.append(f"{rhr}bpm RHR")
         bio_str = f" ({', '.join(bio_bits)})" if bio_bits else ""
-        recovery_line = f"Today's WHOOP: {emoji} Recovery {recovery_score}%{bio_str}"
+        recovery_line = f"WHOOP: {emoji} {recovery_score}%{bio_str} → intensity guidance: {intensity_guidance}"
     else:
-        recovery_line = "No WHOOP data today."
+        recovery_line = "No WHOOP data — use planned loads as written."
+        intensity_guidance = None
 
+    # ── Today's workout from plan ─────────────────────────────────────────
     if today_workout:
         ex_lines = []
-        for ex in today_workout.get("exercises", [])[:8]:
-            ex_lines.append(
-                f"- {ex.get('name','')}: {ex.get('sets','?')}x{ex.get('reps','?')}"
-            )
-        plan_line = (
-            f"Today's planned workout — {today_workout.get('day','')} "
-            f"({today_workout.get('focus','')}):\n" + "\n".join(ex_lines)
+        for ex in today_workout.get("exercises", []):
+            sets = ex.get("sets", "?")
+            reps = ex.get("reps", "?")
+            rpe  = ex.get("rpe", "")
+            rest = ex.get("rest_seconds", "")
+            line = f"- {ex.get('name','')}: {sets}x{reps}"
+            if rpe:
+                line += f" @RPE{rpe}"
+            if rest:
+                line += f" ({rest}s rest)"
+            ex_lines.append(line)
+        workout_block = (
+            f"Planned workout: {today_workout.get('day','')} — {today_workout.get('focus','')}\n"
+            + "\n".join(ex_lines)
         )
+        is_rest_day = False
     elif active_plan:
-        plan_line = "Today is a rest day per their training plan."
+        workout_block = "Today is a rest day per their training plan."
+        is_rest_day = True
     else:
-        plan_line = "No active training plan yet."
+        workout_block = "No active training plan."
+        is_rest_day = True
+
+    # ── Build prompt ──────────────────────────────────────────────────────
+    user_ctx = (
+        f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'} | "
+        f"Focus: {user.sports_focus or 'general'} | "
+        f"Coach style: {user.coach_style or 'direct'} | "
+        f"Intensity pref: {user.coach_intensity or 'moderate'}"
+    )
+
+    if not is_rest_day and today_workout:
+        adjust_instruction = (
+            "TASK: Write a morning workout brief. Structure it exactly like this:\n"
+            "Line 1 — Recovery status: one sentence with the recovery score + one-word readiness verdict.\n"
+            "Line 2 — Today's session: name the focus and list the exercises WITH ADJUSTED sets/reps/load based on the intensity guidance above. "
+            "If recovery is LOW, visibly reduce the numbers (e.g. 4x8 → 3x8, add '~70% load'). "
+            "If recovery is HIGH, you may suggest pushing a top set. Keep it as a compact text list, no markdown bullets.\n"
+            "Line 3 — One punchy coaching tip (max 1 sentence).\n\n"
+            "Rules: No markdown. Max 5 lines total. Sound like a real coach texting, not a report."
+        )
+    else:
+        adjust_instruction = (
+            "TASK: Write a 2-3 sentence morning message. "
+            "If it's a rest day, acknowledge it and give one recovery tip based on their WHOOP data. "
+            "No markdown. Sound like a real coach texting."
+        )
 
     prompt = (
-        "You are Hercules, a personal fitness coach on iMessage. Be very concise "
-        "(3-5 short sentences max). No markdown.\n\n"
-        f"User: {user.name} | Goal: {user.goal or 'general fitness'} | "
-        f"Sports focus: {user.sports_focus or 'general'} | "
-        f"Coach style: {user.coach_style or 'direct'} | "
-        f"Intensity preference: {user.coach_intensity or 'moderate'}\n\n"
+        f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+        f"{user_ctx}\n\n"
         f"{recovery_line}\n\n"
-        f"{plan_line}\n\n"
-        "Write a short MORNING BRIEF in this structure:\n"
-        "1) One line on recovery (or skip if no WHOOP data).\n"
-        "2) Recap today's planned workout in ONE compact line (or say it's a rest day).\n"
-        "3) ONE specific, actionable recommendation that combines recovery + today's plan "
-        "(e.g. 'go all out', 'cap squats at 70%', 'swap heavy for mobility', "
-        "'great recovery — push your top set'). Keep it real. No filler."
+        f"{workout_block}\n\n"
+        f"{adjust_instruction}"
     )
 
     try:
@@ -183,8 +214,8 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=200,
-            temperature=0.7,
+            max_tokens=300,
+            temperature=0.75,
         )
         message = response.choices[0].message.content.strip()
     except Exception as ex:
@@ -192,14 +223,25 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         return
 
     if user.linq_chat_id:
-        await linq_svc.send_message(user.linq_chat_id, message)
-        try:
-            await add_message(user.id, "assistant", message, db)
-        except Exception:
-            pass
-        print(f"[morning_brief] sent to {user.name} (recovery={recovery_score}, has_plan={active_plan is not None})")
+        # Split into 2 messages: recovery line + workout block (feels more natural)
+        lines = message.split("\n", 1)
+        if len(lines) == 2 and len(lines[0]) < 120:
+            await linq_svc.send_message(user.linq_chat_id, lines[0].strip())
+            await asyncio.sleep(1.5)
+            await linq_svc.send_message(user.linq_chat_id, lines[1].strip())
+            try:
+                await add_message(user.id, "assistant", message, db)
+            except Exception:
+                pass
+        else:
+            await linq_svc.send_message(user.linq_chat_id, message)
+            try:
+                await add_message(user.id, "assistant", message, db)
+            except Exception:
+                pass
+        print(f"[morning_brief] sent to {user.name} (recovery={recovery_score}, plan={today_workout is not None})")
 
-    # Set dedup AFTER successful send to avoid silently skipping a future retry
+    # Set dedup AFTER successful send
     await redis_pool.set(dedup_key, "1", ex=86400)
 
 
