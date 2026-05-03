@@ -237,9 +237,9 @@ body {
   margin: 0;
   font-family: "Inter", sans-serif;
   font-weight: 400;
-  font-size: 8px;
-  line-height: 1.1;
-  letter-spacing: -0.08px;
+  font-size: 9px;
+  line-height: 110%;
+  letter-spacing: -0.09px;
   color: rgba(0, 0, 0, 0.5);
   text-align: center;
 }

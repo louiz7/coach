@@ -14,24 +14,25 @@
     <link rel="stylesheet" href="/static/css/style.css" />
     {% include "_analytics.html" %}
     <style>
-      body { background: #0a0a0a; color: #e0e0e0; font-family: 'Inter', sans-serif; }
+      body { background: #F0EEE5; color: #000; font-family: 'Inter', sans-serif; }
       .terms { max-width: 720px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
-      .terms__logo { display: block; margin-bottom: 3rem; }
-      .terms h1 { font-size: 2rem; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
-      .terms__date { font-size: 0.85rem; color: #666; margin-bottom: 3rem; }
-      .terms h2 { font-size: 1.1rem; font-weight: 600; color: #fff; margin: 2.5rem 0 0.75rem; }
-      .terms p, .terms li { font-size: 0.95rem; line-height: 1.75; color: #aaa; }
+      .terms__logo { display: flex; justify-content: center; margin-bottom: 3rem; }
+      .terms__logo img { display: block; width: 113px; height: 18px; }
+      .terms h1 { font-size: 2rem; font-weight: 600; color: #000; margin-bottom: 0.5rem; }
+      .terms__date { font-size: 0.85rem; color: #000; margin-bottom: 3rem; }
+      .terms h2 { font-size: 1.1rem; font-weight: 600; color: #000; margin: 2.5rem 0 0.75rem; }
+      .terms p, .terms li { font-size: 0.95rem; line-height: 1.75; color: #000; }
       .terms ul { padding-left: 1.25rem; margin: 0.5rem 0; }
       .terms li { margin-bottom: 0.4rem; }
-      .terms a { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
-      .terms__back { display: inline-block; margin-top: 3rem; font-size: 0.85rem; color: #666; text-decoration: none; }
-      .terms__back:hover { color: #fff; }
+      .terms a { color: #000; text-decoration: underline; text-underline-offset: 3px; }
+      .terms__back { display: inline-block; margin-top: 3rem; font-size: 0.85rem; color: #000; text-decoration: none; }
+      .terms__back:hover { text-decoration: underline; }
     </style>
   </head>
   <body>
     <div class="terms">
-      <a class="terms__logo" href="/">
-        <img src="/static/images/hercules-logo.svg" alt="Hercules" width="110" height="18" />
+      <a class="terms__logo" href="/" aria-label="Hercules">
+        <img src="/static/images/hercules-wordmark.svg" alt="Hercules" />
       </a>
 
       <h1>Terms of Service</h1>

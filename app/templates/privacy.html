@@ -14,24 +14,25 @@
     <link rel="stylesheet" href="/static/css/style.css" />
     {% include "_analytics.html" %}
     <style>
-      body { background: #0a0a0a; color: #e0e0e0; font-family: 'Inter', sans-serif; }
+      body { background: #F0EEE5; color: #000; font-family: 'Inter', sans-serif; }
       .privacy { max-width: 720px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
-      .privacy__logo { display: block; margin-bottom: 3rem; }
-      .privacy h1 { font-size: 2rem; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
-      .privacy__date { font-size: 0.85rem; color: #666; margin-bottom: 3rem; }
-      .privacy h2 { font-size: 1.1rem; font-weight: 600; color: #fff; margin: 2.5rem 0 0.75rem; }
-      .privacy p, .privacy li { font-size: 0.95rem; line-height: 1.75; color: #aaa; }
+      .privacy__logo { display: flex; justify-content: center; margin-bottom: 3rem; }
+      .privacy__logo img { display: block; width: 113px; height: 18px; }
+      .privacy h1 { font-size: 2rem; font-weight: 600; color: #000; margin-bottom: 0.5rem; }
+      .privacy__date { font-size: 0.85rem; color: #000; margin-bottom: 3rem; }
+      .privacy h2 { font-size: 1.1rem; font-weight: 600; color: #000; margin: 2.5rem 0 0.75rem; }
+      .privacy p, .privacy li { font-size: 0.95rem; line-height: 1.75; color: #000; }
       .privacy ul { padding-left: 1.25rem; margin: 0.5rem 0; }
       .privacy li { margin-bottom: 0.4rem; }
-      .privacy a { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
-      .privacy__back { display: inline-block; margin-top: 3rem; font-size: 0.85rem; color: #666; text-decoration: none; }
-      .privacy__back:hover { color: #fff; }
+      .privacy a { color: #000; text-decoration: underline; text-underline-offset: 3px; }
+      .privacy__back { display: inline-block; margin-top: 3rem; font-size: 0.85rem; color: #000; text-decoration: none; }
+      .privacy__back:hover { text-decoration: underline; }
     </style>
   </head>
   <body>
     <div class="privacy">
-      <a class="privacy__logo" href="/">
-        <img src="/static/images/hercules-logo.svg" alt="Hercules" width="110" height="18" />
+      <a class="privacy__logo" href="/" aria-label="Hercules">
+        <img src="/static/images/hercules-wordmark.svg" alt="Hercules" />
       </a>
 
       <h1>Privacy Policy</h1>
