@@ -12,6 +12,7 @@ class Subscription(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
     stripe_customer_id = Column(String(100), nullable=False)
     stripe_subscription_id = Column(String(100), nullable=False)
-    status = Column(String(20), default="trialing")  # active, canceled, past_due, trialing
+    status = Column(String(50), default="trialing")  # active, canceled, past_due, trialing
     current_period_end = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
