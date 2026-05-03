@@ -89,3 +89,8 @@ async def cancel(request: Request) -> HTMLResponse:
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "privacy.html")
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "terms.html")
