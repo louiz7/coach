@@ -200,7 +200,7 @@ body {
   justify-content: center;
   gap: 8px;
   height: 45px;
-  padding: 20px;
+  padding: 0 20px;
   border: 1px solid #1174cb;
   border-radius: 10px;
   background: #0057c3;
