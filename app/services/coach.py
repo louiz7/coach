@@ -38,6 +38,27 @@ async def build_system_prompt(
 - Language: {user.language or 'de'}
 """
 
+    # WHOOP biometrics (cached from last webhook)
+    if user.whoop_access_token:
+        whoop_lines = []
+        if user.last_recovery_score is not None:
+            if user.last_recovery_score >= 67:
+                emoji = "🟢"
+            elif user.last_recovery_score >= 34:
+                emoji = "🟡"
+            else:
+                emoji = "🔴"
+            whoop_lines.append(f"- Recovery: {emoji} {user.last_recovery_score}%")
+        if user.last_hrv is not None:
+            whoop_lines.append(f"- HRV: {user.last_hrv:.0f}ms")
+        if user.last_sleep_performance is not None:
+            whoop_lines.append(f"- Sleep performance: {user.last_sleep_performance}%")
+        if whoop_lines:
+            prompt += "\nLATEST WHOOP DATA (use this when the user asks about their data/recovery/sleep):\n"
+            prompt += "\n".join(whoop_lines) + "\n"
+        else:
+            prompt += "\nWHOOP CONNECTED: Yes — but no biometric data cached yet (data arrives via webhooks when user syncs their WHOOP).\n"
+
     # Current training plan
     result = await db.execute(
         select(TrainingPlan)
