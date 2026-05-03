@@ -199,9 +199,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 220px;
   height: 45px;
-  padding: 20px 40px;
+  padding: 20px;
   border: 1px solid #1174cb;
   border-radius: 10px;
   background: #0057c3;
@@ -238,9 +237,9 @@ body {
   margin: 0;
   font-family: "Inter", sans-serif;
   font-weight: 400;
-  font-size: 10px;
+  font-size: 8px;
   line-height: 1.1;
-  letter-spacing: -0.1px;
+  letter-spacing: -0.08px;
   color: rgba(0, 0, 0, 0.5);
   text-align: center;
 }
