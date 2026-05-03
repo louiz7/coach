@@ -109,6 +109,71 @@ async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Option
         return "Failed to generate training plan. Apologize briefly and ask them to try again."
 
 
+async def handle_whoop_data(user: User, text: str, db: AsyncSession) -> Optional[str]:
+    """Fetch live WHOOP recovery/sleep data, refresh cache, return as context."""
+    if not user.whoop_access_token:
+        return "User does not have WHOOP connected. Let them know they can connect it by typing 'connect WHOOP'."
+    try:
+        from app.api.whoop import _ensure_fresh_token
+        from app.services import whoop as whoop_svc
+
+        access_token = await _ensure_fresh_token(user, db)
+        if not access_token:
+            return "WHOOP token could not be refreshed. Tell the user their WHOOP connection needs to be re-authorized."
+
+        lines = []
+
+        # Fetch latest recovery
+        try:
+            rec = await whoop_svc.get_latest_recovery(access_token)
+            if rec:
+                score_data = rec.get("score") or {}
+                rs = score_data.get("recovery_score")
+                hrv = score_data.get("hrv_rmssd_milli")
+                rhr = score_data.get("resting_heart_rate")
+                if rs is not None:
+                    user.last_recovery_score = int(rs)
+                    emoji = "🟢" if rs >= 67 else ("🟡" if rs >= 34 else "🔴")
+                    lines.append(f"Recovery: {emoji} {int(rs)}%")
+                if hrv is not None:
+                    user.last_hrv = float(hrv)
+                    lines.append(f"HRV: {float(hrv):.0f}ms")
+                if rhr is not None:
+                    lines.append(f"Resting HR: {int(rhr)}bpm")
+        except Exception as ex:
+            print(f"[handle_whoop_data recovery ERROR] {ex}")
+
+        # Fetch latest sleep
+        try:
+            from app.services.whoop import get_latest_sleep
+            sleep = await get_latest_sleep(access_token)
+            if sleep:
+                score_data = sleep.get("score") or {}
+                perf = score_data.get("sleep_performance_percentage")
+                total_ms = score_data.get("total_in_bed_time_milli", 0) or 0
+                hours = (total_ms // 1000) // 3600
+                mins = ((total_ms // 1000) % 3600) // 60
+                if perf is not None:
+                    user.last_sleep_performance = int(perf)
+                    lines.append(f"Sleep performance: {int(perf)}% ({hours}h{mins}m)")
+        except Exception as ex:
+            print(f"[handle_whoop_data sleep ERROR] {ex}")
+
+        await db.commit()
+
+        if lines:
+            data_str = ", ".join(lines)
+            return (
+                f"LIVE WHOOP DATA just fetched: {data_str}. "
+                "Use this to give the user a personalised coaching insight about their readiness/recovery. "
+                "Be specific with the numbers."
+            )
+        return "WHOOP connected but no recent data available yet — tell the user to sync their WHOOP device."
+    except Exception as ex:
+        print(f"[handle_whoop_data ERROR] {ex}")
+        return None
+
+
 async def handle_streak_check(user: User, text: str, db: AsyncSession) -> Optional[str]:
     """Look up user's recent activity streak and return as context."""
     try:
@@ -169,6 +234,7 @@ _HANDLER_MAP = {
     "PROGRESS_LOG": handle_progress_log,
     "PLAN_REQUEST": handle_plan_request,
     "STREAK_CHECK": handle_streak_check,
+    "WHOOP_DATA": handle_whoop_data,
 }
 
 

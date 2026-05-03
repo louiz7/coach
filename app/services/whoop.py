@@ -109,6 +109,20 @@ async def get_latest_recovery(access_token: str) -> Optional[dict]:
         return records[0] if records else None
 
 
+async def get_latest_sleep(access_token: str) -> Optional[dict]:
+    """Fetch the most recent sleep record (v2 API)."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{WHOOP_API_BASE}/v2/activity/sleep",
+            params={"limit": 1},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if resp.status_code != 200:
+            return None
+        records = resp.json().get("records", [])
+        return records[0] if records else None
+
+
 async def get_sleep(access_token: str, sleep_id: str) -> Optional[dict]:
     """Fetch a specific sleep record by UUID (v2 API)."""
     async with httpx.AsyncClient() as client:

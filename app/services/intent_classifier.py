@@ -6,6 +6,7 @@ INTENTS = [
     "PROGRESS_LOG",    # User is logging a workout / exercise / weight
     "PLAN_REQUEST",    # User wants a new or modified training plan
     "STREAK_CHECK",    # User asks about their streak / consistency
+    "WHOOP_DATA",      # User asks about their WHOOP / recovery / HRV / sleep data
     "EXERCISE_QUESTION",
     "NUTRITION_QUESTION",
     "GENERAL",
@@ -15,8 +16,9 @@ SYSTEM_PROMPT = (
     "Classify the user message into one OR MORE of these categories. "
     "A message may contain multiple intents (e.g. logging a workout AND asking a question). "
     "Reply with a comma-separated list of matching categories, nothing else. "
-    "Categories: PROGRESS_LOG, PLAN_REQUEST, STREAK_CHECK, EXERCISE_QUESTION, "
+    "Categories: PROGRESS_LOG, PLAN_REQUEST, STREAK_CHECK, WHOOP_DATA, EXERCISE_QUESTION, "
     "NUTRITION_QUESTION, GENERAL\n"
+    "WHOOP_DATA: user asks about recovery score, HRV, sleep, biometric data, WHOOP stats, or how they're feeling based on data.\n"
     "Example: 'PROGRESS_LOG, EXERCISE_QUESTION'"
 )
 
