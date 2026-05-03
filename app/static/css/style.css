@@ -9,7 +9,6 @@
   font-display: swap;
   src: url("../fonts/albertusnovathin.otf") format("opentype");
 }
-
 @font-face {
   font-family: "Albertus Nova";
   font-weight: 300;
@@ -17,7 +16,6 @@
   font-display: swap;
   src: url("../fonts/albertusnovalight.otf") format("opentype");
 }
-
 @font-face {
   font-family: "Albertus Nova";
   font-weight: 400;
@@ -25,7 +23,6 @@
   font-display: swap;
   src: url("../fonts/albertusnova.otf") format("opentype");
 }
-
 @font-face {
   font-family: "Albertus Nova";
   font-weight: 700;
@@ -33,7 +30,6 @@
   font-display: swap;
   src: url("../fonts/albertusnova_bold.otf") format("opentype");
 }
-
 @font-face {
   font-family: "Albertus Nova";
   font-weight: 900;
@@ -55,171 +51,132 @@ body {
 }
 
 body {
-  min-height: 100vh;
-  background: #b9b9b9;
+  background: #f0eee5;
   color: #000;
-  font-family: "Albertus Nova", "Inter", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ---------- Outer frame ---------- */
-.frame {
-  min-height: 100vh;
-  padding: 8px;
-  background: #b9b9b9;
-}
-
-/* ---------- Hero card ---------- */
-.hero {
-  position: relative;
-  width: 100%;
-  height: calc(100vh - 16px);
-  margin: 0 auto;
-  background: #e1e1d9;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.hero__content {
-  position: absolute;
-  top: 90px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(90vw, 712px);
+.page {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(16px, 4vw, 24px);
-  z-index: 2;
-  padding: 0 1rem;
+  width: 100%;
+  max-width: 390px;
+  margin: 0 auto;
 }
 
-/* ---------- Sculptures bottom image ---------- */
-.hero__sculptures {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 1299px;
-  height: 336px;
-  object-fit: cover;
-  object-position: center top;
-  pointer-events: none;
-  user-select: none;
-  z-index: 1;
-  max-width: 150vw;
+/* =========================================================
+   Above the fold
+   ========================================================= */
+.above-fold {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  padding-top: 24px;
+  width: 100%;
+  overflow: hidden;
 }
 
-@media (max-width: 768px) {
-  .hero__sculptures {
-    width: auto;
-    height: 33vh;
-    max-height: none;
-  }
-}
-
-@media (max-width: 768px) and (min-height: 700px) {
-  .hero__sculptures {
-    height: 40vh;
-  }
-}
-
-@media (max-width: 768px) and (min-height: 820px) {
-  .hero__sculptures {
-    height: 50vh;
-  }
-}
-
-/* ---------- Testimonial pill ---------- */
-.pill {
-  background: #fff;
-  border-radius: 1000px;
-  padding: 5px;
-  max-width: min(90vw, 100%);
-}
-
-.pill__inner {
-  position: relative;
+.logo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 10px 10px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.5);
-  border-radius: 1000px;
-  color: #0057c3;
-  font-family: "Albertus Nova", "Inter", sans-serif;
-  font-size: clamp(11px, 2.5vw, 14px);
-  font-style: normal;
-  font-weight: 300;
-  line-height: 1.3;
-  text-align: center;
-  white-space: nowrap;
-  leading-trim: both;
-  text-edge: cap;
+  width: 350px;
+  max-width: 100%;
+  height: 48px;
+  text-decoration: none;
 }
 
-/* Sizer reserves width for the longest message so the pill never reflows.
-   It inherits all pill__inner font styling via the cascade. */
-.pill__sizer {
-  visibility: hidden;
+.logo img {
+  display: block;
+  width: 113px;
+  height: 18px;
 }
 
-.pill__text {
-  position: absolute;
-  top: 12px;
-  right: 10px;
-  bottom: 10px;
-  left: 10px;
+.hero {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  transition: opacity 300ms ease;
+  gap: 24px;
+  padding: 0 20px;
+  width: 100%;
 }
 
-.pill__text.is-fading {
-  opacity: 0;
-}
-
-/* ---------- Headline ---------- */
-.headline {
+.hero__title {
   margin: 0;
-  font-family: "Albertus Nova", "Inter", sans-serif;
+  width: 100%;
+  max-width: 350px;
+  font-family: "Inter", sans-serif;
   font-weight: 700;
-  font-size: clamp(28px, 8vw, 60px);
-  line-height: 1.1;
-  letter-spacing: clamp(-0.3px, -0.5vw, -0.6px);
-  color: #000;
+  font-size: 40px;
+  line-height: 1.2;
+  letter-spacing: -0.4px;
   text-align: center;
+  color: #000;
 }
 
-.headline__accent {
+.hero__title--accent {
   color: #0057c3;
+  font-style: italic;
 }
 
-/* ---------- Subtext ---------- */
-.subtext {
+.hero__subtext {
   margin: 0;
+  width: 100%;
+  max-width: 300px;
   font-family: "Albertus Nova", "Inter", sans-serif;
   font-weight: 300;
-  font-size: clamp(14px, 4vw, 25px);
-  line-height: 1.2;
-  letter-spacing: clamp(-0.1px, -0.2vw, -0.25px);
-  color: rgba(0, 0, 0, 0.5);
+  font-size: 18px;
+  line-height: 1.5;
   text-align: center;
-  white-space: normal;
-  word-wrap: break-word;
+  color: rgba(0, 0, 0, 0.7);
 }
 
-/* ---------- CTA block ---------- */
+/* ---------- Hero phone screenshot ---------- */
+.hero-image {
+  position: relative;
+  width: 100%;
+  max-width: 350px;
+  height: 360px;
+  overflow: hidden;
+}
+
+.hero-image img {
+  position: absolute;
+  top: 0;
+  left: 3.16%;
+  width: 93.69%;
+  height: 187.49%;
+  object-fit: cover;
+  object-position: top;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hero-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(240, 238, 229, 0) 0%,
+    rgba(240, 238, 229, 0) 74.25%,
+    #f0eee5 100%
+  );
+  pointer-events: none;
+}
+
+/* =========================================================
+   CTA (shared between hero + closing)
+   ========================================================= */
 .cta {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  width: 100%;
 }
 
 .cta__button {
@@ -234,18 +191,6 @@ body {
   text-decoration: none;
   color: inherit;
   transition: filter 120ms ease, transform 120ms ease;
-  width: auto;
-  max-width: 100%;
-}
-
-.cta__button::before {
-  content: "";
-  position: absolute;
-  inset: 10px;
-  border: 1px solid #1174cb;
-  border-radius: 10px;
-  box-shadow: inset 0 0 3px 0 rgba(255, 255, 255, 0.9);
-  pointer-events: none;
 }
 
 .cta__button__inner {
@@ -253,13 +198,15 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(10px, 3vw, 15px);
-  width: auto;
-  height: auto;
-  padding: clamp(12px, 3vw, 20px) clamp(20px, 4vw, 40px);
+  gap: 8px;
+  width: 220px;
+  height: 45px;
+  padding: 20px 40px;
+  border: 1px solid #1174cb;
   border-radius: 10px;
+  background: #0057c3;
+  box-shadow: inset 0 0 3px 0 rgba(255, 255, 255, 0.9);
   box-sizing: border-box;
-  flex-wrap: nowrap;
 }
 
 .cta__button:hover {
@@ -271,17 +218,17 @@ body {
 }
 
 .cta__icon {
-  width: clamp(24px, 6vw, 30px);
-  height: clamp(24px, 6vw, 30px);
+  width: 25px;
+  height: 25px;
   object-fit: cover;
-  filter: drop-shadow(0 4px 50px rgba(0, 0, 0, 0.2));
+  filter: drop-shadow(0 4px 25px rgba(0, 0, 0, 0.2));
   flex-shrink: 0;
 }
 
 .cta__label {
   font-family: "Inter", sans-serif;
   font-weight: 600;
-  font-size: clamp(13px, 3vw, 16px);
+  font-size: 16px;
   line-height: 1;
   color: #fff;
   white-space: nowrap;
@@ -291,80 +238,212 @@ body {
   margin: 0;
   font-family: "Inter", sans-serif;
   font-weight: 400;
-  font-size: clamp(8px, 2vw, 10px);
-  line-height: 1.2;
+  font-size: 10px;
+  line-height: 1.1;
   letter-spacing: -0.1px;
   color: rgba(0, 0, 0, 0.5);
   text-align: center;
-  white-space: normal;
-  max-width: 90vw;
 }
 
-/* When the card is clamped at its 600px min (viewport ≤ 616px), adjust spacing */
-@media (max-height: 616px) {
-  .hero__content {
-    gap: 12px;
-  }
+.cta__legal a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
-@media (max-width: 768px) {
-  .pill {
-    width: 240px;
-    max-width: 240px;
-  }
-
-  .pill__inner {
-    display: flex;
-    width: 100%;
-    box-sizing: border-box;
-    color: #0057c3;
-    text-align: center;
-    font-family: "Albertus Nova", "Inter", sans-serif;
-    font-size: 13px;
-    font-style: normal;
-    font-weight: 300;
-    line-height: 130%;
-    white-space: normal;
-  }
-
-  .headline {
-    color: #000;
-    font-size: 30px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: 120%;
-    letter-spacing: -0.3px;
-  }
-
-  .subtext {
-    font-size: 18px;
-    font-style: normal;
-    font-weight: 300;
-    line-height: 110%;
-    letter-spacing: -0.18px;
-  }
-
-  .cta__button__inner {
-    display: flex;
-    width: 270px;
-    height: 50px;
-    padding: 20px 40px;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-  }
-
-  .frame {
-    padding: 4px;
-  }
-
-  .hero {
-    height: calc(100vh - 8px);
-  }
+/* =========================================================
+   Works with WHOOP
+   ========================================================= */
+.works-with {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 20px;
+  width: 100%;
 }
 
-@media (max-width: 480px) {
-  .hero {
-    border-radius: 6px;
+.works-with__heading {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.3;
+  letter-spacing: -0.24px;
+  text-align: center;
+  color: #000;
+  white-space: nowrap;
+}
+
+.works-with__card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: #000;
+  border-radius: 10px;
+}
+
+.works-with__logo {
+  display: block;
+  width: 100px;
+  height: 16px;
+}
+
+/* =========================================================
+   Features section
+   ========================================================= */
+.features {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  padding: 32px 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.features__heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.features__title {
+  margin: 0;
+  width: 100%;
+  max-width: 350px;
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 1.3;
+  letter-spacing: -0.32px;
+  color: #000;
+}
+
+.features__subtext {
+  margin: 0;
+  width: 100%;
+  max-width: 300px;
+  font-family: "Albertus Nova", "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 18px;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* =========================================================
+   Feature card component
+   ========================================================= */
+.feature-card {
+  background: #fff;
+  border-radius: 30px;
+  padding: 5px;
+  width: 350px;
+  max-width: calc(100% - 40px);
+}
+
+.feature-card__inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 640px;
+  padding: 35px 35px 0;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 25px;
+  overflow: hidden;
+}
+
+.feature-card__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 270px;
+  max-width: 100%;
+}
+
+.feature-card__title {
+  margin: 0;
+  width: 220px;
+  max-width: 100%;
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+  color: #000;
+}
+
+.feature-card__body {
+  margin: 0;
+  width: 260px;
+  max-width: 100%;
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.5;
+  letter-spacing: -0.18px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.feature-card__image {
+  position: relative;
+  width: 270px;
+  max-width: 100%;
+  height: 400px;
+  overflow: hidden;
+}
+
+.feature-card__image img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 138.94%;
+  object-fit: cover;
+  object-position: top;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* =========================================================
+   Closing CTA
+   ========================================================= */
+.closing-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 32px 20px;
+  width: 100%;
+  min-height: 400px;
+  text-align: center;
+}
+
+.closing-cta__title {
+  margin: 0;
+  width: 100%;
+  max-width: 350px;
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1.2;
+  letter-spacing: -0.4px;
+  text-align: center;
+  color: #000;
+}
+
+/* =========================================================
+   Wider viewports — keep mobile-frame look but center it
+   ========================================================= */
+@media (min-width: 391px) {
+  .page {
+    max-width: 390px;
   }
 }
