@@ -15,8 +15,34 @@ from app.services.training_plan import generate_plan, chunk_plan_text
 from app.redis import redis_pool
 
 
-# Modification verbs/phrases — when the user has an active plan AND their
-# message contains one of these, we treat the request as a modification.
+# When user says they feel bad/tired and want today lighter — handle as today view + coach tip, NOT a plan modification
+_TODAY_ONLY_PATTERNS = (
+    "heute", "today", "this session", "diese einheit", "jetzt", "right now",
+    "for today", "für heute", "today only", "nur heute",
+)
+
+# Day name overrides — if user specifies a day explicitly
+_DAY_NAMES = {
+    "monday": "Monday", "montag": "Monday",
+    "tuesday": "Tuesday", "dienstag": "Tuesday",
+    "wednesday": "Wednesday", "mittwoch": "Wednesday",
+    "thursday": "Thursday", "donnerstag": "Thursday",
+    "friday": "Friday", "freitag": "Friday",
+    "saturday": "Saturday", "samstag": "Saturday",
+    "sunday": "Sunday", "sonntag": "Sunday",
+}
+
+
+def _extract_day_from_text(text: str):
+    """Return explicit day name mentioned in text, or None."""
+    t = text.lower()
+    for key, val in _DAY_NAMES.items():
+        if key in t:
+            return val
+    return None
+
+
+# Modification verbs/phrases — permanent plan changes (only when no today-only qualifier)
 _MODIFICATION_KEYWORDS = (
     "swap", "replace", "change", "remove", "add", "drop", "skip",
     "make it", "instead of", "more", "less", "fewer", "shorter", "longer",
@@ -85,13 +111,25 @@ async def handle_progress_log(user: User, text: str, db: AsyncSession) -> Option
 async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Optional[str]:
     """Smart plan handler:
 
-    - Modification request (swap/change/add/…)  → generate new plan, send full
-    - Explicit full-plan request ("send full plan", "whole week", …) → send full
-    - Anything else ("what's my workout today?", "show me today", …) → send
-      only today's workout from the existing plan, or generate fresh if none exists.
+    - Modification request (swap/change/add/…) WITHOUT a today-only qualifier  → generate new plan, send full
+    - Explicit full-plan request (“send full plan”, “whole week”, …) → send full
+    - Anything else ("what’s my workout today?", "show me today", …) → send
+      only today’s workout from the existing plan, or generate fresh if none exists.
     """
     import asyncio as _aio
+    from datetime import datetime
     from app.services.training_plan import render_today_workout, _get_active_plan
+
+    text_lower = (text or "").lower()
+    wants_full = any(kw in text_lower for kw in _FULL_PLAN_KEYWORDS)
+    is_today_only = any(p in text_lower for p in _TODAY_ONLY_PATTERNS)
+    is_modification = (
+        any(kw in text_lower for kw in _MODIFICATION_KEYWORDS)
+        and not is_today_only  # "mach es heute weniger intensiv" is NOT a plan mod
+    )
+    # Explicit day mentioned by user (e.g. "Nein für heute (Montag)")
+    explicit_day = _extract_day_from_text(text)
+    today_weekday = explicit_day or datetime.now().strftime("%A")
 
     text_lower = (text or "").lower()
     wants_full = any(kw in text_lower for kw in _FULL_PLAN_KEYWORDS)
@@ -134,7 +172,7 @@ async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Option
                 "Acknowledge briefly and invite them to tweak anything. Do NOT repeat the plan."
             )
 
-        today_msg = render_today_workout(active_plan.plan_json)
+        today_msg = render_today_workout(active_plan.plan_json, weekday=today_weekday)
         if user.linq_chat_id and today_msg:
             await linq.send_message(user.linq_chat_id, today_msg)
             await add_message(user.id, "assistant", today_msg, db)

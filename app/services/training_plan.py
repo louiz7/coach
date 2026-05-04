@@ -207,10 +207,10 @@ def get_workout_for_today(plan_json: dict, weekday_name: str) -> Optional[dict]:
     return None
 
 
-def render_today_workout(plan_json: dict) -> Optional[str]:
+def render_today_workout(plan_json: dict, weekday: str = None) -> Optional[str]:
     """Return a formatted iMessage-ready string for today's workout, or None on rest day."""
     from datetime import datetime
-    weekday = datetime.now().strftime("%A")  # e.g. "Monday"
+    weekday = weekday or datetime.now().strftime("%A")  # e.g. "Monday"
     day = get_workout_for_today(plan_json, weekday)
     if not day:
         return None
