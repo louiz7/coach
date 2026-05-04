@@ -33,7 +33,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
-from app.database import AsyncSessionLocal
+from app.database import async_session
 from app.services.research_rag import embed_and_store_paper
 
 
@@ -148,7 +148,7 @@ async def ingest(papers_dir: Path, force: bool) -> None:
         if not files:
             continue
 
-        async with AsyncSessionLocal() as db:
+        async with async_session() as db:
             for path in files:
                 try:
                     title, source, body = _parse_paper(path)
