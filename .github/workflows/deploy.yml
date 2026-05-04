@@ -18,3 +18,4 @@ jobs:
             docker compose up -d --build
             sleep 5
             docker compose exec -T api alembic upgrade head
+            docker compose exec -T api python -m scripts.ingest_papers

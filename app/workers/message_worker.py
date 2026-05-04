@@ -157,7 +157,9 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             return
 
         # Build context
-        system_prompt = await build_system_prompt(user, persona, db, user_message=text)
+        system_prompt = await build_system_prompt(
+            user, persona, db, user_message=text, intents=intents
+        )
         if handler_context:
             system_prompt += f"\nCONTEXT:\n{handler_context}\n"
 

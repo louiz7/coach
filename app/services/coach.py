@@ -17,10 +17,12 @@ async def build_system_prompt(
     persona: CoachPersona,
     db: AsyncSession,
     user_message: Optional[str] = None,
+    intents: Optional[list[str]] = None,
 ) -> str:
     """Build the full system prompt with user context."""
     from app.services.fitness_profile import get_or_create_profile, format_profile_for_prompt
     from app.services.memory_search import search_memories, format_memories_for_prompt
+    from app.services.research_rag import search_research, format_research_for_prompt
 
     # Base persona prompt
     prompt = persona.system_prompt + "\n\n"
@@ -86,6 +88,29 @@ async def build_system_prompt(
                 prompt += "\n" + mem_str + "\n"
         except Exception as e:
             print(f"[build_system_prompt memory ERROR] {e}")
+
+    # Scientific RAG — only on EXERCISE_QUESTION / NUTRITION_QUESTION to keep
+    # token cost minimal. ~3 chunks × ~400 words ≈ 600-900 tokens injected.
+    if user_message and intents:
+        rag_intents = {"EXERCISE_QUESTION", "NUTRITION_QUESTION"}
+        if rag_intents.intersection(intents):
+            try:
+                # Categories are topic-based (mechanisms_hypertrophy,
+                # rt_prescription, …, protein_intake). Pure nutrition asks
+                # are best served by the protein_intake corpus; exercise
+                # asks should search across all training-related corpora.
+                # Letting cosine similarity decide is robust → no hint.
+                category_hint = None
+                if "NUTRITION_QUESTION" in intents and "EXERCISE_QUESTION" not in intents:
+                    category_hint = "protein_intake"
+                research = await search_research(
+                    user_message, db, category_hint=category_hint, top_k=3
+                )
+                rag_str = format_research_for_prompt(research)
+                if rag_str:
+                    prompt += "\n" + rag_str + "\n"
+            except Exception as e:
+                print(f"[build_system_prompt research ERROR] {e}")
     # Rules
     prompt += """
 RULES:
