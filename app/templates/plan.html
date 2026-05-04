@@ -177,6 +177,42 @@
       td.numeric { color: var(--text-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
       td.notes { color: var(--text-dim); font-size: 13px; line-height: 1.45; }
 
+      /* ---------- Copy button ---------- */
+      .exercise-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .copy-btn {
+        flex: 0 0 auto;
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-faint);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: all 120ms ease;
+      }
+      .copy-btn:hover {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: rgba(0, 87, 195, 0.06);
+      }
+      .copy-btn svg { width: 14px; height: 14px; }
+      .copy-btn.copied {
+        color: #fff;
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .copy-btn .check { display: none; }
+      .copy-btn.copied .check { display: block; }
+      .copy-btn.copied .copy { display: none; }
+
       /* ---------- Progression ---------- */
       .progression {
         background: var(--panel-2);
@@ -347,7 +383,7 @@
           <div class="form-check__icon" aria-hidden="true">?</div>
           <div class="form-check__body">
             <strong>Not sure how an exercise is performed?</strong>
-            Look it up on
+            Tap the copy icon next to any exercise and paste the name into
             <a href="https://musclewiki.com/" target="_blank" rel="noopener noreferrer">musclewiki.com</a>
             for video demos and form cues. Form first — load second.
           </div>
@@ -374,7 +410,15 @@
               <tbody>
                 {% for ex in day.exercises %}
                   <tr>
-                    <td class="exercise">{{ ex.name }}</td>
+                    <td class="exercise">
+                      <span class="exercise-cell">
+                        <button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy="{{ ex.name }}">
+                          <svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <span>{{ ex.name }}</span>
+                      </span>
+                    </td>
                     <td class="numeric">
                       {{ ex.sets }}×{{ ex.reps }}{% if ex.rpe %} @RPE{{ ex.rpe }}{% endif %}
                     </td>
@@ -409,5 +453,35 @@
         </p>
       {% endif %}
     </main>
+    <script>
+      (function () {
+        document.addEventListener('click', function (e) {
+          var btn = e.target.closest('.copy-btn');
+          if (!btn) return;
+          var text = btn.getAttribute('data-copy') || '';
+          var done = function () {
+            btn.classList.add('copied');
+            setTimeout(function () { btn.classList.remove('copied'); }, 1200);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(function () {
+              fallbackCopy(text); done();
+            });
+          } else {
+            fallbackCopy(text); done();
+          }
+        });
+        function fallbackCopy(text) {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta);
+        }
+      })();
+    </script>
   </body>
 </html>
