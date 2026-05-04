@@ -2,6 +2,12 @@ name: Deploy
 on:
   push:
     branches: [main]
+
+# Only one deploy at a time. Newer pushes cancel older in-flight runs.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
