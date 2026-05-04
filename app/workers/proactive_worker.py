@@ -11,6 +11,10 @@ from app.services.proactive import get_idle_users, send_checkin
 # to a Redis dedup key (whoop:morning_sent:{user_id}:{YYYY-MM-DD}).
 _MORNING_HOUR = 8
 
+# Hour at which the evening check-in is sent (local time).
+# Skipped if the user already logged progress today.
+_EVENING_HOUR = 20
+
 
 async def run_proactive_checkins():
     """Run proactive check-ins for idle users. Called by scheduler."""
@@ -263,6 +267,10 @@ async def morning_whoop_task(ctx):
     await run_morning_brief()
 
 
+async def evening_checkin_task(ctx):
+    await run_evening_checkin()
+
+
 async def weekly_coach_notes_task(ctx):
     """Sunday midnight: enrich coach_notes for active users via gpt-4o-mini."""
     from sqlalchemy import select
@@ -289,8 +297,169 @@ async def weekly_coach_notes_task(ctx):
         await asyncio.sleep(1.0)
 
 
+async def run_evening_checkin():
+    """Evening check-in at 8 PM local time.
+
+    - Asks how the workout went if today was a training day.
+    - Prompts to log progress if no progress_entry exists for today.
+    - Skipped entirely if user already messaged us in the past 2 hours
+      (they're active — no need to interrupt).
+    - Redis dedup key: evening_sent:{user_id}:{YYYY-MM-DD}
+    """
+    from sqlalchemy import select, func
+    from app.models.user import User
+    from app.models.progress_entry import ProgressEntry
+    from app.redis import redis_pool
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(User).where(
+                User.onboarding_complete == True,
+                User.linq_chat_id.isnot(None),
+            )
+        )
+        users = list(result.scalars().all())
+
+    for user in users:
+        try:
+            tz_name = user.timezone or "Europe/Berlin"
+            try:
+                tz = ZoneInfo(tz_name)
+            except ZoneInfoNotFoundError:
+                tz = ZoneInfo("Europe/Berlin")
+
+            local_now = datetime.now(tz)
+            if local_now.hour != _EVENING_HOUR:
+                continue
+
+            today_key = f"evening_sent:{user.id}:{local_now.strftime('%Y-%m-%d')}"
+            if await redis_pool.get(today_key):
+                continue
+
+            async with async_session() as db:
+                await _send_evening_checkin(user, db, today_key, local_now)
+
+        except Exception as e:
+            print(f"[evening_checkin] failed for {user.id}: {e}")
+        await asyncio.sleep(0.5)
+
+
+async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -> None:
+    from sqlalchemy import select, func
+    from app.models.progress_entry import ProgressEntry
+    from app.models.training_plan import TrainingPlan
+    from app.models.message import Message
+    from app.services.training_plan import get_workout_for_today
+    from app.services import linq as linq_svc
+    from app.services.memory import add_message
+    from app.redis import redis_pool
+    from app.config import settings as cfg
+    from openai import AsyncOpenAI
+
+    today_str = local_now.strftime("%Y-%m-%d")
+    weekday = local_now.strftime("%A")
+
+    # Skip if user was active in the last 2 hours (they're already chatting)
+    recent_msg = await db.execute(
+        select(func.max(Message.created_at))
+        .where(Message.user_id == user.id, Message.role == "user")
+    )
+    last_msg_at = recent_msg.scalar_one_or_none()
+    if last_msg_at:
+        diff = (local_now.replace(tzinfo=None) - last_msg_at).total_seconds()
+        if diff < 7200:  # active within 2h — skip
+            await redis_pool.set(dedup_key, "1", ex=86400)
+            return
+
+    # Check if user already logged progress today
+    logged_today = await db.execute(
+        select(func.count(ProgressEntry.id))
+        .where(
+            ProgressEntry.user_id == user.id,
+            func.date(ProgressEntry.created_at) == today_str,
+        )
+    )
+    has_log = (logged_today.scalar_one() or 0) > 0
+
+    # Get today's planned workout (so we know if it was a training day)
+    plan_result = await db.execute(
+        select(TrainingPlan)
+        .where(TrainingPlan.user_id == user.id, TrainingPlan.is_current == True)
+    )
+    active_plan = plan_result.scalars().first()
+    today_workout = None
+    if active_plan and active_plan.plan_json:
+        today_workout = get_workout_for_today(active_plan.plan_json, weekday)
+
+    is_training_day = today_workout is not None
+
+    # Build the prompt
+    user_ctx = (
+        f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'} | "
+        f"Coach style: {user.coach_style or 'direct'}"
+    )
+
+    if is_training_day and not has_log:
+        task = (
+            f"Today was a {weekday} training day ({today_workout.get('focus', 'workout')}). "
+            "The athlete has NOT logged their workout yet. "
+            "Write a short evening check-in (2-3 sentences max): "
+            "ask how the session went, and nudge them to log it "
+            "(e.g. 'just drop a quick note — what you lifted, how it felt'). "
+            "Keep it casual, like a text from a coach. No markdown."
+        )
+    elif is_training_day and has_log:
+        task = (
+            f"Today was a {weekday} training day and the athlete already logged their workout. "
+            "Write a short encouraging evening message (1-2 sentences): "
+            "acknowledge they got it done and say something motivating about consistency. "
+            "No markdown. No questions."
+        )
+    elif not is_training_day and not has_log:
+        # Rest day — short recovery tip, no log nudge
+        task = (
+            "Today is a rest day. Write a very short message (1-2 sentences) "
+            "reminding them rest is part of the plan and giving one recovery tip "
+            "(sleep, nutrition, mobility). No markdown."
+        )
+    else:
+        # Rest day but they logged something (extra activity) — acknowledge
+        task = (
+            "Today was a rest day but the athlete logged some activity. "
+            "Write 1-2 sentences acknowledging it positively without overdoing it. No markdown."
+        )
+
+    prompt = (
+        f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+        f"{user_ctx}\n\n"
+        f"{task}"
+    )
+
+    try:
+        client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=120,
+            temperature=0.8,
+        )
+        message = response.choices[0].message.content.strip()
+    except Exception as ex:
+        print(f"[evening_checkin] LLM failed for {user.name}: {ex}")
+        return
+
+    if user.linq_chat_id:
+        await linq_svc.send_message(user.linq_chat_id, message)
+        try:
+            await add_message(user.id, "assistant", message, db)
+        except Exception:
+            pass
+        print(f"[evening_checkin] sent to {user.name} (training_day={is_training_day}, logged={has_log})")
+
+    await redis_pool.set(dedup_key, "1", ex=86400)
+
+
 def _build_redis_settings():
-    import os
     from arq.connections import RedisSettings
     redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
     print(f"[arq worker] REDIS_URL = {redis_url}", flush=True)
@@ -303,7 +472,7 @@ _redis_settings = _build_redis_settings()
 
 
 class WorkerSettings:
-    functions = [proactive_task, morning_whoop_task, weekly_coach_notes_task]
+    functions = [proactive_task, morning_whoop_task, evening_checkin_task, weekly_coach_notes_task]
     cron_jobs = [
         # Proactive idle-user pings stay disabled for now (too chatty pre-beta).
         # cron(proactive_task, minute={0, 30}),
@@ -313,6 +482,7 @@ class WorkerSettings:
         # _send_morning_brief. The local-hour filter (==8) gives us a 1-hour
         # window for the cron to land on each user's tz.
         cron(morning_whoop_task, minute={0, 30}),
+        cron(evening_checkin_task, minute={0, 30}),
         cron(weekly_coach_notes_task, weekday=6, hour=0, minute=0),   # Sunday 00:00 UTC (no user-facing messages)
     ]
     redis_settings = _redis_settings
