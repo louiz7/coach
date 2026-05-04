@@ -23,6 +23,14 @@ _MODIFICATION_KEYWORDS = (
     "harder", "easier", "tweak", "adjust", "modify", "update",
 )
 
+# When ANY of these appear the user explicitly wants the whole weekly plan.
+_FULL_PLAN_KEYWORDS = (
+    "full plan", "whole plan", "entire plan", "all days", "weekly plan",
+    "whole week", "all workouts", "show me the plan", "send the plan",
+    "send me the plan", "complete plan", "full week", "den ganzen plan",
+    "gesamten plan", "ganzen plan", "alle tage", "ganze woche",
+)
+
 
 
 # ---------------------------------------------------------------------------
@@ -75,38 +83,75 @@ async def handle_progress_log(user: User, text: str, db: AsyncSession) -> Option
 
 
 async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Optional[str]:
-    """Generate or modify the training plan AND send it to the user via iMessage.
+    """Smart plan handler:
 
-    The full plan text is sent in chunks directly from this handler — the
-    main LLM reply afterwards just acknowledges it (using the returned context).
+    - Modification request (swap/change/add/…)  → generate new plan, send full
+    - Explicit full-plan request ("send full plan", "whole week", …) → send full
+    - Anything else ("what's my workout today?", "show me today", …) → send
+      only today's workout from the existing plan, or generate fresh if none exists.
     """
+    import asyncio as _aio
+    from app.services.training_plan import render_today_workout, _get_active_plan
+
+    text_lower = (text or "").lower()
+    wants_full = any(kw in text_lower for kw in _FULL_PLAN_KEYWORDS)
+    is_modification = any(kw in text_lower for kw in _MODIFICATION_KEYWORDS)
+
     try:
-        plan = await generate_plan(user, db, user_request=text)
+        # ── Path 1: modification or explicit full-plan request ──────────────
+        if is_modification or wants_full:
+            plan = await generate_plan(user, db, user_request=text) if is_modification else await _get_active_plan(user, db)
+            # If no plan yet, generate one
+            if plan is None:
+                plan = await generate_plan(user, db, user_request=text)
+            if user.linq_chat_id and plan.raw_text:
+                chunks = chunk_plan_text(plan.raw_text)
+                for i, chunk in enumerate(chunks):
+                    if i > 0:
+                        await _aio.sleep(0.6)
+                    await linq.send_message(user.linq_chat_id, chunk)
+                    await add_message(user.id, "assistant", chunk, db)
+            verb = "updated" if is_modification else "sent"
+            return (
+                f"The full training plan was just {verb} to the user as a separate message. "
+                "Acknowledge it in 1 short sentence and invite tweaks. Do NOT repeat the plan."
+            )
 
-        # Send the full plan to the user as iMessage chunks (skip if no chat_id)
-        if user.linq_chat_id and plan.raw_text:
-            chunks = chunk_plan_text(plan.raw_text)
-            import asyncio as _aio
-            for i, chunk in enumerate(chunks):
-                if i > 0:
-                    await _aio.sleep(0.6)
-                await linq.send_message(user.linq_chat_id, chunk)
-                await add_message(user.id, "assistant", chunk, db)
+        # ── Path 2: today's workout ─────────────────────────────────────────
+        active_plan = await _get_active_plan(user, db)
+        if active_plan is None:
+            # No plan exists yet — generate and send full
+            plan = await generate_plan(user, db, user_request=text)
+            if user.linq_chat_id and plan.raw_text:
+                chunks = chunk_plan_text(plan.raw_text)
+                for i, chunk in enumerate(chunks):
+                    if i > 0:
+                        await _aio.sleep(0.6)
+                    await linq.send_message(user.linq_chat_id, chunk)
+                    await add_message(user.id, "assistant", chunk, db)
+            return (
+                "A fresh training plan was just created and sent to the user. "
+                "Acknowledge briefly and invite them to tweak anything. Do NOT repeat the plan."
+            )
 
-        # Decide whether this was a creation or modification (best-effort
-        # signal for the follow-up LLM acknowledgment)
-        text_lower = (text or "").lower()
-        is_modification = any(kw in text_lower for kw in _MODIFICATION_KEYWORDS)
-        verb = "updated" if is_modification else "ready"
+        today_msg = render_today_workout(active_plan.plan_json)
+        if user.linq_chat_id and today_msg:
+            await linq.send_message(user.linq_chat_id, today_msg)
+            await add_message(user.id, "assistant", today_msg, db)
+            return (
+                "Today's workout was just sent to the user as a separate message. "
+                "Acknowledge in 1 short sentence. Mention they can ask for the full weekly plan anytime. "
+                "Do NOT repeat the exercises."
+            )
+        # Rest day
         return (
-            f"The training plan was just {verb} and sent to the user as a "
-            "separate message. In your reply, briefly acknowledge it in 1 "
-            "short sentence and invite them to tell you if they want to tweak anything. "
-            "Do NOT repeat the plan."
+            "The user has a rest day today per their plan. "
+            "Acknowledge it and give one short recovery tip."
         )
+
     except Exception as ex:
         print(f"[handle_plan_request ERROR] {ex}")
-        return "Failed to generate training plan. Apologize briefly and ask them to try again."
+        return "Failed to retrieve training plan. Apologize briefly and ask them to try again."
 
 
 async def handle_whoop_data(user: User, text: str, db: AsyncSession) -> Optional[str]:

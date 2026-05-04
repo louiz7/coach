@@ -207,6 +207,28 @@ def get_workout_for_today(plan_json: dict, weekday_name: str) -> Optional[dict]:
     return None
 
 
+def render_today_workout(plan_json: dict) -> Optional[str]:
+    """Return a formatted iMessage-ready string for today's workout, or None on rest day."""
+    from datetime import datetime
+    weekday = datetime.now().strftime("%A")  # e.g. "Monday"
+    day = get_workout_for_today(plan_json, weekday)
+    if not day:
+        return None
+    focus = day.get("focus", "")
+    header = f"📅 {weekday}{(' — ' + focus) if focus else ''}"
+    lines = [header]
+    for ex in day.get("exercises", []):
+        line = f"  • {ex.get('name', '')}: {ex.get('sets', '?')}x{ex.get('reps', '?')}"
+        if ex.get("rpe"):
+            line += f" @RPE{ex['rpe']}"
+        if ex.get("rest_seconds"):
+            line += f" ({ex['rest_seconds']}s rest)"
+        if ex.get("notes"):
+            line += f" — {ex['notes']}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def chunk_plan_text(text: str, max_len: int = 800) -> list[str]:
     """Split a plan's raw_text into iMessage-friendly chunks at day boundaries."""
     if len(text) <= max_len:
