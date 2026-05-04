@@ -20,9 +20,18 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 30m
           script: |
+            set -e
             cd /root/coach
             git pull origin main
-            docker compose up -d --build
-            sleep 5
+
+            # Clean up any orphaned/half-recreated containers from a previous
+            # cancelled deploy so `up -d --build` doesn't hit name conflicts.
+            docker compose rm -fsv 2>/dev/null || true
+            for c in coach-api-1 coach-worker-1 coach-db-1 coach-redis-1; do
+              docker rm -f "$c" 2>/dev/null || true
+            done
+
+            docker compose up -d --build --remove-orphans
+            sleep 8
             docker compose exec -T api alembic upgrade head
-            docker compose exec -T api python -m scripts.ingest_papers
+            docker compose ps
