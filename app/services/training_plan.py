@@ -6,6 +6,7 @@
 - If the user already has an active plan, the LLM is instructed to preserve
   what works and only patch what the user asked to change.
 """
+import asyncio
 import json
 from typing import Optional
 
@@ -16,6 +17,84 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.training_plan import TrainingPlan
 from app.models.user import User
+from app.services.research_rag import search_research, format_research_for_prompt
+
+
+# Categories to pull from research_chunks when generating plans.
+# rt_prescription = sets/reps/intensity prescription
+# frequency_load_tempo_rest_failure = frequency, load, RPE, rest, failure
+# mechanisms_hypertrophy = useful when goal involves muscle gain
+_PLAN_RESEARCH_CATEGORIES = (
+    "rt_prescription",
+    "frequency_load_tempo_rest_failure",
+    "mechanisms_hypertrophy",
+)
+
+
+def _build_research_queries(user: User, request_text: Optional[str]) -> list[tuple[str, Optional[str]]]:
+    """Build (query, category_hint) tuples to pull diverse, relevant research."""
+    goal = (user.goal or "general fitness").strip()
+    sports = (user.sports_focus or "").strip()
+    intensity = (user.coach_intensity or "moderate").strip()
+    freq = user.training_frequency or 3
+
+    q_prescription = (
+        f"Optimal sets, reps, and RPE prescription for {goal}. "
+        f"Training frequency {freq}x per week. "
+        f"Intensity preference: {intensity}."
+    )
+    q_load = (
+        f"Load, rest periods, and proximity to failure for {goal}"
+        + (f" while focusing on {sports}" if sports else "")
+        + "."
+    )
+    queries: list[tuple[str, Optional[str]]] = [
+        (q_prescription, "rt_prescription"),
+        (q_load, "frequency_load_tempo_rest_failure"),
+    ]
+    # If hypertrophy-related goal, also pull mechanism evidence
+    goal_lower = goal.lower()
+    if any(k in goal_lower for k in ("muscle", "hyper", "mass", "size", "build", "strength")):
+        queries.append((f"Mechanisms driving hypertrophy and progressive overload for {goal}.", "mechanisms_hypertrophy"))
+    # If user typed a free-text request (mod or preference), also search broad
+    if request_text:
+        queries.append((request_text, None))
+    return queries
+
+
+async def _gather_research_for_plan(
+    user: User,
+    request_text: Optional[str],
+    db: AsyncSession,
+    per_query_top_k: int = 2,
+    overall_cap: int = 6,
+) -> str:
+    """Run research queries in parallel, dedupe, format for prompt."""
+    queries = _build_research_queries(user, request_text)
+    try:
+        results = await asyncio.gather(
+            *[search_research(q, db, category_hint=cat, top_k=per_query_top_k) for q, cat in queries],
+            return_exceptions=True,
+        )
+    except Exception as e:
+        print(f"[_gather_research_for_plan ERROR] {e}")
+        return ""
+
+    seen: set[tuple[str, str]] = set()
+    merged: list[dict] = []
+    for res in results:
+        if isinstance(res, Exception) or not res:
+            continue
+        for chunk in res:
+            key = (chunk.get("title", ""), chunk.get("chunk_text", "")[:80])
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(chunk)
+    # Sort by similarity desc, cap
+    merged.sort(key=lambda c: c.get("sim", 0), reverse=True)
+    merged = merged[:overall_cap]
+    return format_research_for_prompt(merged)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -56,6 +135,8 @@ def _render_plan_text(plan_data: dict) -> str:
         lines.append(header)
         for ex in day.get("exercises", []):
             line = f"  • {ex.get('name', '')}: {ex.get('sets', '?')}x{ex.get('reps', '?')}"
+            if ex.get("rpe"):
+                line += f" @RPE{ex['rpe']}"
             if ex.get("rest_seconds"):
                 line += f" ({ex['rest_seconds']}s rest)"
             if ex.get("notes"):
@@ -108,11 +189,28 @@ async def generate_plan(
     profile = _profile_string(user)
     freq = user.training_frequency or 3
 
+    # Pull scientific research relevant to this user's goal/intensity/sports
+    research_block = await _gather_research_for_plan(user, request_text, db)
+
     system_msg = (
         "You are a world-class fitness coach generating a structured weekly "
-        "training plan. Output ONLY valid JSON, nothing else.\n\n"
+        "training plan grounded in current sport-science research. "
+        "Output ONLY valid JSON, nothing else.\n\n"
         f"USER PROFILE: {profile}\n\n"
     )
+
+    if research_block:
+        system_msg += research_block + "\n\n"
+        system_msg += (
+            "Use the SCIENTIFIC CONTEXT above to ground your decisions on:\n"
+            "• exercise SELECTION (compound vs isolation, technique cues)\n"
+            "• REP RANGES (e.g. ~5-8 for strength, ~6-12 for hypertrophy, ~12-20 for endurance)\n"
+            "• SET VOLUME per muscle group per week\n"
+            "• REST periods between sets\n"
+            "• RPE / proximity to failure (most working sets RPE 7-9; reserve RPE 9-10 for top sets)\n"
+            "• weekly FREQUENCY per muscle group\n"
+            "Apply the evidence — don't quote it.\n\n"
+        )
 
     if is_modification:
         try:
@@ -135,18 +233,19 @@ async def generate_plan(
     system_msg += (
         "OUTPUT FORMAT (strict JSON):\n"
         '{"days":[{"day":"Monday","focus":"Push (Chest/Shoulders/Triceps)",'
-        '"exercises":[{"name":"Bench Press","sets":4,"reps":"8-10",'
-        '"rest_seconds":90,"notes":"Controlled tempo"}]}]}\n\n'
+        '"exercises":[{"name":"Bench Press","sets":4,"reps":"8-10","rpe":8,'
+        '"rest_seconds":120,"notes":"Controlled tempo, 2s eccentric"}]}],'
+        '"progression_tips":["..."],"motivational_note":"..."}\n\n'
         "PLAN REQUIREMENTS:\n"
         f"- Exactly {freq} training days per week (rest days not included).\n"
         "- Total ~1200-1500 words when rendered.\n"
         "- Each day has a clear focus and 5-7 exercises.\n"
-        "- Exercise format: {name} {sets}x{reps} @ RPE {rpe}, {rest_seconds}s rest.\n"
+        "- EVERY exercise MUST include: name, sets (int), reps (string like '8-10'), rpe (int 6-10), rest_seconds (int), notes.\n"
+        "- Choose RPE based on the research above: compound lifts top sets RPE 8-9, accessory work RPE 7-8.\n"
         "- Include 1-2 progression tips per week (e.g. 'Week 3: add 2-3 reps to top sets').\n"
         "- Add 1 motivational closing line (e.g. 'Trust the process — consistency wins').\n"
         "- Tailor volume and intensity to the user's goal and intensity preference.\n"
         "- Match exercise selection to their sports focus.\n"
-        "- Be specific with rep ranges and rest times.\n"
         "- Use English day names (Monday–Sunday).\n"
         "- Do NOT include macros, stretches, or theory — just the workout structure.\n"
         "- Return ONLY the JSON object — no prose, no code fences."
