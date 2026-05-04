@@ -72,6 +72,7 @@ class User(Base):
     timezone = Column(String(50), default="Europe/Berlin", nullable=True)
     is_active = Column(Boolean, default=True)
     language = Column(String(5), default="de")
+    plan_sent_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     persona = relationship("CoachPersona")

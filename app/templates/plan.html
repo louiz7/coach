@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hercules — Your Plan</title>
+    <link rel="icon" type="image/png" href="/static/images/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/style.css" />
+    {% include "_analytics.html" %}
+    <style>
+      :root {
+        --bg: #0b0b0c;
+        --panel: #141416;
+        --panel-2: #1c1c1f;
+        --border: #26262a;
+        --text: #f5f5f5;
+        --text-dim: #9c9ca1;
+        --accent: #ff5b1f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        min-height: 100vh;
+        padding: 24px 16px 80px;
+      }
+      .plan-page {
+        max-width: 880px;
+        margin: 0 auto;
+      }
+      .plan-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 28px;
+      }
+      .plan-header img { height: 22px; }
+      .plan-header .athlete {
+        font-size: 14px;
+        color: var(--text-dim);
+      }
+      .plan-title {
+        font-size: 28px;
+        font-weight: 700;
+        margin: 0 0 8px;
+        letter-spacing: -0.02em;
+      }
+      .plan-sub {
+        color: var(--text-dim);
+        font-size: 15px;
+        margin: 0 0 32px;
+      }
+      .day-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin-bottom: 16px;
+      }
+      .day-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .day-name {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+      }
+      .day-focus {
+        font-size: 13px;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th, td {
+        text-align: left;
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      th {
+        color: var(--text-dim);
+        font-weight: 500;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      tr:last-child td { border-bottom: none; }
+      td.exercise { font-weight: 500; }
+      td.numeric { color: var(--text-dim); white-space: nowrap; }
+      td.notes { color: var(--text-dim); font-size: 13px; }
+
+      .progression {
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin-top: 24px;
+      }
+      .progression h3 {
+        margin: 0 0 12px;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-dim);
+      }
+      .progression ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .progression li {
+        margin-bottom: 6px;
+        font-size: 14px;
+      }
+      .motivation {
+        margin-top: 28px;
+        text-align: center;
+        font-size: 16px;
+        font-style: italic;
+        color: var(--accent);
+      }
+      .empty {
+        text-align: center;
+        color: var(--text-dim);
+        padding: 60px 20px;
+      }
+      .error {
+        text-align: center;
+        padding: 60px 20px;
+      }
+      .error h2 { color: var(--accent); }
+
+      @media (max-width: 600px) {
+        body { padding: 16px 12px 60px; }
+        .plan-title { font-size: 22px; }
+        th, td { padding: 8px 6px; }
+        td.notes { display: none; }
+        th.notes-h { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="plan-page">
+      <header class="plan-header">
+        <img src="/static/images/hercules-wordmark.svg" alt="Hercules" />
+        {% if user_name %}
+          <span class="athlete">{{ user_name }}</span>
+        {% endif %}
+      </header>
+
+      {% if error %}
+        <div class="error">
+          <h2>{{ error }}</h2>
+          <p style="color: var(--text-dim);">Ask Hercules in your iMessage chat for a fresh link.</p>
+        </div>
+      {% elif not plan_data %}
+        <div class="empty">
+          <h2>No plan yet</h2>
+          <p>Text Hercules to build your first training plan 💪</p>
+        </div>
+      {% else %}
+        <h1 class="plan-title">Your Training Plan</h1>
+        <p class="plan-sub">
+          {{ plan_data.days|length }} training days per week
+          {% if generated_at %} · last updated {{ generated_at }}{% endif %}
+        </p>
+
+        {% for day in plan_data.days %}
+          <article class="day-card">
+            <div class="day-head">
+              <h2 class="day-name">{{ day.day }}</h2>
+              {% if day.focus %}
+                <span class="day-focus">{{ day.focus }}</span>
+              {% endif %}
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Exercise</th>
+                  <th>Sets × Reps</th>
+                  <th>Rest</th>
+                  <th class="notes-h">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for ex in day.exercises %}
+                  <tr>
+                    <td class="exercise">{{ ex.name }}</td>
+                    <td class="numeric">
+                      {{ ex.sets }}×{{ ex.reps }}{% if ex.rpe %} @RPE{{ ex.rpe }}{% endif %}
+                    </td>
+                    <td class="numeric">
+                      {% if ex.rest_seconds %}{{ ex.rest_seconds }}s{% else %}—{% endif %}
+                    </td>
+                    <td class="notes">{{ ex.notes or "" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </article>
+        {% endfor %}
+
+        {% if plan_data.progression_tips %}
+          <section class="progression">
+            <h3>Progression</h3>
+            <ul>
+              {% for tip in plan_data.progression_tips %}
+                <li>{{ tip }}</li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endif %}
+
+        {% if plan_data.motivational_note %}
+          <p class="motivation">"{{ plan_data.motivational_note }}"</p>
+        {% endif %}
+      {% endif %}
+    </main>
+  </body>
+</html>

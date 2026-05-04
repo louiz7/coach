@@ -86,6 +86,42 @@ async def cancel(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "start.html", {"token": "", "name": ""})
 
 
+@app.get("/plan", response_class=HTMLResponse)
+async def plan_view(request: Request) -> HTMLResponse:
+    """Token-gated page that displays the user's current training plan in tabular form."""
+    token = request.query_params.get("token", "")
+    ctx = {"plan_data": None, "user_name": "", "error": None, "generated_at": None}
+    if not token:
+        ctx["error"] = "Missing or expired link"
+        return templates.TemplateResponse(request, "plan.html", ctx)
+    try:
+        from app.services.token import verify_onboarding_token
+        from app.database import async_session
+        from app.models.user import User
+        from app.models.training_plan import TrainingPlan
+        from sqlalchemy import select
+        payload = verify_onboarding_token(token)
+        async with async_session() as db:
+            r = await db.execute(select(User).where(User.phone == payload["phone"]))
+            user = r.scalar_one_or_none()
+            if not user:
+                ctx["error"] = "User not found"
+                return templates.TemplateResponse(request, "plan.html", ctx)
+            ctx["user_name"] = user.name or ""
+            r2 = await db.execute(
+                select(TrainingPlan)
+                .where(TrainingPlan.user_id == user.id, TrainingPlan.is_current == True)
+                .order_by(TrainingPlan.created_at.desc())
+            )
+            plan = r2.scalars().first()
+            if plan:
+                ctx["plan_data"] = plan.plan_json
+                ctx["generated_at"] = plan.created_at.strftime("%b %d, %Y") if plan.created_at else None
+    except Exception as e:
+        ctx["error"] = str(e)
+    return templates.TemplateResponse(request, "plan.html", ctx)
+
+
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "privacy.html")

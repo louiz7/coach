@@ -111,65 +111,122 @@ async def handle_progress_log(user: User, text: str, db: AsyncSession) -> Option
 async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Optional[str]:
     """Smart plan handler:
 
-    - Modification request (swap/change/add/…) WITHOUT a today-only qualifier  → generate new plan, send full
-    - Explicit full-plan request (“send full plan”, “whole week”, …) → send full
-    - Anything else ("what’s my workout today?", "show me today", …) → send
-      only today’s workout from the existing plan, or generate fresh if none exists.
+    - Modification request (swap/change/add/…) WITHOUT today-only qualifier → generate new plan, send full ONCE
+    - Explicit full-plan request → outlink to /plan webpage (after first send)
+    - First-ever plan generation → send full in chat AND outlink
+    - Anything else ("what's my workout today?") → send today's workout only
     """
     import asyncio as _aio
     from datetime import datetime
     from app.services.training_plan import render_today_workout, _get_active_plan
+    from app.services.token import create_onboarding_token
+    from app.config import settings
 
     text_lower = (text or "").lower()
     wants_full = any(kw in text_lower for kw in _FULL_PLAN_KEYWORDS)
     is_today_only = any(p in text_lower for p in _TODAY_ONLY_PATTERNS)
     is_modification = (
         any(kw in text_lower for kw in _MODIFICATION_KEYWORDS)
-        and not is_today_only  # "mach es heute weniger intensiv" is NOT a plan mod
+        and not is_today_only
     )
-    # Explicit day mentioned by user (e.g. "Nein für heute (Montag)")
     explicit_day = _extract_day_from_text(text)
     today_weekday = explicit_day or datetime.now().strftime("%A")
 
-    text_lower = (text or "").lower()
-    wants_full = any(kw in text_lower for kw in _FULL_PLAN_KEYWORDS)
-    is_modification = any(kw in text_lower for kw in _MODIFICATION_KEYWORDS)
+    def _plan_url() -> str:
+        token = create_onboarding_token(user.phone)
+        base = settings.ALLOWED_ORIGINS.split(",")[0].strip()
+        return f"{base}/plan?token={token}"
+
+    async def _send_full_plan_once(plan):
+        """Send the full plan in chat + bump counter."""
+        if not (user.linq_chat_id and plan and plan.raw_text):
+            return
+        chunks = chunk_plan_text(plan.raw_text)
+        for i, chunk in enumerate(chunks):
+            if i > 0:
+                await _aio.sleep(0.6)
+            await linq.send_message(user.linq_chat_id, chunk)
+            await add_message(user.id, "assistant", chunk, db)
+        # Bump the counter and persist
+        user.plan_sent_count = (user.plan_sent_count or 0) + 1
+        await db.commit()
 
     try:
-        # ── Path 1: modification or explicit full-plan request ──────────────
-        if is_modification or wants_full:
-            plan = await generate_plan(user, db, user_request=text) if is_modification else await _get_active_plan(user, db)
-            # If no plan yet, generate one
-            if plan is None:
-                plan = await generate_plan(user, db, user_request=text)
-            if user.linq_chat_id and plan.raw_text:
-                chunks = chunk_plan_text(plan.raw_text)
-                for i, chunk in enumerate(chunks):
-                    if i > 0:
-                        await _aio.sleep(0.6)
-                    await linq.send_message(user.linq_chat_id, chunk)
-                    await add_message(user.id, "assistant", chunk, db)
-            verb = "updated" if is_modification else "sent"
+        # ── Path 1: modification request → regenerate + send full + bump counter
+        if is_modification:
+            plan = await generate_plan(user, db, user_request=text)
+            await _send_full_plan_once(plan)
+            # Also send a follow-up link
+            url = _plan_url()
+            await linq.send_message(
+                user.linq_chat_id,
+                f"You can always view the full updated plan here:\n{url}",
+            )
+            await add_message(user.id, "assistant", f"Full plan link: {url}", db)
             return (
-                f"The full training plan was just {verb} to the user as a separate message. "
-                "Acknowledge it in 1 short sentence and invite tweaks. Do NOT repeat the plan."
+                "The training plan was just updated and sent to the user. "
+                "Acknowledge it in 1 short sentence and invite further tweaks. Do NOT repeat the plan."
             )
 
-        # ── Path 2: today's workout ─────────────────────────────────────────
+        # ── Path 2: explicit full-plan request
+        if wants_full:
+            active_plan = await _get_active_plan(user, db)
+            if active_plan is None:
+                # No plan yet → generate AND send full in chat (first-time)
+                plan = await generate_plan(user, db, user_request=text)
+                await _send_full_plan_once(plan)
+                url = _plan_url()
+                await linq.send_message(
+                    user.linq_chat_id,
+                    f"View it anytime here:\n{url}",
+                )
+                await add_message(user.id, "assistant", f"Full plan link: {url}", db)
+                return (
+                    "A fresh training plan was just created and sent to the user. "
+                    "Acknowledge briefly. Do NOT repeat the plan."
+                )
+
+            # Plan already exists — if first time being asked for full plan, send it; otherwise outlink
+            if (user.plan_sent_count or 0) < 1:
+                await _send_full_plan_once(active_plan)
+                url = _plan_url()
+                await linq.send_message(
+                    user.linq_chat_id,
+                    f"From now on you can view it anytime here:\n{url}",
+                )
+                await add_message(user.id, "assistant", f"Full plan link: {url}", db)
+                return (
+                    "The full plan was just sent + a permanent link. "
+                    "Acknowledge in 1 short sentence."
+                )
+            else:
+                # Outlink only
+                url = _plan_url()
+                await linq.send_message(
+                    user.linq_chat_id,
+                    f"Here's your full plan:\n{url}",
+                )
+                await add_message(user.id, "assistant", f"Full plan link: {url}", db)
+                return (
+                    "The user was sent a link to view their full plan in the browser. "
+                    "Acknowledge in 1 short sentence — no need to repeat anything from the plan."
+                )
+
+        # ── Path 3: today's workout (default)
         active_plan = await _get_active_plan(user, db)
         if active_plan is None:
-            # No plan exists yet — generate and send full
+            # No plan yet → generate + send full (first-time)
             plan = await generate_plan(user, db, user_request=text)
-            if user.linq_chat_id and plan.raw_text:
-                chunks = chunk_plan_text(plan.raw_text)
-                for i, chunk in enumerate(chunks):
-                    if i > 0:
-                        await _aio.sleep(0.6)
-                    await linq.send_message(user.linq_chat_id, chunk)
-                    await add_message(user.id, "assistant", chunk, db)
+            await _send_full_plan_once(plan)
+            url = _plan_url()
+            await linq.send_message(
+                user.linq_chat_id,
+                f"View it anytime here:\n{url}",
+            )
+            await add_message(user.id, "assistant", f"Full plan link: {url}", db)
             return (
                 "A fresh training plan was just created and sent to the user. "
-                "Acknowledge briefly and invite them to tweak anything. Do NOT repeat the plan."
+                "Acknowledge briefly. Do NOT repeat the plan."
             )
 
         today_msg = render_today_workout(active_plan.plan_json, weekday=today_weekday)
