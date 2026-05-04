@@ -85,6 +85,8 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             from app.config import settings
             msg = onboarding_chat.BETA_GATE_PROMPT_TEMPLATE.format(url=settings.WHATSAPP_COMMUNITY_URL or "https://hercules.chat")
             await onboarding_chat._send(chat_id, user.id, msg, db)
+            # Share contact card so Hercules shows up as a named contact
+            await linq.share_contact_card(chat_id)
             return
 
         # --- ONBOARDING STATE MACHINE ---
