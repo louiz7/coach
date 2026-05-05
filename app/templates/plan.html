@@ -213,86 +213,78 @@
       .copy-btn.copied .check { display: block; }
       .copy-btn.copied .copy { display: none; }
 
-      /* ---------- Exercise rows (responsive grid) ---------- */
+      /* ---------- Exercise rows (stacked block layout) ---------- */
       .ex-list {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 14px;
       }
       .ex-row {
         display: grid;
-        grid-template-columns:
-          minmax(160px, 2.4fr)  /* name */
-          56px                   /* sets */
-          70px                   /* reps */
-          60px                   /* rpe */
-          70px                   /* rest */
-          minmax(140px, 1.8fr)  /* notes */
-          28px;                  /* remove */
-        gap: 8px;
-        align-items: center;
-        padding: 8px 0;
-        border-bottom: 1px solid var(--border);
+        grid-template-columns: 1fr auto;
+        gap: 10px 12px;
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel-2);
       }
-      .ex-row:last-child { border-bottom: none; }
-      .ex-row .field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      .ex-row .name-cell-wrap {
+        grid-column: 1 / 2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .ex-row .name-cell-wrap .cell-input { flex: 1; min-width: 0; font-weight: 600; }
+      .ex-row .remove-cell-wrap { grid-column: 2 / 3; align-self: center; }
+
+      .ex-row .numerics {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .ex-row .field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
       .ex-row .field-label {
         font-size: 10px;
         color: var(--text-faint);
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        display: none; /* shown only on mobile */
       }
-      .ex-row .name-cell {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        min-width: 0;
-      }
-      .ex-row .name-cell .cell-input { flex: 1; min-width: 0; }
-      .ex-list-header {
-        display: grid;
-        grid-template-columns:
-          minmax(160px, 2.4fr) 56px 70px 60px 70px minmax(140px, 1.8fr) 28px;
-        gap: 8px;
-        padding: 0 0 8px;
-        border-bottom: 1px solid var(--border);
-        margin-bottom: 4px;
-      }
-      .ex-list-header span {
-        font-size: 11px;
-        color: var(--text-faint);
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
+      .ex-row .notes-cell-wrap {
+        grid-column: 1 / -1;
       }
 
       .cell-input {
         width: 100%;
-        padding: 8px 10px;
+        padding: 9px 11px;
         border: 1px solid var(--border);
         border-radius: 8px;
         font: inherit;
         color: inherit;
-        background: var(--panel-2);
+        background: #fff;
         box-sizing: border-box;
         min-width: 0;
       }
-      .cell-input:hover { background: #fff; }
+      .cell-input:hover { border-color: rgba(0,0,0,0.2); }
       .cell-input:focus {
         outline: none;
         border-color: var(--accent);
-        background: #fff;
         box-shadow: 0 0 0 3px rgba(0, 87, 195, 0.12);
       }
       .cell-input.numeric { font-variant-numeric: tabular-nums; text-align: center; padding-left: 6px; padding-right: 6px; }
       .cell-input.notes { font-size: 13px; color: var(--text-dim); }
 
       .remove-btn {
-        width: 28px; height: 28px;
+        width: 32px; height: 32px;
         border: 1px solid var(--border);
-        background: transparent;
+        background: #fff;
         color: var(--text-faint);
         border-radius: 8px;
         cursor: pointer;
@@ -309,7 +301,7 @@
         background: transparent;
         border: 1px dashed var(--border);
         color: var(--text-dim);
-        padding: 10px 12px;
+        padding: 12px 14px;
         border-radius: 10px;
         cursor: pointer;
         font: inherit;
@@ -318,18 +310,8 @@
       }
       .add-row-btn:hover { color: var(--accent); border-color: var(--accent); }
 
-      @media (max-width: 720px) {
-        .ex-list-header { display: none; }
-        .ex-row {
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          padding: 14px 0;
-          row-gap: 10px;
-        }
-        .ex-row .name-cell-wrap { grid-column: 1 / -1; }
-        .ex-row .notes-cell-wrap { grid-column: 1 / -1; }
-        .ex-row .remove-cell-wrap { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
-        .ex-row .field-label { display: block; }
+      @media (max-width: 480px) {
+        .ex-row .numerics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
 
       /* Save bar */
@@ -593,34 +575,24 @@
                 <span class="day-focus">{{ day.focus }}</span>
               {% endif %}
             </div>
-            <div class="ex-list-header" aria-hidden="true">
-              <span>Exercise</span>
-              <span>Sets</span>
-              <span>Reps</span>
-              <span>RPE</span>
-              <span>Rest</span>
-              <span>Notes</span>
-              <span></span>
-            </div>
             <div class="ex-list exercises-body">
               {% for ex in day.exercises %}
                 <div class="ex-row exercise-row">
-                  <div class="field name-cell-wrap">
-                    <span class="field-label">Exercise</span>
-                    <div class="name-cell">
-                      <button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-from="name">
-                        <svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                      </button>
-                      <input class="cell-input" data-field="name" type="text" maxlength="120" value="{{ ex.name }}" />
-                    </div>
+                  <div class="name-cell-wrap">
+                    <button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-from="name">
+                      <svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </button>
+                    <input class="cell-input" data-field="name" type="text" maxlength="120" value="{{ ex.name }}" />
                   </div>
-                  <div class="field"><span class="field-label">Sets</span><input class="cell-input numeric" data-field="sets" type="number" min="1" max="20" value="{{ ex.sets }}" /></div>
-                  <div class="field"><span class="field-label">Reps</span><input class="cell-input numeric" data-field="reps" type="text" maxlength="20" value="{{ ex.reps }}" /></div>
-                  <div class="field"><span class="field-label">RPE</span><input class="cell-input numeric" data-field="rpe" type="number" min="1" max="10" step="0.5" value="{{ ex.rpe if ex.rpe is not none else '' }}" /></div>
-                  <div class="field"><span class="field-label">Rest (s)</span><input class="cell-input numeric" data-field="rest_seconds" type="number" min="0" max="900" value="{{ ex.rest_seconds if ex.rest_seconds is not none else '' }}" /></div>
-                  <div class="field notes-cell-wrap"><span class="field-label">Notes</span><input class="cell-input notes" data-field="notes" type="text" maxlength="500" value="{{ ex.notes or '' }}" /></div>
                   <div class="remove-cell-wrap"><button type="button" class="remove-btn" aria-label="Remove exercise">×</button></div>
+                  <div class="numerics">
+                    <div class="field"><span class="field-label">Sets</span><input class="cell-input numeric" data-field="sets" type="number" min="1" max="20" value="{{ ex.sets }}" /></div>
+                    <div class="field"><span class="field-label">Reps</span><input class="cell-input numeric" data-field="reps" type="text" maxlength="20" value="{{ ex.reps }}" /></div>
+                    <div class="field"><span class="field-label">RPE</span><input class="cell-input numeric" data-field="rpe" type="number" min="1" max="10" step="0.5" value="{{ ex.rpe if ex.rpe is not none else '' }}" /></div>
+                    <div class="field"><span class="field-label">Rest (s)</span><input class="cell-input numeric" data-field="rest_seconds" type="number" min="0" max="900" value="{{ ex.rest_seconds if ex.rest_seconds is not none else '' }}" /></div>
+                  </div>
+                  <div class="notes-cell-wrap field"><span class="field-label">Notes</span><input class="cell-input notes" data-field="notes" type="text" maxlength="500" value="{{ ex.notes or '' }}" /></div>
                 </div>
               {% endfor %}
             </div>
@@ -710,21 +682,21 @@
             var card = addBtn.closest('.day-card');
             var tbody = card.querySelector('.exercises-body');
             var tpl = '<div class="ex-row exercise-row">' +
-              '<div class="field name-cell-wrap"><span class="field-label">Exercise</span>' +
-                '<div class="name-cell">' +
-                  '<button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-from="name">' +
-                    '<svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
-                    '<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
-                  '</button>' +
-                  '<input class="cell-input" data-field="name" type="text" maxlength="120" value="New exercise" />' +
-                '</div>' +
+              '<div class="name-cell-wrap">' +
+                '<button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-from="name">' +
+                  '<svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
+                  '<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+                '</button>' +
+                '<input class="cell-input" data-field="name" type="text" maxlength="120" value="New exercise" />' +
               '</div>' +
-              '<div class="field"><span class="field-label">Sets</span><input class="cell-input numeric" data-field="sets" type="number" min="1" max="20" value="3" /></div>' +
-              '<div class="field"><span class="field-label">Reps</span><input class="cell-input numeric" data-field="reps" type="text" maxlength="20" value="8-10" /></div>' +
-              '<div class="field"><span class="field-label">RPE</span><input class="cell-input numeric" data-field="rpe" type="number" min="1" max="10" step="0.5" value="8" /></div>' +
-              '<div class="field"><span class="field-label">Rest (s)</span><input class="cell-input numeric" data-field="rest_seconds" type="number" min="0" max="900" value="120" /></div>' +
-              '<div class="field notes-cell-wrap"><span class="field-label">Notes</span><input class="cell-input notes" data-field="notes" type="text" maxlength="500" value="" /></div>' +
               '<div class="remove-cell-wrap"><button type="button" class="remove-btn" aria-label="Remove exercise">\u00d7</button></div>' +
+              '<div class="numerics">' +
+                '<div class="field"><span class="field-label">Sets</span><input class="cell-input numeric" data-field="sets" type="number" min="1" max="20" value="3" /></div>' +
+                '<div class="field"><span class="field-label">Reps</span><input class="cell-input numeric" data-field="reps" type="text" maxlength="20" value="8-10" /></div>' +
+                '<div class="field"><span class="field-label">RPE</span><input class="cell-input numeric" data-field="rpe" type="number" min="1" max="10" step="0.5" value="8" /></div>' +
+                '<div class="field"><span class="field-label">Rest (s)</span><input class="cell-input numeric" data-field="rest_seconds" type="number" min="0" max="900" value="120" /></div>' +
+              '</div>' +
+              '<div class="notes-cell-wrap field"><span class="field-label">Notes</span><input class="cell-input notes" data-field="notes" type="text" maxlength="500" value="" /></div>' +
               '</div>';
             tbody.insertAdjacentHTML('beforeend', tpl);
             markDirty();
