@@ -133,6 +133,11 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         await redis_pool.set(dedup_key, "1", ex=86400)
         return
 
+    # Skip rest days entirely — no morning brief on non-training days
+    if active_plan and not today_workout:
+        await redis_pool.set(dedup_key, "1", ex=86400)
+        return
+
     # ── Recovery context ──────────────────────────────────────────────────
     if recovery_score is not None:
         if recovery_score >= 67:
@@ -393,6 +398,11 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
         today_workout = get_workout_for_today(active_plan.plan_json, weekday)
 
     is_training_day = today_workout is not None
+
+    # Skip rest days entirely — no evening check-in on non-training days
+    if not is_training_day:
+        await redis_pool.set(dedup_key, "1", ex=86400)
+        return
 
     # Build the prompt
     user_ctx = (
