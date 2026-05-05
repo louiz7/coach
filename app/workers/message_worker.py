@@ -103,9 +103,14 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             OnboardingState.CHAT_WHOOP_PROMPT,
             OnboardingState.AWAITING_PLAN_CONFIRM,
             OnboardingState.SPORTS_FOCUS_BACKFILL,
-            # Legacy states — onboarding_chat.handle() routes them back to BETA_GATE
+            # Legacy states
             OnboardingState.CHAT_PITCH,
             OnboardingState.FORM,
+            # New onboarding states
+            OnboardingState.CHAT_BODY_METRICS,
+            OnboardingState.CHAT_INJURIES,
+            OnboardingState.CHAT_CURRENT_SCHEDULE,
+            OnboardingState.CHAT_EQUIPMENT,
         }
         if user.onboarding_state in _onboarding_states:
             from app.services import onboarding_chat
@@ -149,6 +154,10 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
         # Run all matched handlers in parallel, collect context
         handler_context = await run_handlers(intents, user, text, db)
+
+        # If a handler already sent its own reply (e.g. plan link), skip LLM
+        if handler_context == "__SENT__":
+            return
 
         # Load persona
         result = await db.execute(

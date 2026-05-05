@@ -144,27 +144,18 @@ async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Option
         if is_modification:
             await generate_plan(user, db, user_request=text)
             await _send_link("Plan updated 💪 View it here:")
-            return (
-                "The training plan was just updated and a link was sent to the user. "
-                "Acknowledge in 1 short sentence and invite further tweaks. Do NOT repeat the plan."
-            )
+            return "__SENT__"
 
         # ── No active plan → generate, then link
         active_plan = await _get_active_plan(user, db)
         if active_plan is None:
             await generate_plan(user, db, user_request=text)
             await _send_link("Your training plan is ready 💪")
-            return (
-                "A fresh training plan was just created and a link was sent to the user. "
-                "Acknowledge briefly. Do NOT repeat the plan."
-            )
+            return "__SENT__"
 
         # ── Plan exists → just link to it
         await _send_link("Here's your full plan:")
-        return (
-            "The user was sent a link to view their full plan in the browser. "
-            "Acknowledge in 1 short sentence — no need to repeat anything from the plan."
-        )
+        return "__SENT__"
 
     except Exception as ex:
         print(f"[handle_plan_request ERROR] {ex}")
@@ -316,5 +307,8 @@ async def run_handlers(
         return ""
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
+    # If any handler already sent its own reply, signal the worker to skip LLM
+    if any(r == "__SENT__" for r in results if isinstance(r, str)):
+        return "__SENT__"
     lines = [r for r in results if isinstance(r, str) and r]
     return "\n".join(lines)

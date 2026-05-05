@@ -73,6 +73,8 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     language = Column(String(5), default="de")
     plan_sent_count = Column(Integer, default=0, nullable=False)
+    current_schedule_notes = Column(Text, nullable=True)
+    equipment_access = Column(String(30), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     persona = relationship("CoachPersona")

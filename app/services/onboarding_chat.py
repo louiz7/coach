@@ -144,7 +144,36 @@ STYLE_PROMPT = (
 )
 
 INTENSITY_PROMPT = (
-    "Last one — how intense do you want me to be?\n\n"
+    "How intense do you want me to be?\n\n"
+    "{options}\n\n"
+    "Reply with A, B, C, or D."
+)
+
+BODY_METRICS_PROMPT = (
+    "Quick stats — what's your age, weight, and height?\n\n"
+    "Just reply like: 27, 82 kg, 183 cm"
+)
+
+INJURIES_PROMPT = (
+    "Any injuries or movements you need to avoid?\n\n"
+    "Reply 'none' if you're all good."
+)
+
+CURRENT_SCHEDULE_PROMPT = (
+    "Briefly describe your current training routine. "
+    "What does a typical week look like?\n\n"
+    "Keep it short — use the dictate function if it's easier 🎙️"
+)
+
+EQUIPMENT_OPTIONS = {
+    "a": ("gym",     "Full gym"),
+    "b": ("home",    "Home gym / dumbbells"),
+    "c": ("both",    "Both"),
+    "d": ("outdoor", "Outdoor / bodyweight only"),
+}
+
+EQUIPMENT_PROMPT = (
+    "What equipment do you have access to?\n\n"
     "{options}\n\n"
     "Reply with A, B, C, or D."
 )
@@ -234,6 +263,22 @@ async def handle(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
 
     if state == OnboardingState.CHAT_INTENSITY:
         await _handle_intensity(user, chat_id, text, db)
+        return
+
+    if state == OnboardingState.CHAT_BODY_METRICS:
+        await _handle_body_metrics(user, chat_id, text, db)
+        return
+
+    if state == OnboardingState.CHAT_INJURIES:
+        await _handle_injuries(user, chat_id, text, db)
+        return
+
+    if state == OnboardingState.CHAT_CURRENT_SCHEDULE:
+        await _handle_current_schedule(user, chat_id, text, db)
+        return
+
+    if state == OnboardingState.CHAT_EQUIPMENT:
+        await _handle_equipment(user, chat_id, text, db)
         return
 
     if state == OnboardingState.CHAT_WHOOP_PROMPT:
@@ -380,9 +425,71 @@ async def _handle_intensity(user: User, chat_id: str, text: str, db: AsyncSessio
     # Resolve persona NOW based on style/intensity
     await assign_persona_from_style(user, db, user.coach_style, user.coach_intensity)
 
+    user.onboarding_state = OnboardingState.CHAT_BODY_METRICS
+    await db.commit()
+    await _send(chat_id, user.id, BODY_METRICS_PROMPT, db)
+
+
+# --- CHAT_BODY_METRICS -------------------------------------------------------
+
+_METRICS_RE = re.compile(
+    r"(\d{1,3})[,\s]+"
+    r"(\d{2,3}(?:\.\d)?)[\s]*(?:kg|lbs?|pounds?|kilos?)?[,\s]+"
+    r"(\d{2,3}(?:\.\d)?)[\s]*(?:cm|m|ft|feet|inches?)?",
+    re.IGNORECASE,
+)
+
+
+async def _handle_body_metrics(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    m = _METRICS_RE.search(text or "")
+    if m:
+        try:
+            user.age = int(m.group(1))
+            user.weight_kg = float(m.group(2))
+            user.height_cm = float(m.group(3))
+        except (ValueError, AttributeError):
+            pass  # store whatever parsed, skip the rest
+    # Always advance — don't block users who can't format precisely
+    user.onboarding_state = OnboardingState.CHAT_INJURIES
+    await db.commit()
+    await _send(chat_id, user.id, INJURIES_PROMPT, db)
+
+
+# --- CHAT_INJURIES -----------------------------------------------------------
+
+async def _handle_injuries(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    raw = (text or "").strip()
+    if raw.lower() in {"none", "no", "nope", "nothing", "none!", "all good", "nein"}:
+        user.injuries = None
+    else:
+        user.injuries = raw[:2000]
+    user.onboarding_state = OnboardingState.CHAT_CURRENT_SCHEDULE
+    await db.commit()
+    await _send(chat_id, user.id, CURRENT_SCHEDULE_PROMPT, db)
+
+
+# --- CHAT_CURRENT_SCHEDULE ---------------------------------------------------
+
+async def _handle_current_schedule(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    raw = (text or "").strip()
+    user.current_schedule_notes = raw[:3000] if raw else None
+    user.onboarding_state = OnboardingState.CHAT_EQUIPMENT
+    await db.commit()
+    msg = EQUIPMENT_PROMPT.format(options=_format_options(EQUIPMENT_OPTIONS))
+    await _send(chat_id, user.id, msg, db)
+
+
+# --- CHAT_EQUIPMENT ----------------------------------------------------------
+
+async def _handle_equipment(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    letter = _parse_letter(text)
+    if not letter or letter not in EQUIPMENT_OPTIONS:
+        msg = REASK_LETTER.format(options=_format_options(EQUIPMENT_OPTIONS))
+        await _send(chat_id, user.id, msg, db)
+        return
+    user.equipment_access = EQUIPMENT_OPTIONS[letter][0]
     user.onboarding_state = OnboardingState.CHAT_WHOOP_PROMPT
     await db.commit()
-
     # Build WHOOP connect link
     from app.services.token import create_onboarding_token
     token = create_onboarding_token(user.phone)

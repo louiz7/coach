@@ -121,6 +121,10 @@ def _profile_string(user: User) -> str:
         parts.append(f"Weight: {user.weight_kg}kg")
     if user.height_cm:
         parts.append(f"Height: {user.height_cm}cm")
+    if getattr(user, 'equipment_access', None):
+        parts.append(f"Equipment access: {user.equipment_access}")
+    if getattr(user, 'current_schedule_notes', None):
+        parts.append(f"Current training routine: {user.current_schedule_notes}")
     return " | ".join(parts)
 
 
