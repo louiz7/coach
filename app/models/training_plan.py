@@ -14,3 +14,5 @@ class TrainingPlan(Base):
     raw_text = Column(Text, nullable=False)
     is_current = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_by_user = Column(Boolean, default=False, nullable=False, server_default="false")
+    user_edited_at = Column(DateTime, nullable=True)

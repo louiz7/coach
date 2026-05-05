@@ -13,6 +13,12 @@ from datetime import datetime, timedelta, timezone
 from app.config import settings
 
 
+def create_plan_token(phone: str, ttl_hours: int = 720) -> str:
+    """Long-lived (30d default) token for the /plan webpage. Same payload shape
+    as onboarding tokens so verify_onboarding_token accepts it."""
+    return create_onboarding_token(phone, ttl_hours=ttl_hours)
+
+
 def create_onboarding_token(phone: str, ttl_hours: int = 24) -> str:
     """
     Generate a signed JWT for the onboarding form URL.
