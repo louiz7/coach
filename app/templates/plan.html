@@ -310,6 +310,50 @@
       }
       .add-row-btn:hover { color: var(--accent); border-color: var(--accent); }
 
+      /* ---------- Day tabs ---------- */
+      .day-tabs {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding: 4px 0 12px;
+        margin: 0 -4px 16px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        z-index: 40;
+      }
+      .day-tabs::-webkit-scrollbar { display: none; }
+      .day-tab {
+        flex: 0 0 auto;
+        padding: 9px 14px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text-dim);
+        border-radius: 999px;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 120ms ease;
+      }
+      .day-tab:hover { color: var(--text); border-color: rgba(0,0,0,0.2); }
+      .day-tab.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      .day-tab .day-tab__sub {
+        font-weight: 400;
+        opacity: 0.75;
+        margin-left: 6px;
+        font-size: 11px;
+      }
+      .day-card { display: none; }
+      .day-card.active { display: block; }
+
       @media (max-width: 480px) {
         .ex-row .numerics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
@@ -567,8 +611,15 @@
         </div>
 
         <div id="plan-root" data-plan-id="{{ plan_id }}" data-token="{{ token }}">
+        <nav class="day-tabs" role="tablist" aria-label="Training days">
+          {% for day in plan_data.days %}
+            <button type="button" class="day-tab" role="tab" data-day-target="{{ loop.index0 }}">
+              {{ day.day }}{% if day.focus %}<span class="day-tab__sub">{{ day.focus }}</span>{% endif %}
+            </button>
+          {% endfor %}
+        </nav>
         {% for day in plan_data.days %}
-          <article class="day-card" data-day-index="{{ loop.index0 }}">
+          <article class="day-card" data-day-index="{{ loop.index0 }}" data-day-name="{{ day.day }}" role="tabpanel">
             <div class="day-head">
               <h2 class="day-name">{{ day.day }}</h2>
               {% if day.focus %}
@@ -656,6 +707,33 @@
         var staleBanner = document.getElementById('stale-banner');
         var reloadBtn = document.getElementById('reload-btn');
         var dirty = false;
+
+        // ---------- Day tabs ----------
+        var tabs = root.querySelectorAll('.day-tab');
+        var cards = root.querySelectorAll('.day-card');
+        function activateTab(idx) {
+          tabs.forEach(function (t, i) { t.classList.toggle('active', i === idx); });
+          cards.forEach(function (c, i) { c.classList.toggle('active', i === idx); });
+          try { history.replaceState(null, '', '#day-' + idx); } catch (e) {}
+        }
+        tabs.forEach(function (tab, i) {
+          tab.addEventListener('click', function () { activateTab(i); });
+        });
+        // Default tab: from URL hash, else today's weekday match, else first
+        var defaultIdx = 0;
+        var m = (location.hash || '').match(/^#day-(\d+)$/);
+        if (m) {
+          var n = parseInt(m[1], 10);
+          if (!isNaN(n) && n >= 0 && n < cards.length) defaultIdx = n;
+        } else {
+          var today = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+          for (var i = 0; i < cards.length; i++) {
+            if ((cards[i].getAttribute('data-day-name') || '').toLowerCase() === today.toLowerCase()) {
+              defaultIdx = i; break;
+            }
+          }
+        }
+        activateTab(defaultIdx);
 
         function markDirty() {
           if (dirty) return;
