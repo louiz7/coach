@@ -23,6 +23,10 @@ class OnboardingState:
     CHAT_CHALLENGE = "CHAT_CHALLENGE"          # Biggest challenge (A/B/C/D)
     CHAT_STYLE = "CHAT_STYLE"                  # Coach style (A/B/C/D)
     CHAT_INTENSITY = "CHAT_INTENSITY"          # Coach intensity (A/B/C/D)
+    CHAT_BODY_METRICS = "CHAT_BODY_METRICS"    # age, weight, height
+    CHAT_INJURIES = "CHAT_INJURIES"            # injuries / movements to avoid
+    CHAT_CURRENT_SCHEDULE = "CHAT_CURRENT_SCHEDULE"  # current training routine free-text
+    CHAT_EQUIPMENT = "CHAT_EQUIPMENT"          # equipment access (A/B/C/D)
     CHAT_WHOOP_PROMPT = "CHAT_WHOOP_PROMPT"    # Connect WHOOP or skip
     AWAITING_PLAN_CONFIRM = "AWAITING_PLAN_CONFIRM"  # Post-onboarding: build first plan?
     SPORTS_FOCUS_BACKFILL = "SPORTS_FOCUS_BACKFILL"  # One-time backfill for existing users
