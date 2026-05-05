@@ -1,5 +1,6 @@
 import httpx
 import json
+from datetime import date
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,43 @@ from app.models.coach_persona import CoachPersona
 from app.models.training_plan import TrainingPlan
 from app.models.progress_entry import ProgressEntry
 from app.services.memory import get_conversation
+
+
+def _get_today_workout(plan) -> Optional[str]:
+    """Extract today's workout block from plan_json. Returns None if not found."""
+    try:
+        data = plan.plan_json
+        if not isinstance(data, dict):
+            return None
+        weeks = data.get("weeks") or data.get("days") or []
+        # flat list of days
+        days = []
+        for item in weeks:
+            if isinstance(item, dict) and "days" in item:
+                days.extend(item["days"])
+            elif isinstance(item, dict) and "exercises" in item:
+                days.append(item)
+        if not days:
+            return None
+        # pick today by day-of-week index (0=Mon)
+        today_idx = date.today().weekday()  # 0=Mon, 6=Sun
+        day = days[today_idx % len(days)] if days else None
+        if not day:
+            return None
+        label = day.get("label") or day.get("name") or f"Day {today_idx + 1}"
+        exercises = day.get("exercises") or []
+        if not exercises:
+            return f"{label}: rest day"
+        lines = [label + ":"]
+        for ex in exercises[:8]:  # cap at 8 exercises
+            name = ex.get("name") or ex.get("exercise") or ""
+            sets = ex.get("sets", "")
+            reps = ex.get("reps", "")
+            note = f"{sets}x{reps}" if sets and reps else ""
+            lines.append(f"  {name} {note}".strip())
+        return "\n".join(lines)
+    except Exception:
+        return None
 
 
 async def build_system_prompt(
@@ -27,18 +65,29 @@ async def build_system_prompt(
     # Base persona prompt
     prompt = persona.system_prompt + "\n\n"
 
-    # User profile context
-    prompt += f"""USER PROFILE:
-- Sport: {user.sport or 'not specified'}
-- Level: {user.fitness_level or 'not specified'}
-- Goal: {user.goal or 'not specified'}
-- Sports they want to improve in: {user.sports_focus or 'not specified'}
-- Training frequency: {user.training_frequency or 'not specified'}x/week
-- Injuries/limitations: {user.injuries or 'none'}
-- Age: {user.age or 'not specified'}, Gender: {user.gender or 'not specified'}
-- Weight: {user.weight_kg or 'not specified'}kg, Height: {user.height_cm or 'not specified'}cm
-- Language: {user.language or 'de'}
-"""
+    # ── User profile (compact one-liner, ~60 tokens) ─────────────────────
+    profile_parts = [
+        user.goal or "general fitness",
+        user.sports_focus or "general",
+        user.fitness_level or "intermediate",
+        f"{user.training_frequency or '?'}x/week",
+        f"{user.coach_intensity or 'moderate'} intensity",
+    ]
+    if user.equipment_access:
+        profile_parts.append(user.equipment_access)
+    if user.age or user.weight_kg or user.height_cm:
+        metrics = " ".join(filter(None, [
+            f"{user.age}yo" if user.age else None,
+            f"{user.weight_kg}kg" if user.weight_kg else None,
+            f"{user.height_cm}cm" if user.height_cm else None,
+        ]))
+        if metrics:
+            profile_parts.append(metrics)
+    prompt += "USER: " + " | ".join(profile_parts) + "\n"
+    if user.injuries:
+        prompt += f"Injuries: {user.injuries}\n"
+    if user.current_schedule_notes:
+        prompt += f"Current routine: {user.current_schedule_notes[:300]}\n"
 
     # WHOOP biometrics (cached from last webhook)
     if user.whoop_access_token:
@@ -61,14 +110,22 @@ async def build_system_prompt(
         else:
             prompt += "\nWHOOP CONNECTED: Yes — but no biometric data cached yet (data arrives via webhooks when user syncs their WHOOP).\n"
 
-    # Current training plan
-    result = await db.execute(
-        select(TrainingPlan)
-        .where(TrainingPlan.user_id == user.id, TrainingPlan.is_current == True)
-    )
-    plan = result.scalar_one_or_none()
-    if plan:
-        prompt += f"\nCURRENT TRAINING PLAN:\n{plan.raw_text}\n"
+    # ── Training plan — only inject when the message is plan-related ───────
+    _PLAN_INTENTS = {"PLAN_REQUEST", "MODIFY_PLAN", "PROGRESS_LOG", "WHOOP_DATA"}
+    if intents and _PLAN_INTENTS.intersection(intents):
+        result = await db.execute(
+            select(TrainingPlan)
+            .where(TrainingPlan.user_id == user.id, TrainingPlan.is_current == True)
+        )
+        plan = result.scalar_one_or_none()
+        if plan:
+            # Try to inject today's workout only (~80 tokens) instead of full plan
+            today_block = _get_today_workout(plan)
+            if today_block:
+                prompt += f"\nTODAY'S WORKOUT:\n{today_block}\n"
+            else:
+                # Fallback: full plan but capped at 1200 chars
+                prompt += f"\nCURRENT TRAINING PLAN (summary):\n{plan.raw_text[:1200]}\n"
 
     # Smart fitness profile (rule-based, ~150 tokens)
     try:
@@ -104,7 +161,7 @@ async def build_system_prompt(
                 if "NUTRITION_QUESTION" in intents and "EXERCISE_QUESTION" not in intents:
                     category_hint = "protein_intake"
                 research = await search_research(
-                    user_message, db, category_hint=category_hint, top_k=3
+                    user_message, db, category_hint=category_hint, top_k=2
                 )
                 rag_str = format_research_for_prompt(research)
                 if rag_str:

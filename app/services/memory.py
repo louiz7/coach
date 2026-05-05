@@ -7,7 +7,7 @@ from app.redis import redis_pool
 
 CONV_PREFIX = "conv:"
 CONV_TTL = 86400  # 24h
-MAX_MESSAGES = 10
+MAX_MESSAGES = 6
 
 
 async def get_conversation(user_id: UUID, db: AsyncSession) -> list[dict]:
