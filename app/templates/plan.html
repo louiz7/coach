@@ -235,7 +235,22 @@
         gap: 8px;
         min-width: 0;
       }
-      .ex-row .name-cell-wrap .cell-input { flex: 1; min-width: 0; font-weight: 600; }
+      .ex-row .name-cell-wrap .ex-name-link {
+        flex: 1;
+        min-width: 0;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--accent);
+        text-decoration: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ex-row .name-cell-wrap .ex-name-link:hover { text-decoration: underline; }
+      /* New-row name input (editable, same visual weight as the link) */
+      .ex-row .name-cell-wrap .ex-name-input {
+        flex: 1; min-width: 0; font-weight: 600; font-size: 0.95rem;
+      }
       .ex-row .remove-cell-wrap { grid-column: 2 / 3; align-self: center; }
 
       .ex-row .numerics {
@@ -598,9 +613,9 @@
           <div class="form-check__icon" aria-hidden="true">?</div>
           <div class="form-check__body">
             <strong>Not sure how an exercise is performed?</strong>
-            Tap the copy icon next to any exercise and paste the name into
-            <a href="https://musclewiki.com/" target="_blank" rel="noopener noreferrer">musclewiki.com</a>
-            for video demos and form cues. Form first — load second.
+            Tap any exercise name to open a video demo and form cues on
+            <a href="https://musclewiki.com/" target="_blank" rel="noopener noreferrer">musclewiki.com</a>.
+            Form first — load second.
           </div>
         </aside>
 
@@ -630,11 +645,14 @@
               {% for ex in day.exercises %}
                 <div class="ex-row exercise-row">
                   <div class="name-cell-wrap">
-                    <button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-from="name">
+                    <button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-text="{{ ex.name }}">
                       <svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                       <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     </button>
-                    <input class="cell-input" data-field="name" type="text" maxlength="120" value="{{ ex.name }}" />
+                    <a class="ex-name-link"
+                       href="https://musclewiki.com/exercise/{{ ex.name | lower | replace(' ', '-') | replace('/', '-') }}"
+                       target="_blank" rel="noopener noreferrer"
+                       title="View on MuscleWiki">{{ ex.name }}</a>
                   </div>
                   <div class="remove-cell-wrap"><button type="button" class="remove-btn" aria-label="Remove exercise">×</button></div>
                   <div class="numerics">
@@ -677,12 +695,11 @@
     </main>
     <script>
       (function () {
-        // ---------- Copy button (reads sibling input.value) ----------
+        // ---------- Copy button (reads data-copy-text attribute) ----------
         document.addEventListener('click', function (e) {
           var btn = e.target.closest('.copy-btn');
           if (!btn) return;
-          var input = btn.parentElement.querySelector('input[data-field="name"]');
-          var text = input ? input.value : '';
+          var text = btn.dataset.copyText || '';
           var done = function () {
             btn.classList.add('copied');
             setTimeout(function () { btn.classList.remove('copied'); }, 1200);
@@ -761,11 +778,11 @@
             var tbody = card.querySelector('.exercises-body');
             var tpl = '<div class="ex-row exercise-row">' +
               '<div class="name-cell-wrap">' +
-                '<button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-from="name">' +
+                '<button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-text="New exercise">' +
                   '<svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
                   '<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
                 '</button>' +
-                '<input class="cell-input" data-field="name" type="text" maxlength="120" value="New exercise" />' +
+                '<input class="cell-input ex-name-input" data-field="name" type="text" maxlength="120" placeholder="Exercise name" value="New exercise" />' +
               '</div>' +
               '<div class="remove-cell-wrap"><button type="button" class="remove-btn" aria-label="Remove exercise">\u00d7</button></div>' +
               '<div class="numerics">' +
@@ -807,7 +824,9 @@
                 var n = Number(v);
                 return isNaN(n) ? null : n;
               }
-              var name = val('name');
+              var nameLink = row.querySelector('.ex-name-link');
+              var nameInput = row.querySelector('input.ex-name-input');
+              var name = nameLink ? nameLink.textContent.trim() : (nameInput ? nameInput.value.trim() : '');
               if (!name) return; // skip empty rows
               exercises.push({
                 name: name,
