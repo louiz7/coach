@@ -123,6 +123,7 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
                     if rs is not None:
                         recovery_score = int(rs)
                         user.last_recovery_score = recovery_score
+                        print(f"[morning_brief] WHOOP recovery for {user.name}: {recovery_score}% (score_state={rec.get('score_state')}, cycle_id={rec.get('cycle_id')})")
                     if score.get("hrv_rmssd_milli") is not None:
                         hrv = float(score["hrv_rmssd_milli"])
                         user.last_hrv = hrv
