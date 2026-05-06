@@ -99,9 +99,11 @@ async def setup_contact_card(phone_number: str, first_name: str, last_name: str 
 async def share_contact_card(chat_id: str):
     async with await _client() as c:
         try:
-            await c.post(f"{BASE}/chats/{chat_id}/share_contact_card")
-        except Exception:
-            pass
+            r = await c.post(f"{BASE}/chats/{chat_id}/share_contact_card")
+            if r.status_code not in (200, 201, 204):
+                print(f"[linq] share_contact_card HTTP {r.status_code} for chat_id={chat_id}: {r.text[:200]}")
+        except Exception as e:
+            print(f"[linq] share_contact_card exception for chat_id={chat_id}: {e}")
 
 
 async def send_voice_memo(chat_id: str, voice_memo_url: str) -> dict:

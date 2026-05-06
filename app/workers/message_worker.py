@@ -87,6 +87,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             await onboarding_chat._send(chat_id, user.id, msg, db)
             # Share contact card so Hercules shows up as a named contact
             await linq.share_contact_card(chat_id)
+            print(f"[message_worker] contact card shared for new user chat_id={chat_id}")
             return
 
         # --- ONBOARDING STATE MACHINE ---

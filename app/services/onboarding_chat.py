@@ -513,6 +513,15 @@ async def _handle_whoop_prompt(user: User, chat_id: str, text: str, db: AsyncSes
     user.onboarding_complete = True
     await db.commit()
 
+    # Share contact card now that onboarding is complete — ensures Hercules
+    # appears as a named contact in iMessage for all users
+    try:
+        from app.services import linq
+        await linq.share_contact_card(chat_id)
+        print(f"[onboarding] contact card shared on completion for user={user.id}")
+    except Exception as _cc_err:
+        print(f"[onboarding] contact card share failed (non-fatal): {_cc_err}")
+
     welcome = WELCOME_DONE.format(name=user.name)
     await _send(chat_id, user.id, welcome, db)
     await _send(chat_id, user.id, PLAN_OFFER_PROMPT, db)
