@@ -204,23 +204,29 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
             adapt_note = "Since recovery is LOW, explicitly tell the athlete you've adjusted today's session for them (lighter loads, one less set) so they recover properly and come back stronger."
         elif recovery_score is not None and recovery_score >= 67:
             adapt_note = "Since recovery is HIGH, explicitly tell the athlete their body is primed and you've flagged where they can push a top set today."
-        else:
+        elif recovery_score is not None:
             adapt_note = "Briefly mention you've checked their WHOOP data and today's session reflects their current readiness."
+        else:
+            adapt_note = "Give one short motivational line to kick off the session."
+        if recovery_score is not None:
+            line1 = "Line 1 — Recovery status: one sentence with the recovery score + one-word readiness verdict.\n"
+        else:
+            line1 = "Line 1 — Morning greeting: one short energetic sentence to start the day.\n"
         adjust_instruction = (
             "TASK: Write a morning workout brief. Structure it exactly like this:\n"
-            "Line 1 — Recovery status: one sentence with the recovery score + one-word readiness verdict.\n"
+            f"{line1}"
             f"Line 2 — Adaptation note: {adapt_note} Keep it to one short sentence, conversational.\n"
-            "Line 3 — Today's session: name the focus and list the exercises WITH ADJUSTED sets/reps/load based on the intensity guidance above. "
-            "If recovery is LOW, visibly reduce the numbers (e.g. 4x8 → 3x8, add '~70% load'). "
-            "If recovery is HIGH, you may suggest pushing a top set. Keep it as a compact text list, no markdown bullets.\n"
+            "Line 3 — Today's session: name the focus and list the exercises with sets/reps. Keep it as a compact text list, no markdown bullets.\n"
             "Line 4 — One punchy coaching tip (max 1 sentence).\n\n"
-            "Rules: No markdown. Max 6 lines total. Sound like a real coach texting, not a report."
+            "Rules: No markdown. Max 6 lines total. Sound like a real coach texting, not a report. "
+            "IMPORTANT: Do NOT mention WHOOP, recovery scores, or biometric data unless actual WHOOP data is provided above."
         )
     else:
         adjust_instruction = (
             "TASK: Write a 2-3 sentence morning message. "
-            "If it's a rest day, acknowledge it and give one recovery tip based on their WHOOP data. "
-            "No markdown. Sound like a real coach texting."
+            "If it's a rest day, acknowledge it and give one general recovery tip. "
+            "No markdown. Sound like a real coach texting. "
+            "IMPORTANT: Do NOT mention WHOOP or recovery scores — this athlete has no WHOOP connected."
         )
 
     prompt = (
