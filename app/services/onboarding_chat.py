@@ -2,7 +2,7 @@
 
 Flow:
     BETA_GATE → CHAT_NAME → CHAT_GOAL → CHAT_SPORTS_FOCUS
-              → CHAT_STATUS → CHAT_CHALLENGE → CHAT_STYLE → CHAT_INTENSITY
+              → CHAT_STATUS → CHAT_CHALLENGE → CHAT_INTENSITY
               → CHAT_WHOOP_PROMPT → DONE
 
 Also handles SPORTS_FOCUS_BACKFILL — a one-time prompt for already-onboarded
@@ -43,13 +43,6 @@ CHALLENGE_OPTIONS = {
     "b": ("consistency", "Being consistent"),
     "c": ("no_time",     "Not enough time"),
     "d": ("alone",       "Doing it alone"),
-}
-
-STYLE_OPTIONS = {
-    "a": ("high_energy",     "High energy & hype"),
-    "b": ("calm",            "Calm & supportive"),
-    "c": ("drill_sergeant",  "Drill sergeant — no excuses"),
-    "d": ("humor",           "Funny & laid-back"),
 }
 
 INTENSITY_OPTIONS = {
@@ -133,12 +126,6 @@ STATUS_PROMPT = (
 
 CHALLENGE_PROMPT = (
     "What's your biggest challenge?\n\n"
-    "{options}\n\n"
-    "Reply with A, B, C, or D."
-)
-
-STYLE_PROMPT = (
-    "What kind of coaching style works best for you?\n\n"
     "{options}\n\n"
     "Reply with A, B, C, or D."
 )
@@ -258,7 +245,11 @@ async def handle(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
         return
 
     if state == OnboardingState.CHAT_STYLE:
-        await _handle_style(user, chat_id, text, db)
+        # Legacy step removed — fast-forward any user still on this state.
+        user.onboarding_state = OnboardingState.CHAT_INTENSITY
+        await db.commit()
+        msg = INTENSITY_PROMPT.format(options=_format_options(INTENSITY_OPTIONS))
+        await _send(chat_id, user.id, msg, db)
         return
 
     if state == OnboardingState.CHAT_INTENSITY:
@@ -390,21 +381,6 @@ async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSessio
         await _send(chat_id, user.id, msg, db)
         return
     user.challenge = CHALLENGE_OPTIONS[letter][0]
-    user.onboarding_state = OnboardingState.CHAT_STYLE
-    await db.commit()
-    msg = STYLE_PROMPT.format(options=_format_options(STYLE_OPTIONS))
-    await _send(chat_id, user.id, msg, db)
-
-
-# --- CHAT_STYLE --------------------------------------------------------------
-
-async def _handle_style(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    letter = _parse_letter(text)
-    if not letter or letter not in STYLE_OPTIONS:
-        msg = REASK_LETTER.format(options=_format_options(STYLE_OPTIONS))
-        await _send(chat_id, user.id, msg, db)
-        return
-    user.coach_style = STYLE_OPTIONS[letter][0]
     user.onboarding_state = OnboardingState.CHAT_INTENSITY
     await db.commit()
     msg = INTENSITY_PROMPT.format(options=_format_options(INTENSITY_OPTIONS))

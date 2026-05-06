@@ -1,10 +1,10 @@
 """Persona auto-assignment helper.
 
-Used by both the legacy web /form-submit endpoint and the in-chat onboarding
-flow so that the style/intensity → persona mapping lives in one place.
+Hercules now uses a SINGLE coaching persona ("calm" — supportive, grounded,
+direct without being pushy). The legacy multi-persona picker has been retired.
 
-Persona names map 1:1 to the four `coach_style` answers from onboarding:
-`high_energy`, `calm`, `drill_sergeant`, `humor`.
+This helper still exists so the old call sites in onboarding don't have to
+change much; it always assigns the one active persona.
 """
 from typing import Optional
 from sqlalchemy import select
@@ -14,57 +14,31 @@ from app.models.coach_persona import CoachPersona
 from app.models.user import User
 
 
-STYLE_TO_PERSONA = {
-    "high_energy":    "high_energy",
-    "calm":           "calm",
-    "drill_sergeant": "drill_sergeant",
-    "humor":          "humor",
-}
-
-
 async def assign_persona_from_style(
     user: User,
     db: AsyncSession,
-    coach_style: Optional[str],
-    coach_intensity: Optional[str],
+    coach_style: Optional[str] = None,      # back-compat, ignored
+    coach_intensity: Optional[str] = None,  # back-compat, ignored
 ) -> Optional[CoachPersona]:
-    """Pick a persona based on style/intensity and assign it to the user.
+    """Assign the single active Hercules persona to the user.
 
-    - `coach_intensity == "maximum"` → forces "drill_sergeant"
-    - else style → preferred persona via `STYLE_TO_PERSONA`
-    - falls back to "high_energy", then to the first active persona
-
-    Only sets `user.persona_id` if it's currently None. Caller must commit.
-    Returns the resolved persona (or None if seeding is missing).
+    `coach_style` / `coach_intensity` are accepted for backwards compatibility
+    with old call sites but no longer affect persona selection.
     """
+    # If user already has a persona AND it's still active, keep it
     if user.persona_id:
-        # already set; just return it
         res = await db.execute(
             select(CoachPersona).where(CoachPersona.id == user.persona_id)
         )
-        return res.scalar_one_or_none()
-
-    if coach_intensity == "maximum":
-        persona_name = "drill_sergeant"
-    else:
-        persona_name = STYLE_TO_PERSONA.get(coach_style or "", "high_energy")
+        existing = res.scalar_one_or_none()
+        if existing and existing.is_active:
+            return existing
+        # else fall through to reassign
 
     res = await db.execute(
-        select(CoachPersona).where(
-            CoachPersona.name == persona_name,
-            CoachPersona.is_active == True,  # noqa: E712
-        )
+        select(CoachPersona).where(CoachPersona.is_active == True).limit(1)  # noqa: E712
     )
     persona = res.scalar_one_or_none()
-
-    if not persona:
-        # Last-resort fallback: any active persona, so we never stall onboarding.
-        res = await db.execute(
-            select(CoachPersona).where(CoachPersona.is_active == True).limit(1)  # noqa: E712
-        )
-        persona = res.scalar_one_or_none()
-
     if persona:
         user.persona_id = persona.id
-
     return persona
