@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.config import settings
@@ -209,3 +209,41 @@ async def privacy(request: Request) -> HTMLResponse:
 @app.get("/terms", response_class=HTMLResponse)
 async def terms(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "terms.html")
+
+
+@app.get("/sitemap.xml")
+async def sitemap() -> Response:
+    content = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://hercules.chat/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://hercules.chat/terms</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://hercules.chat/privacy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>"""
+    return Response(content=content, media_type="application/xml")
+
+
+@app.get("/robots.txt")
+async def robots() -> PlainTextResponse:
+    content = """User-agent: *
+Allow: /
+Disallow: /plan
+Disallow: /api
+Disallow: /start
+Disallow: /success
+Disallow: /cancel
+
+Sitemap: https://hercules.chat/sitemap.xml
+"""
+    return PlainTextResponse(content=content)
