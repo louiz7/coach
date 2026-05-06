@@ -493,7 +493,18 @@ def _build_redis_settings():
 _redis_settings = _build_redis_settings()
 
 
+async def startup(ctx):
+    """Warm caches on worker start."""
+    try:
+        from app.services.exercise_normalizer import warm_exercise_cache
+        count = await warm_exercise_cache()
+        print(f"[worker startup] MuscleWiki exercise cache warmed: {count} names")
+    except Exception as e:
+        print(f"[worker startup] MuscleWiki cache warm failed (non-fatal): {e}")
+
+
 class WorkerSettings:
+    on_startup = startup
     functions = [proactive_task, morning_whoop_task, evening_checkin_task, weekly_coach_notes_task]
     cron_jobs = [
         # Proactive idle-user pings stay disabled for now (too chatty pre-beta).

@@ -278,6 +278,13 @@ async def generate_plan(
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
     plan_data = json.loads(raw)
 
+    # Normalize exercise names against MuscleWiki catalog (zero extra tokens)
+    try:
+        from app.services.exercise_normalizer import normalize_plan_exercises
+        plan_data = await normalize_plan_exercises(plan_data)
+    except Exception as _norm_err:
+        print(f"[training_plan] exercise normalization skipped: {_norm_err}")
+
     raw_text = _render_plan_text(plan_data)
 
     # Deactivate any current plan

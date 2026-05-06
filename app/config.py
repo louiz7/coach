@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     LINQ_BASE_URL: str = "https://api.linqapp.com/api/partner/v3"
     WHOOP_CLIENT_ID: str = ""
     WHOOP_CLIENT_SECRET: str = ""
+    # MuscleWiki API
+    MUSCLEWIKI_API_KEY: str = ""
     # Beta phase
     BETA_MODE: bool = True
     BETA_CODE: str = "hercules2026!"
