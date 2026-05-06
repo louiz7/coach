@@ -112,7 +112,11 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
             from app.services import whoop as whoop_svc
             access_token = await _ensure_fresh_token(user, db)
             if access_token:
-                rec = await whoop_svc.get_latest_recovery(access_token)
+                # Prefer canonical "today's cycle" recovery; fall back to
+                # the latest SCORED recovery only if cycle endpoint fails.
+                rec = await whoop_svc.get_today_recovery(access_token)
+                if rec is None:
+                    rec = await whoop_svc.get_latest_recovery(access_token)
                 if rec:
                     score = rec.get("score", {}) or {}
                     rs = score.get("recovery_score")

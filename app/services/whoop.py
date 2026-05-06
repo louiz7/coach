@@ -96,17 +96,72 @@ async def get_profile(access_token: str) -> dict:
 
 
 async def get_latest_recovery(access_token: str) -> Optional[dict]:
-    """Fetch the most recent recovery record (v2 API)."""
+    """Fetch the most recent SCORED recovery record (v2 API).
+
+    WHOOP returns records sorted by sleep start DESC. We must:
+      1. Skip records with score_state != "SCORED" (PENDING_SCORE / UNSCORABLE
+         records have no reliable recovery_score yet).
+      2. Pull a few records (limit=5) so we don't hand back yesterday's score
+         when today's is still calculating — we'd rather return None than a
+         stale value.
+    """
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{WHOOP_API_BASE}/v2/recovery",
-            params={"limit": 1},
+            params={"limit": 5},
             headers={"Authorization": f"Bearer {access_token}"},
         )
         if resp.status_code != 200:
             return None
         records = resp.json().get("records", [])
-        return records[0] if records else None
+        if not records:
+            return None
+        # First record is the most recent. Only return it if SCORED.
+        latest = records[0]
+        if latest.get("score_state") != "SCORED":
+            return None
+        return latest
+
+
+async def get_today_recovery(access_token: str) -> Optional[dict]:
+    """Fetch TODAY's recovery via the current cycle.
+
+    More reliable than `get_latest_recovery` for the morning brief: WHOOP's
+    "current cycle" represents today's physiological day, so its recovery
+    cannot be a stale record from a previous day.
+
+    Returns None if:
+      • no current cycle yet,
+      • cycle has no recovery (user didn't sleep / no sleep synced),
+      • recovery score_state != SCORED (still calculating).
+    """
+    async with httpx.AsyncClient() as client:
+        # 1) Get the latest cycle (sorted by start DESC per docs)
+        resp = await client.get(
+            f"{WHOOP_API_BASE}/v2/cycle",
+            params={"limit": 1},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if resp.status_code != 200:
+            return None
+        cycles = resp.json().get("records", [])
+        if not cycles:
+            return None
+        cycle_id = cycles[0].get("id")
+        if not cycle_id:
+            return None
+
+        # 2) Get the recovery for that cycle
+        resp = await client.get(
+            f"{WHOOP_API_BASE}/v2/cycle/{cycle_id}/recovery",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if resp.status_code != 200:
+            return None
+        rec = resp.json()
+        if rec.get("score_state") != "SCORED":
+            return None
+        return rec
 
 
 async def get_latest_sleep(access_token: str) -> Optional[dict]:

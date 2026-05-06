@@ -176,9 +176,11 @@ async def handle_whoop_data(user: User, text: str, db: AsyncSession) -> Optional
 
         lines = []
 
-        # Fetch latest recovery
+        # Fetch TODAY's recovery (cycle-based; falls back to latest SCORED)
         try:
-            rec = await whoop_svc.get_latest_recovery(access_token)
+            rec = await whoop_svc.get_today_recovery(access_token)
+            if rec is None:
+                rec = await whoop_svc.get_latest_recovery(access_token)
             if rec:
                 score_data = rec.get("score") or {}
                 rs = score_data.get("recovery_score")
