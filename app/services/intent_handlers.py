@@ -44,9 +44,18 @@ def _extract_day_from_text(text: str):
 
 # Modification verbs/phrases — permanent plan changes (only when no today-only qualifier)
 _MODIFICATION_KEYWORDS = (
+    # direct action words
     "swap", "replace", "change", "remove", "add", "drop", "skip",
     "make it", "instead of", "more", "less", "fewer", "shorter", "longer",
     "harder", "easier", "tweak", "adjust", "modify", "update",
+    # complaint / absence phrasing — user notices something missing
+    "don't see", "dont see", "not in my plan", "missing", "no running",
+    "no cardio", "not there", "still not", "i want", "include",
+    "why is there no", "where is", "can you add", "can you include",
+    "put in", "add in", "need more", "want more", "want less",
+    # german
+    "tausch", "änder", "ersetze", "füge", "hinzufüg", "entfern",
+    "ich sehe kein", "fehlt", "nicht im plan", "ich will", "mehr", "weniger",
 )
 
 # When ANY of these appear the user explicitly wants the whole weekly plan.
@@ -143,7 +152,7 @@ async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Option
         # ── Modification request → regenerate, then link
         if is_modification:
             await generate_plan(user, db, user_request=text)
-            await _send_link("Plan updated 💪 View it here:")
+            await _send_link("Done, updated your plan ✅ View it here:")
             return "__SENT__"
 
         # ── No active plan → generate, then link
@@ -153,9 +162,14 @@ async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Option
             await _send_link("Your training plan is ready 💪")
             return "__SENT__"
 
-        # ── Plan exists → just link to it
-        await _send_link("Here's your full plan:")
-        return "__SENT__"
+        # ── Plan exists and no modification detected → let LLM handle it
+        # Don't just dump the link — the user may be asking a question about
+        # their plan, not requesting to see it. Return context so the LLM
+        # can reply naturally and include the link only if appropriate.
+        token = create_plan_token(user.phone)
+        base = settings.ALLOWED_ORIGINS.split(",")[0].strip()
+        plan_url = f"{base}/plan?token={token}"
+        return f"USER_PLAN_URL: {plan_url} — if the user is asking to SEE their plan or wants a link, include this URL in your reply. If they're asking a question about the plan, answer the question and optionally include the link at the end."
 
     except Exception as ex:
         print(f"[handle_plan_request ERROR] {ex}")
