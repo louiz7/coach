@@ -7,10 +7,11 @@ from app.database import async_session
 from app.services.proactive import get_idle_users, send_checkin
 
 
-# Hour at which the morning brief is sent (in each user's local timezone).
-# Cron fires every 30 min; each user gets at most ONE brief per day thanks
-# to a Redis dedup key (whoop:morning_sent:{user_id}:{YYYY-MM-DD}).
-_MORNING_HOUR = 8
+# Window (inclusive) in which the morning brief may be sent (local time).
+# Wide enough to survive a worker restart mid-morning.
+# Cron fires every 30 min; dedup key ensures at most ONE brief per user per day.
+_MORNING_HOUR_START = 8   # 08:00 local
+_MORNING_HOUR_END   = 10  # up to 10:59 local (catches restarts up to 2h late)
 
 # Hour at which the evening check-in is sent (local time).
 # Skipped if the user already logged progress today.
@@ -62,7 +63,7 @@ async def run_morning_brief():
                 tz = ZoneInfo("Europe/Berlin")
 
             local_now = datetime.now(tz)
-            if local_now.hour != _MORNING_HOUR:
+            if not (_MORNING_HOUR_START <= local_now.hour <= _MORNING_HOUR_END):
                 continue
 
             # Per-day dedup — set inside _send_morning_brief on success
