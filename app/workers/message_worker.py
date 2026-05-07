@@ -36,9 +36,6 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
     # NEW: Check message content FIRST before database lookup
     text_lower = text.lower().strip()
-    is_hercules_init = any(phrase in text_lower for phrase in [
-        "whats hercules", "what's hercules", "what is hercules", "whatis hercules"
-    ])
 
     async with async_session() as db:
         # Find user by chat_id
@@ -47,32 +44,19 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         )
         user = result.scalar_one_or_none()
 
-        # --- PROJECT ROUTING (message-content first) ---
-        # If user exists but not Hercules, AND this is NOT a Hercules init message → skip
+        # --- PROJECT ROUTING ---
         if user and user.project != ProjectEnum.HERCULES:
-            if not is_hercules_init:
-                # Non-Hercules traffic, let other project handle it
-                return
-            # User exists in other project but typed "whats hercules?"
-            # This is an edge case (user switching projects)
-            # For now, we'll ignore this
             return
 
-        # If no user exists but message doesn't contain Hercules keyword → skip
-        if not user and not is_hercules_init:
-            # Not a Hercules entry message, let other project handle it
-            return
-
-        # --- NEW HERCULES USER ---
+        # --- NEW HERCULES USER — any message starts the new onboarding ---
         if not user:
-            # Create new pre-onboarding user tagged as Hercules
             user = User(
                 linq_chat_id=chat_id,
-                phone=phone or chat_id,  # fallback to chat_id if phone not available
+                phone=phone or chat_id,
                 name="Unbekannt",
                 password_hash="pending",
                 project=ProjectEnum.HERCULES,
-                onboarding_state=OnboardingState.BETA_GATE,
+                onboarding_state=OnboardingState.INFORM,
                 onboarding_complete=False,
                 is_active=True,
             )
@@ -80,19 +64,23 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             await db.commit()
             await db.refresh(user)
 
-            # Send BETA_GATE prompt with code gate + WhatsApp link
-            from app.services import onboarding_chat
-            from app.config import settings
-            msg = onboarding_chat.BETA_GATE_PROMPT_TEMPLATE.format(url=settings.WHATSAPP_COMMUNITY_URL or "https://hercules.chat")
-            await onboarding_chat._send(chat_id, user.id, msg, db)
-            # Share contact card so Hercules shows up as a named contact
+            from app.services.onboarding_chat import _send_inform_intro
+            await _send_inform_intro(chat_id, user.id, db)
             await linq.share_contact_card(chat_id)
-            print(f"[message_worker] contact card shared for new user chat_id={chat_id}")
+            print(f"[message_worker] new user created, intro sent chat_id={chat_id}")
             return
 
         # --- ONBOARDING STATE MACHINE ---
-        # Handle users still in the iMessage onboarding funnel
         _onboarding_states = {
+            # New conversational flow
+            OnboardingState.INFORM,
+            OnboardingState.CAPTURE_GOAL,
+            OnboardingState.STATUS_QUO,
+            OnboardingState.CONSTRAINTS,
+            OnboardingState.WHOOP_OR_BASICS,
+            OnboardingState.PLAN_REVIEW,
+            OnboardingState.CHALLENGE,
+            # Legacy — routed to handler for graceful fast-forward to new flow
             OnboardingState.BETA_GATE,
             OnboardingState.CHAT_NAME,
             OnboardingState.CHAT_GOAL,
@@ -104,10 +92,8 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             OnboardingState.CHAT_WHOOP_PROMPT,
             OnboardingState.AWAITING_PLAN_CONFIRM,
             OnboardingState.SPORTS_FOCUS_BACKFILL,
-            # Legacy states
             OnboardingState.CHAT_PITCH,
             OnboardingState.FORM,
-            # New onboarding states
             OnboardingState.CHAT_BODY_METRICS,
             OnboardingState.CHAT_INJURIES,
             OnboardingState.CHAT_CURRENT_SCHEDULE,

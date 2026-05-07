@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Float, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, Boolean, Text, DateTime, Date, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -14,26 +14,36 @@ class ProjectEnum:
 
 # Onboarding states for the iMessage chat funnel
 class OnboardingState:
-    # Beta-phase chat onboarding
-    BETA_GATE = "BETA_GATE"                    # Awaiting beta access code
-    CHAT_NAME = "CHAT_NAME"                    # Awaiting user's first name
-    CHAT_GOAL = "CHAT_GOAL"                    # Awaiting goal (A/B/C/D + free-text)
-    CHAT_SPORTS_FOCUS = "CHAT_SPORTS_FOCUS"    # Free-text: sports to improve
-    CHAT_STATUS = "CHAT_STATUS"                # Training frequency (A/B/C/D)
-    CHAT_CHALLENGE = "CHAT_CHALLENGE"          # Biggest challenge (A/B/C/D)
-    CHAT_STYLE = "CHAT_STYLE"                  # Coach style (A/B/C/D)
-    CHAT_INTENSITY = "CHAT_INTENSITY"          # Coach intensity (A/B/C/D)
-    CHAT_BODY_METRICS = "CHAT_BODY_METRICS"    # age, weight, height
-    CHAT_INJURIES = "CHAT_INJURIES"            # injuries / movements to avoid
-    CHAT_CURRENT_SCHEDULE = "CHAT_CURRENT_SCHEDULE"  # current training routine free-text
-    CHAT_EQUIPMENT = "CHAT_EQUIPMENT"          # equipment access (A/B/C/D)
-    CHAT_WHOOP_PROMPT = "CHAT_WHOOP_PROMPT"    # Connect WHOOP or skip
-    AWAITING_PLAN_CONFIRM = "AWAITING_PLAN_CONFIRM"  # Post-onboarding: build first plan?
-    SPORTS_FOCUS_BACKFILL = "SPORTS_FOCUS_BACKFILL"  # One-time backfill for existing users
-    # Legacy / terminal
-    CHAT_PITCH = "CHAT_PITCH"                  # legacy: yes/no after pitch (kept for back-compat)
-    FORM = "FORM"                              # legacy: web form path
-    DONE = "DONE"                              # Fully onboarded
+    # ── New conversational flow (7 steps) ────────────────────────────────────
+    INFORM           = "INFORM"           # waiting for first name
+    CAPTURE_GOAL     = "CAPTURE_GOAL"     # free-text goal extraction
+    STATUS_QUO       = "STATUS_QUO"       # current training description
+    CONSTRAINTS      = "CONSTRAINTS"      # injuries / equipment / preferences
+    WHOOP_OR_BASICS  = "WHOOP_OR_BASICS"  # WHOOP connect OR manual age/weight/gender
+    PLAN_REVIEW      = "PLAN_REVIEW"      # plan built, waiting for ok / change request
+    CHALLENGE        = "CHALLENGE"        # 7-day challenge pitch
+
+    # ── Terminal state ────────────────────────────────────────────────────────
+    DONE = "DONE"
+
+    # ── Legacy states — kept for backward compat, fast-forwarded to INFORM ───
+    BETA_GATE             = "BETA_GATE"
+    CHAT_NAME             = "CHAT_NAME"
+    CHAT_GOAL             = "CHAT_GOAL"
+    CHAT_SPORTS_FOCUS     = "CHAT_SPORTS_FOCUS"
+    CHAT_STATUS           = "CHAT_STATUS"
+    CHAT_CHALLENGE        = "CHAT_CHALLENGE"
+    CHAT_STYLE            = "CHAT_STYLE"
+    CHAT_INTENSITY        = "CHAT_INTENSITY"
+    CHAT_BODY_METRICS     = "CHAT_BODY_METRICS"
+    CHAT_INJURIES         = "CHAT_INJURIES"
+    CHAT_CURRENT_SCHEDULE = "CHAT_CURRENT_SCHEDULE"
+    CHAT_EQUIPMENT        = "CHAT_EQUIPMENT"
+    CHAT_WHOOP_PROMPT     = "CHAT_WHOOP_PROMPT"
+    AWAITING_PLAN_CONFIRM = "AWAITING_PLAN_CONFIRM"
+    SPORTS_FOCUS_BACKFILL = "SPORTS_FOCUS_BACKFILL"
+    CHAT_PITCH            = "CHAT_PITCH"
+    FORM                  = "FORM"
 
 
 class User(Base):
@@ -79,6 +89,7 @@ class User(Base):
     plan_sent_count = Column(Integer, default=0, nullable=False)
     current_schedule_notes = Column(Text, nullable=True)
     equipment_access = Column(String(30), nullable=True)
+    last_morning_brief_date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     persona = relationship("CoachPersona")

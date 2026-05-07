@@ -15,9 +15,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.user import User
+from app.models.user import OnboardingState, User
 from app.services import linq as linq_svc
 from app.services import whoop as whoop_svc
+from app.services.onboarding_chat import _build_plan_and_advance
 from app.services.token import verify_onboarding_token
 
 router = APIRouter(tags=["whoop"])
@@ -106,8 +107,23 @@ async def whoop_callback(
 
     _log(f"WHOOP connected: user={user.name} whoop_user_id={whoop_user_id}")
 
-    # Send confirmation iMessage
-    if user.linq_chat_id:
+    # If user is mid-onboarding waiting for WHOOP, advance state and build plan
+    if user.onboarding_state == OnboardingState.WHOOP_OR_BASICS and user.linq_chat_id:
+        _log(f"User {user.name} in WHOOP_OR_BASICS — advancing to plan build")
+        try:
+            await _build_plan_and_advance(user, user.linq_chat_id, db)
+        except Exception as e:
+            _log(f"_build_plan_and_advance failed: {e}")
+            # Fall back to standard confirmation so user isn't left in silence
+            await linq_svc.send_message(
+                user.linq_chat_id,
+                (
+                    f"🟢 WHOOP connected, {user.name}! "
+                    "Building your plan now — hang tight 💪"
+                ),
+            )
+    elif user.linq_chat_id:
+        # Send confirmation iMessage
         await linq_svc.send_message(
             user.linq_chat_id,
             (

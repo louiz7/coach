@@ -1,13 +1,16 @@
-"""In-chat onboarding state machine for the Hercules beta phase.
+"""In-chat onboarding state machine for Hercules.
 
-Flow:
-    BETA_GATE → CHAT_NAME → CHAT_GOAL → CHAT_SPORTS_FOCUS
-              → CHAT_STATUS → CHAT_CHALLENGE → CHAT_INTENSITY
-              → CHAT_WHOOP_PROMPT → DONE
+New conversational flow — 7 steps, free text, LLM extraction, no letter menus:
 
-Also handles SPORTS_FOCUS_BACKFILL — a one-time prompt for already-onboarded
-users (Elias, Louiz) to capture sports_focus before they continue chatting.
+    INFORM → CAPTURE_GOAL → STATUS_QUO → CONSTRAINTS
+           → WHOOP_OR_BASICS → PLAN_REVIEW → CHALLENGE → DONE
+
+Legacy states (BETA_GATE, CHAT_NAME, CHAT_GOAL, …) are automatically
+fast-forwarded to INFORM so users who started the old flow get a clean restart.
 """
+
+import asyncio
+import json
 import re
 from typing import Optional
 
@@ -20,549 +23,436 @@ from app.services.memory import add_message
 from app.services.persona import assign_persona_from_style
 
 
-# ─── Question definitions ────────────────────────────────────────────────────
+# ─── Legacy state set (all routed → INFORM restart) ──────────────────────────
 
-# Each multiple-choice question maps a letter → (stored_value, label).
-# A free-text fallback is always allowed and stored verbatim.
-GOAL_OPTIONS = {
-    "a": ("lose_weight",          "Lose weight"),
-    "b": ("increase_muscle_mass", "Build muscle"),
-    "c": ("health_longevity",     "Health & longevity"),
-    "d": ("athlete",              "Perform like an athlete"),
-}
-
-STATUS_OPTIONS = {
-    "a": ("none",        "Not training right now"),
-    "b": ("1_2_week",    "1–2x per week"),
-    "c": ("3_4_week",    "3–4x per week"),
-    "d": ("5_plus_week", "5+ times per week"),
-}
-
-CHALLENGE_OPTIONS = {
-    "a": ("motivation",  "Staying motivated"),
-    "b": ("consistency", "Being consistent"),
-    "c": ("no_time",     "Not enough time"),
-    "d": ("alone",       "Doing it alone"),
-}
-
-INTENSITY_OPTIONS = {
-    "a": ("easy",     "Easy — ease me in"),
-    "b": ("moderate", "Moderate — push me a bit"),
-    "c": ("hard",     "Hard — I want results"),
-    "d": ("maximum",  "Maximum — no excuses"),
+_LEGACY_STATES = {
+    OnboardingState.BETA_GATE,
+    OnboardingState.CHAT_NAME,
+    OnboardingState.CHAT_GOAL,
+    OnboardingState.CHAT_SPORTS_FOCUS,
+    OnboardingState.CHAT_STATUS,
+    OnboardingState.CHAT_CHALLENGE,
+    OnboardingState.CHAT_STYLE,
+    OnboardingState.CHAT_INTENSITY,
+    OnboardingState.CHAT_BODY_METRICS,
+    OnboardingState.CHAT_INJURIES,
+    OnboardingState.CHAT_CURRENT_SCHEDULE,
+    OnboardingState.CHAT_EQUIPMENT,
+    OnboardingState.CHAT_WHOOP_PROMPT,
+    OnboardingState.AWAITING_PLAN_CONFIRM,
+    OnboardingState.CHAT_PITCH,
+    OnboardingState.FORM,
 }
 
 
-# Maps `status` string → integer training_frequency (mirrors web form mapping)
-_STATUS_TO_FREQ: dict[str, int] = {
-    "none":        0,
-    "1_2_week":    1,
-    "3_4_week":    3,
-    "5_plus_week": 5,
+# ─── LLM extraction helper ────────────────────────────────────────────────────
+
+_EXTRACT_PROMPTS: dict[str, str] = {
+    "goal": (
+        'Extract fitness goals from this message: "{text}"\n'
+        'Return JSON: {{"goal": "concise goal description", "sports_focus": "sports/activities mentioned or null", "valid": true or false}}\n'
+        "valid=false only if zero fitness intent was expressed."
+    ),
+    "status": (
+        'Extract training info from: "{text}"\n'
+        'Return JSON: {{"training_frequency": <int days per week, 0 if none>, "schedule_summary": "brief description", "valid": true or false}}\n'
+        "valid=false only if completely off-topic (e.g. random noise)."
+    ),
+    "constraints": (
+        'Extract training constraints from: "{text}"\n'
+        'Return JSON: {{"injuries": "description or null", "equipment": "gym/home/both/outdoor or null", "notes": "other constraints", "valid": true}}\n'
+        "Always valid=true. injuries=null if none mentioned."
+    ),
+    "basics": (
+        'Extract body basics from: "{text}"\n'
+        'Return JSON: {{"age": <int or null>, "weight_kg": <float or null>, "gender": "male/female/other or null", "valid": true or false}}\n'
+        "valid=false only if none of age/weight/gender could be extracted."
+    ),
 }
 
 
-# ─── Helpers ─────────────────────────────────────────────────────────────────
+async def _llm_extract(step: str, text: str) -> dict | None:
+    """Use gpt-4o-mini to extract structured data from a user message.
 
-def _parse_letter(text: str) -> Optional[str]:
-    """Extract a single A/B/C/D letter from short replies like 'A', 'a)', 'A.'.
-
-    Returns lowercase letter, or None if not a clear single-letter answer.
+    Returns None on API failure; returns dict with a 'valid' key otherwise.
     """
-    t = text.strip().lower()
-    # Strip common decoration: dots, parens, spaces
-    t = re.sub(r"[\s\.\)\(\-]", "", t)
-    if len(t) == 1 and t in {"a", "b", "c", "d"}:
-        return t
-    return None
+    from openai import AsyncOpenAI
+
+    prompt = _EXTRACT_PROMPTS[step].format(text=text)
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    try:
+        resp = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=150,
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        return json.loads(resp.choices[0].message.content)
+    except Exception as e:
+        print(f"[onboarding _llm_extract] step={step} failed: {e}")
+        return None
 
 
-def _format_options(options: dict) -> str:
-    return "\n".join(f"{k.upper()}) {label}" for k, (_, label) in options.items())
+# ─── Reask counter (Redis-backed, per user per state) ─────────────────────────
 
+async def _reask_count(user_id, state: str) -> int:
+    from app.redis import redis_pool
+    val = await redis_pool.get(f"onboarding:reask:{user_id}:{state}")
+    return int(val) if val else 0
+
+
+async def _inc_reask(user_id, state: str) -> None:
+    from app.redis import redis_pool
+    key = f"onboarding:reask:{user_id}:{state}"
+    await redis_pool.incr(key)
+    await redis_pool.expire(key, 86400)
+
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async def _send(chat_id: str, user_id, text: str, db: AsyncSession) -> None:
     await linq.send_message(chat_id, text)
     await add_message(user_id, "assistant", text, db)
 
 
-# ─── Outgoing prompts ────────────────────────────────────────────────────────
-
-BETA_GATE_PROMPT_TEMPLATE = (
-    "Hey! I'm Hercules — your personal AI fitness coach 💪\n\n"
-    "We're in beta right now. Drop your beta access code to get in.\n\n"
-    "Don't have one? Join the community to get access:\nhttps://chat.whatsapp.com/K7TxauaQUPw9301LKtyNH9"
-)
-
-WRONG_CODE_PROMPT = (
-    "That code didn't work. No worries — grab one from our community here:\n"
-    "{url}\n\n"
-    "Then send it back to me 🙏"
-)
-
-NAME_PROMPT = (
-    "You're in! 🎉\n\n"
-    "What's your first name? (just your first name, nothing else)"
-)
-
-GOAL_PROMPT = (
-    "Nice to meet you, {name}! 🙌\n\n"
-    "What's your main fitness goal?\n\n"
-    "{options}\n\n"
-    "Reply with A, B, C, D — or describe your own goal."
-)
-
-SPORTS_FOCUS_PROMPT = (
-    "Got it. Now tell me — which sports or activities do you want to improve in?\n\n"
-    "List as many as you like (e.g. running, climbing, jiu-jitsu, lifting). "
-    "I'll use this to tailor your training."
-)
-
-STATUS_PROMPT = (
-    "How often are you training right now?\n\n"
-    "{options}\n\n"
-    "Reply with A, B, C, or D."
-)
-
-CHALLENGE_PROMPT = (
-    "What's your biggest challenge?\n\n"
-    "{options}\n\n"
-    "Reply with A, B, C, or D."
-)
-
-INTENSITY_PROMPT = (
-    "How intense do you want me to be?\n\n"
-    "{options}\n\n"
-    "Reply with A, B, C, or D."
-)
-
-BODY_METRICS_PROMPT = (
-    "Quick stats — what's your age, weight, and height?\n\n"
-    "Just reply like: 27, 82 kg, 183 cm"
-)
-
-INJURIES_PROMPT = (
-    "Any injuries or movements you need to avoid?\n\n"
-    "Reply 'none' if you're all good."
-)
-
-CURRENT_SCHEDULE_PROMPT = (
-    "Briefly describe your current training routine. "
-    "What does a typical week look like?\n\n"
-    "Keep it short — use the dictate function if it's easier 🎙️"
-)
-
-EQUIPMENT_OPTIONS = {
-    "a": ("gym",     "Full gym"),
-    "b": ("home",    "Home gym / dumbbells"),
-    "c": ("both",    "Both"),
-    "d": ("outdoor", "Outdoor / bodyweight only"),
-}
-
-EQUIPMENT_PROMPT = (
-    "What equipment do you have access to?\n\n"
-    "{options}\n\n"
-    "Reply with A, B, C, or D."
-)
-
-WHOOP_PROMPT_TEMPLATE = (
-    "You're set up, {name}! 🔥\n\n"
-    "Optional: connect your WHOOP so I can adapt training to your recovery. "
-    "Tap below — or reply 'skip' to do it later.\n"
-    "{url}"
-)
-
-WELCOME_DONE = (
-    "Welcome to the beta, {name}! 🎉\n\n"
-    "I've got everything I need. From now on, just text me whenever — log workouts, "
-    "ask for plans, vent about a tough session. I'm your coach 💪"
-)
-
-PLAN_OFFER_PROMPT = (
-    "Want me to build your first training plan right now based on your answers?\n\n"
-    "Reply YES to get it now — or NOT YET if you'd rather wait."
-)
-
-PLAN_BUILDING_ACK = "On it — building your plan now 💪 give me a few seconds…"
-
-PLAN_AFTER_HINT = (
-    "That's your starting plan. Tell me anytime if you want to swap, add, or "
-    "remove anything — I'll update it for you."
-)
-
-PLAN_DECLINED_ACK = (
-    "All good. Just text me whenever you're ready and I'll build one — or you "
-    "can ask me anything in the meantime 💪"
-)
-
-PLAN_ERROR_ACK = (
-    "Hmm, I couldn't build the plan just now. Text me 'build me a plan' in a bit "
-    "and I'll try again."
-)
-
-SPORTS_FOCUS_BACKFILL_PROMPT = (
-    "Quick one before we continue — I want to tailor your coaching better.\n\n"
-    "Which sports or activities are you focused on improving in? "
-    "List as many as you like (e.g. running, climbing, jiu-jitsu, lifting)."
-)
-
-REASK_LETTER = "Quick — just reply with A, B, C, or D 🙂\n\n{options}"
+async def _send_multi(
+    chat_id: str,
+    user_id,
+    messages: list[str],
+    db: AsyncSession,
+    delay: float = 1.2,
+) -> None:
+    """Send multiple messages with short typing pauses between them."""
+    for i, msg in enumerate(messages):
+        if i > 0:
+            await asyncio.sleep(delay)
+        await _send(chat_id, user_id, msg, db)
 
 
-# ─── State handlers ──────────────────────────────────────────────────────────
+# ─── Entry point ──────────────────────────────────────────────────────────────
 
 async def handle(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    """Single entry point — dispatches based on user.onboarding_state."""
     state = user.onboarding_state
 
-    # One-off: existing users completing the sports_focus backfill
+    # Legacy users → fresh restart
+    if state in _LEGACY_STATES:
+        await _restart_inform(user, chat_id, db)
+        return
+
     if state == OnboardingState.SPORTS_FOCUS_BACKFILL:
         await _handle_sports_focus_backfill(user, chat_id, text, db)
         return
 
-    if state == OnboardingState.BETA_GATE:
-        await _handle_beta_gate(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_NAME:
-        await _handle_name(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_GOAL:
-        await _handle_goal(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_SPORTS_FOCUS:
-        await _handle_sports_focus(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_STATUS:
-        await _handle_status(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_CHALLENGE:
-        await _handle_challenge(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_STYLE:
-        # Legacy step removed — fast-forward any user still on this state.
-        user.onboarding_state = OnboardingState.CHAT_INTENSITY
-        await db.commit()
-        msg = INTENSITY_PROMPT.format(options=_format_options(INTENSITY_OPTIONS))
-        await _send(chat_id, user.id, msg, db)
-        return
-
-    if state == OnboardingState.CHAT_INTENSITY:
-        await _handle_intensity(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_BODY_METRICS:
-        await _handle_body_metrics(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_INJURIES:
-        await _handle_injuries(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_CURRENT_SCHEDULE:
-        await _handle_current_schedule(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_EQUIPMENT:
-        await _handle_equipment(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.CHAT_WHOOP_PROMPT:
-        await _handle_whoop_prompt(user, chat_id, text, db)
-        return
-
-    if state == OnboardingState.AWAITING_PLAN_CONFIRM:
-        await _handle_awaiting_plan_confirm(user, chat_id, text, db)
-        return
-
-    # Legacy CHAT_PITCH / FORM — should be migrated by SQL, but be defensive:
-    # treat them like BETA_GATE so the user re-enters the new funnel.
-    user.onboarding_state = OnboardingState.BETA_GATE
-    await db.commit()
-    await _send(chat_id, user.id, BETA_GATE_PROMPT_TEMPLATE, db)
-
-
-# --- BETA_GATE ---------------------------------------------------------------
-
-async def _handle_beta_gate(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    code = (text or "").strip().lower()
-    expected = (settings.BETA_CODE or "").strip().lower()
-    if code and expected and code == expected:
-        user.beta_unlocked = True
-        user.onboarding_state = OnboardingState.CHAT_NAME
-        await db.commit()
-        await _send(chat_id, user.id, NAME_PROMPT, db)
+    dispatch = {
+        OnboardingState.INFORM:          _handle_inform,
+        OnboardingState.CAPTURE_GOAL:    _handle_capture_goal,
+        OnboardingState.STATUS_QUO:      _handle_status_quo,
+        OnboardingState.CONSTRAINTS:     _handle_constraints,
+        OnboardingState.WHOOP_OR_BASICS: _handle_whoop_or_basics,
+        OnboardingState.PLAN_REVIEW:     _handle_plan_review,
+        OnboardingState.CHALLENGE:       _handle_challenge,
+    }
+    handler = dispatch.get(state)
+    if handler:
+        await handler(user, chat_id, text, db)
     else:
-        msg = WRONG_CODE_PROMPT.format(url=settings.WHATSAPP_COMMUNITY_URL or "https://hercules.chat")
-        await _send(chat_id, user.id, msg, db)
+        # Unknown state — restart
+        await _restart_inform(user, chat_id, db)
 
 
-# --- CHAT_NAME ---------------------------------------------------------------
+# ─── Initial intro (called by message_worker for brand-new users) ─────────────
 
-async def _handle_name(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+async def _send_inform_intro(chat_id: str, user_id, db: AsyncSession) -> None:
+    """Send the Hercules intro and ask for the user's name."""
+    await _send_multi(chat_id, user_id, [
+        "I'm your AI personal trainer, right here in iMessage 💪",
+        "before we get into it: what's your name?",
+    ], db, delay=1.0)
+
+
+# ─── State handlers ───────────────────────────────────────────────────────────
+
+async def _restart_inform(user: User, chat_id: str, db: AsyncSession) -> None:
+    """Move a legacy-state user to the new INFORM flow."""
+    user.onboarding_state = OnboardingState.INFORM
+    user.name = "Unbekannt"
+    await db.commit()
+    await _send_inform_intro(chat_id, user.id, db)
+
+
+async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    """Capture the user's first name, then pitch and ask for their goal."""
     raw = (text or "").strip()
     if not raw:
-        await _send(chat_id, user.id, NAME_PROMPT, db)
+        await _send(chat_id, user.id, "what's your name?", db)
         return
-    # Take first whitespace-separated token, capitalize
+
     first = raw.split()[0].strip()
-    # Strip trailing punctuation
     first = re.sub(r"[^\w\-]+$", "", first)
-    if not first:
-        await _send(chat_id, user.id, NAME_PROMPT, db)
+    if not first or len(first) < 2:
+        await _send(chat_id, user.id, "just your first name is fine 🙂", db)
         return
+
     user.name = first.capitalize()
-    user.onboarding_state = OnboardingState.CHAT_GOAL
+    user.onboarding_state = OnboardingState.CAPTURE_GOAL
     await db.commit()
-    msg = GOAL_PROMPT.format(name=user.name, options=_format_options(GOAL_OPTIONS))
-    await _send(chat_id, user.id, msg, db)
+
+    await _send_multi(chat_id, user.id, [
+        f"nice to meet you {user.name} 💪 you're one of the first — I'm still in beta.",
+        "I can build your workout plan, adapt it to your recovery data, and check in daily so you actually hit your goals.",
+        "let's get into it. what are your fitness goals? could be running a 10k, building muscle, losing weight, improving cardio — throw everything at me, no need to pick just one 🎯",
+    ], db)
 
 
-# --- CHAT_GOAL ---------------------------------------------------------------
+async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    """Extract fitness goal and sports focus from free text."""
+    data = await _llm_extract("goal", text or "")
 
-async def _handle_goal(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    letter = _parse_letter(text)
-    if letter and letter in GOAL_OPTIONS:
-        user.goal = GOAL_OPTIONS[letter][0]
-    else:
-        # Free-text fallback — store verbatim (column is now TEXT)
-        cleaned = (text or "").strip()
-        if not cleaned:
-            msg = REASK_LETTER.format(options=_format_options(GOAL_OPTIONS))
-            await _send(chat_id, user.id, msg, db)
+    if not data or not data.get("valid"):
+        reasks = await _reask_count(user.id, OnboardingState.CAPTURE_GOAL)
+        if reasks >= 1:
+            # Accept whatever was said and move on
+            user.goal = (text or "").strip()[:2000] or "general fitness"
+        else:
+            await _inc_reask(user.id, OnboardingState.CAPTURE_GOAL)
+            await _send(
+                chat_id, user.id,
+                "could be anything — build muscle, run a 5k, lose weight, get stronger. what do you want to work towards? 🎯",
+                db,
+            )
             return
-        user.goal = cleaned[:2000]  # sanity cap
-    user.onboarding_state = OnboardingState.CHAT_SPORTS_FOCUS
-    await db.commit()
-    await _send(chat_id, user.id, SPORTS_FOCUS_PROMPT, db)
-
-
-# --- CHAT_SPORTS_FOCUS -------------------------------------------------------
-
-async def _handle_sports_focus(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    cleaned = (text or "").strip()
-    if not cleaned:
-        await _send(chat_id, user.id, SPORTS_FOCUS_PROMPT, db)
-        return
-    user.sports_focus = cleaned[:2000]
-    user.onboarding_state = OnboardingState.CHAT_STATUS
-    await db.commit()
-    msg = STATUS_PROMPT.format(options=_format_options(STATUS_OPTIONS))
-    await _send(chat_id, user.id, msg, db)
-
-
-# --- CHAT_STATUS -------------------------------------------------------------
-
-async def _handle_status(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    letter = _parse_letter(text)
-    if not letter or letter not in STATUS_OPTIONS:
-        msg = REASK_LETTER.format(options=_format_options(STATUS_OPTIONS))
-        await _send(chat_id, user.id, msg, db)
-        return
-    value = STATUS_OPTIONS[letter][0]
-    user.training_frequency = _STATUS_TO_FREQ.get(value, 0)
-    user.onboarding_state = OnboardingState.CHAT_CHALLENGE
-    await db.commit()
-    msg = CHALLENGE_PROMPT.format(options=_format_options(CHALLENGE_OPTIONS))
-    await _send(chat_id, user.id, msg, db)
-
-
-# --- CHAT_CHALLENGE ----------------------------------------------------------
-
-async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    letter = _parse_letter(text)
-    if not letter or letter not in CHALLENGE_OPTIONS:
-        msg = REASK_LETTER.format(options=_format_options(CHALLENGE_OPTIONS))
-        await _send(chat_id, user.id, msg, db)
-        return
-    user.challenge = CHALLENGE_OPTIONS[letter][0]
-    user.onboarding_state = OnboardingState.CHAT_INTENSITY
-    await db.commit()
-    msg = INTENSITY_PROMPT.format(options=_format_options(INTENSITY_OPTIONS))
-    await _send(chat_id, user.id, msg, db)
-
-
-# --- CHAT_INTENSITY ----------------------------------------------------------
-
-async def _handle_intensity(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    letter = _parse_letter(text)
-    if not letter or letter not in INTENSITY_OPTIONS:
-        msg = REASK_LETTER.format(options=_format_options(INTENSITY_OPTIONS))
-        await _send(chat_id, user.id, msg, db)
-        return
-    user.coach_intensity = INTENSITY_OPTIONS[letter][0]
-
-    # Resolve persona NOW based on style/intensity
-    await assign_persona_from_style(user, db, user.coach_style, user.coach_intensity)
-
-    user.onboarding_state = OnboardingState.CHAT_BODY_METRICS
-    await db.commit()
-    await _send(chat_id, user.id, BODY_METRICS_PROMPT, db)
-
-
-# --- CHAT_BODY_METRICS -------------------------------------------------------
-
-_METRICS_RE = re.compile(
-    r"(\d{1,3})[,\s]+"
-    r"(\d{2,3}(?:\.\d)?)[\s]*(?:kg|lbs?|pounds?|kilos?)?[,\s]+"
-    r"(\d{2,3}(?:\.\d)?)[\s]*(?:cm|m|ft|feet|inches?)?",
-    re.IGNORECASE,
-)
-
-
-async def _handle_body_metrics(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    m = _METRICS_RE.search(text or "")
-    if m:
-        try:
-            user.age = int(m.group(1))
-            user.weight_kg = float(m.group(2))
-            user.height_cm = float(m.group(3))
-        except (ValueError, AttributeError):
-            pass  # store whatever parsed, skip the rest
-    # Always advance — don't block users who can't format precisely
-    user.onboarding_state = OnboardingState.CHAT_INJURIES
-    await db.commit()
-    await _send(chat_id, user.id, INJURIES_PROMPT, db)
-
-
-# --- CHAT_INJURIES -----------------------------------------------------------
-
-async def _handle_injuries(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    raw = (text or "").strip()
-    if raw.lower() in {"none", "no", "nope", "nothing", "none!", "all good", "nein"}:
-        user.injuries = None
     else:
-        user.injuries = raw[:2000]
-    user.onboarding_state = OnboardingState.CHAT_CURRENT_SCHEDULE
+        user.goal = (data.get("goal") or (text or "").strip())[:2000]
+        if data.get("sports_focus"):
+            user.sports_focus = data["sports_focus"][:2000]
+
+    user.onboarding_state = OnboardingState.STATUS_QUO
     await db.commit()
-    await _send(chat_id, user.id, CURRENT_SCHEDULE_PROMPT, db)
+
+    await _send_multi(chat_id, user.id, [
+        "got it 👊",
+        "how does your current training look like? how many days a week, what do you do and when — give me the honest version 🤙",
+    ], db)
 
 
-# --- CHAT_CURRENT_SCHEDULE ---------------------------------------------------
+async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    """Extract current training frequency and schedule from free text."""
+    data = await _llm_extract("status", text or "")
 
-async def _handle_current_schedule(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    if not data or not data.get("valid"):
+        reasks = await _reask_count(user.id, OnboardingState.STATUS_QUO)
+        if reasks >= 1:
+            user.training_frequency = 0
+            user.current_schedule_notes = (text or "").strip()[:3000]
+        else:
+            await _inc_reask(user.id, OnboardingState.STATUS_QUO)
+            await _send(
+                chat_id, user.id,
+                "just a quick picture of your week — like 'I train 3x, mostly lifting, sometimes I run' 🙂",
+                db,
+            )
+            return
+    else:
+        user.training_frequency = int(data.get("training_frequency") or 0)
+        user.current_schedule_notes = (
+            data.get("schedule_summary") or (text or "").strip()
+        )[:3000]
+
+    user.onboarding_state = OnboardingState.CONSTRAINTS
+    await db.commit()
+
+    await _send_multi(chat_id, user.id, [
+        "noted.",
+        "what should I keep in mind when coaching you and building your plan? injuries, busy weeks, exercises you hate, multiple disciplines like running + gym — anything goes 🙌",
+    ], db)
+
+
+async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    """Extract injuries, equipment and other constraints from free text."""
     raw = (text or "").strip()
-    user.current_schedule_notes = raw[:3000] if raw else None
-    user.onboarding_state = OnboardingState.CHAT_EQUIPMENT
+    no_constraints = raw.lower() in {
+        "none", "nothing", "no", "nope", "nein", "all good",
+        "nothing really", "none really", "keine", "alles gut",
+    }
+
+    if not no_constraints and raw:
+        data = await _llm_extract("constraints", raw)
+        if data:
+            if data.get("injuries"):
+                user.injuries = data["injuries"][:2000]
+            if data.get("equipment"):
+                user.equipment_access = data["equipment"]
+            extra_notes = data.get("notes", "")
+            if extra_notes:
+                existing = user.current_schedule_notes or ""
+                combined = f"{existing} | {extra_notes}" if existing else extra_notes
+                user.current_schedule_notes = combined[:3000]
+        else:
+            # LLM failed — store raw text as injury notes
+            user.injuries = raw[:2000]
+
+    user.onboarding_state = OnboardingState.WHOOP_OR_BASICS
     await db.commit()
-    msg = EQUIPMENT_PROMPT.format(options=_format_options(EQUIPMENT_OPTIONS))
-    await _send(chat_id, user.id, msg, db)
 
-
-# --- CHAT_EQUIPMENT ----------------------------------------------------------
-
-async def _handle_equipment(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    letter = _parse_letter(text)
-    if not letter or letter not in EQUIPMENT_OPTIONS:
-        msg = REASK_LETTER.format(options=_format_options(EQUIPMENT_OPTIONS))
-        await _send(chat_id, user.id, msg, db)
-        return
-    user.equipment_access = EQUIPMENT_OPTIONS[letter][0]
-    user.onboarding_state = OnboardingState.CHAT_WHOOP_PROMPT
-    await db.commit()
-    # Build WHOOP connect link
+    # Build WHOOP link
     from app.services.token import create_onboarding_token
     token = create_onboarding_token(user.phone)
     base_url = settings.ALLOWED_ORIGINS.split(",")[0].strip()
     whoop_url = f"{base_url}/whoop/connect?token={token}"
-    msg = WHOOP_PROMPT_TEMPLATE.format(name=user.name, url=whoop_url)
-    await _send(chat_id, user.id, msg, db)
+
+    await _send_multi(chat_id, user.id, [
+        "got it. next I need some basics about you.",
+        (
+            f"if you connect your WHOOP I can skip most of this and give you data-driven coaching — "
+            f"recovery-based plans, adaptive training intensity, the lot 🟢\n{whoop_url}"
+        ),
+        "no WHOOP? just reply with your age, weight and gender — like: 24, 78 kg, male",
+    ], db)
 
 
-# --- CHAT_WHOOP_PROMPT -------------------------------------------------------
+async def _handle_whoop_or_basics(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    """Parse manual age / weight / gender basics, then build the plan."""
+    data = await _llm_extract("basics", text or "")
 
-_SKIP_WORDS = {"skip", "later", "no", "nein", "pass", "nah", "skip it", "not now", "spaeter", "später"}
+    if not data or not data.get("valid"):
+        reasks = await _reask_count(user.id, OnboardingState.WHOOP_OR_BASICS)
+        if reasks >= 1:
+            # Accept partial / empty and move on
+            pass
+        else:
+            await _inc_reask(user.id, OnboardingState.WHOOP_OR_BASICS)
+            await _send(
+                chat_id, user.id,
+                "just send your age, weight and gender — like: 24, 78 kg, male 🙂",
+                db,
+            )
+            return
+    else:
+        if data.get("age") is not None:
+            user.age = int(data["age"])
+        if data.get("weight_kg") is not None:
+            user.weight_kg = float(data["weight_kg"])
+        if data.get("gender") is not None:
+            user.gender = data["gender"]
 
-
-async def _handle_whoop_prompt(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    t = (text or "").strip().lower()
-    is_skip = any(t == w or t.startswith(w + " ") or t.startswith(w + "!") for w in _SKIP_WORDS)
-
-    # Move user out of the WHOOP step. The WHOOP callback (if they tap the link)
-    # will set whoop_access_token in the background regardless.
-    user.onboarding_state = OnboardingState.AWAITING_PLAN_CONFIRM
-    user.onboarding_complete = True
-    await db.commit()
-
-    # Share contact card now that onboarding is complete — ensures Hercules
-    # appears as a named contact in iMessage for all users
-    try:
-        from app.services import linq
-        await linq.share_contact_card(chat_id)
-        print(f"[onboarding] contact card shared on completion for user={user.id}")
-    except Exception as _cc_err:
-        print(f"[onboarding] contact card share failed (non-fatal): {_cc_err}")
-
-    welcome = WELCOME_DONE.format(name=user.name)
-    await _send(chat_id, user.id, welcome, db)
-    await _send(chat_id, user.id, PLAN_OFFER_PROMPT, db)
-
-    _ = is_skip  # noqa: F841 (kept for future analytics)
+    await _build_plan_and_advance(user, chat_id, db)
 
 
-# --- AWAITING_PLAN_CONFIRM ---------------------------------------------------
+async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) -> None:
+    """Build the training plan, send the link, and move to PLAN_REVIEW.
 
-_YES_WORDS = {
-    "yes", "y", "yeah", "yep", "yup", "sure", "ok", "okay", "k", "do it",
-    "let's go", "lets go", "go", "build it", "yes please", "absolutely",
-    "ja", "klar",
-}
-_NO_WORDS = {
-    "no", "n", "nope", "not yet", "later", "skip", "pass", "nah", "not now",
-    "nein", "spaeter", "später",
-}
+    Called from both the manual-basics handler and the WHOOP OAuth callback.
+    """
+    from app.services.token import create_plan_token
 
+    # Assign persona if not yet set
+    await assign_persona_from_style(user, db)
 
-def _matches_words(text: str, words: set[str]) -> bool:
-    t = (text or "").strip().lower().rstrip("!.?")
-    if t in words:
-        return True
-    return any(t.startswith(w + " ") for w in words)
+    await _send_multi(chat_id, user.id, [
+        "ty, got everything I need 🙏",
+        "building your plan now — give me a sec…",
+    ], db)
 
-
-async def _handle_awaiting_plan_confirm(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    # Only decline if they clearly say no. Any other reply (yes, nice, sure,
-    # "create my plan", "okay", silence, emoji, etc.) → build the plan.
-    if _matches_words(text, _NO_WORDS):
-        user.onboarding_state = OnboardingState.DONE
-        await db.commit()
-        await _send(chat_id, user.id, PLAN_DECLINED_ACK, db)
-        return
-
-    # Everything else → build the plan
-    await _send(chat_id, user.id, PLAN_BUILDING_ACK, db)
     try:
         from app.services.training_plan import generate_plan
-        from app.services.token import create_plan_token
-        from app.config import settings
-        plan = await generate_plan(user, db)
+        await generate_plan(user, db)
         token = create_plan_token(user.phone)
-        base = settings.ALLOWED_ORIGINS.split(",")[0].strip()
-        url = f"{base}/plan?token={token}"
-        await _send(chat_id, user.id, f"Your plan is ready 💪\n{url}", db)
+        base_url = settings.ALLOWED_ORIGINS.split(",")[0].strip()
+        plan_url = f"{base_url}/plan?token={token}"
+
+        user.onboarding_state = OnboardingState.PLAN_REVIEW
+        user.onboarding_complete = True
+        await db.commit()
+
+        await _send_multi(chat_id, user.id, [
+            f"your plan is ready 💪\n{plan_url}",
+            "want to change anything or does this work for you?",
+        ], db)
+
     except Exception as ex:
-        print(f"[awaiting_plan_confirm generate ERROR] {ex}")
-        await _send(chat_id, user.id, PLAN_ERROR_ACK, db)
+        print(f"[onboarding _build_plan_and_advance] plan gen ERROR: {ex}")
+        user.onboarding_state = OnboardingState.PLAN_REVIEW
+        user.onboarding_complete = True
+        await db.commit()
+        await _send(
+            chat_id, user.id,
+            "I had trouble building your plan right now — text me 'build me a plan' in a moment and I'll get it done 💪",
+            db,
+        )
+        await _challenge_pitch(user, chat_id, db)
+        return
+
+    # Share contact card now that onboarding is done
+    try:
+        await linq.share_contact_card(chat_id)
+    except Exception as cc_err:
+        print(f"[onboarding] contact card share failed (non-fatal): {cc_err}")
+
+
+async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    """Accept plan feedback and transition to the 7-day challenge pitch."""
+    _MODIFY_HINTS = [
+        "change", "swap", "add", "remove", "replace", "different",
+        "more", "less", "instead", "andern", "ändern", "tauschen",
+        "hinzufügen", "anders", "ohne",
+    ]
+    t = (text or "").lower()
+    if any(h in t for h in _MODIFY_HINTS):
+        await _send(
+            chat_id, user.id,
+            "noted — you can text me changes anytime and I'll update your plan 🔄",
+            db,
+        )
+    await _challenge_pitch(user, chat_id, db)
+
+
+async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
+    """Send the 7-day challenge pitch and advance state to CHALLENGE."""
+    user.onboarding_state = OnboardingState.CHALLENGE
+    await db.commit()
+    await _send_multi(chat_id, user.id, [
+        "perfect, your plan is locked in 😊",
+        "one more thing... and this is important.",
+        (
+            "I want you to do a 7-day challenge with me. complete it and you earn your spot as "
+            "a Hercules member. think of it as proving to yourself you actually want this 👊"
+        ),
+        "you in?",
+    ], db)
+
+
+async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    """Handle the 7-day challenge response and complete onboarding."""
+    t = (text or "").strip().lower().rstrip("!.? ")
+    _NO_WORDS = {"no", "n", "nope", "nein", "pass", "nah", "not now", "later", "nö"}
+
     user.onboarding_state = OnboardingState.DONE
     await db.commit()
 
+    if t in _NO_WORDS:
+        await _send(
+            chat_id, user.id,
+            "no worries — I'll still check in and keep you on track 💪 just text me whenever you're ready.",
+            db,
+        )
+    else:
+        await _send_multi(chat_id, user.id, [
+            "let's get it 🔥 your first check-in is tomorrow morning.",
+            "I'll message you then. don't ghost me 👊",
+        ], db)
 
-# --- SPORTS_FOCUS_BACKFILL (one-shot for existing users) ---------------------
 
 async def _handle_sports_focus_backfill(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     cleaned = (text or "").strip()
     if not cleaned:
-        await _send(chat_id, user.id, SPORTS_FOCUS_BACKFILL_PROMPT, db)
+        await _send(
+            chat_id, user.id,
+            "which sports or activities are you focused on improving? (e.g. running, climbing, lifting)",
+            db,
+        )
         return
     user.sports_focus = cleaned[:2000]
-    # Move existing onboarded users into the plan-offer flow as well
-    user.onboarding_state = OnboardingState.AWAITING_PLAN_CONFIRM
+    user.onboarding_state = OnboardingState.DONE
     await db.commit()
-    ack = "Got it — thanks! 💪"
-    await _send(chat_id, user.id, ack, db)
-    await _send(chat_id, user.id, PLAN_OFFER_PROMPT, db)
+    await _send(chat_id, user.id, "got it 💪 just text me whenever you need anything.", db)
