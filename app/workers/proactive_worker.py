@@ -143,6 +143,64 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         await redis_pool.set(dedup_key, "1", ex=86400)
         return
 
+    # ── WHOOP connected but not yet synced today ──────────────────────────
+    # Send the plan now so they're not waiting, nudge them to open WHOOP,
+    # and park a pending key so the follow-up task can text them once WHOOP syncs.
+    whoop_pending_key = f"whoop:pending_brief:{user.id}:{local_now.strftime('%Y-%m-%d')}"
+    if user.whoop_access_token and recovery_score is None:
+        # Build the plan-only part of the message
+        ex_lines_early = []
+        if today_workout:
+            for ex in today_workout.get("exercises", []):
+                sets = ex.get("sets", "?"); reps = ex.get("reps", "?"); rpe = ex.get("rpe", "")
+                line = f"- {ex.get('name','')}: {sets}x{reps}"
+                if rpe: line += f" @RPE{rpe}"
+                ex_lines_early.append(line)
+        workout_text_early = (
+            f"{today_workout.get('day','')} — {today_workout.get('focus','')}\n"
+            + "\n".join(ex_lines_early)
+        ) if today_workout else ""
+
+        early_prompt = (
+            f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+            f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'} | "
+            f"Focus: {user.sports_focus or 'general'}\n\n"
+            f"Today's workout:\n{workout_text_early}\n\n"
+            "TASK: Write a morning brief with today's workout. Keep it short and punchy — "
+            "max 4 lines, no markdown. At the end add one short line telling them to open "
+            "their WHOOP app so you can check their recovery and fine-tune today's session "
+            "for them. Sound like a real coach texting, not a report."
+        )
+        try:
+            from app.config import settings as cfg
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+            resp = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": early_prompt}],
+                max_tokens=220,
+                temperature=0.75,
+            )
+            early_msg = resp.choices[0].message.content.strip()
+        except Exception as ex:
+            print(f"[morning_brief] early LLM failed for {user.name}: {ex}")
+            early_msg = f"Morning {user.name}! Here's your session for today:\n{workout_text_early}\n\nOpen your WHOOP app so I can check your recovery and adjust if needed."
+
+        from app.services import linq as linq_svc
+        from app.services.memory import add_message
+        if user.linq_chat_id:
+            await linq_svc.send_message(user.linq_chat_id, early_msg)
+            try:
+                await add_message(user.id, "assistant", early_msg, db)
+            except Exception:
+                pass
+            print(f"[morning_brief] plan-only sent to {user.name} (WHOOP not synced yet)")
+
+        # Park pending so follow-up task picks it up when WHOOP syncs
+        await redis_pool.set(whoop_pending_key, "1", ex=43200)  # 12h window
+        await redis_pool.set(dedup_key, "1", ex=86400)
+        return
+
     # ── Recovery context ──────────────────────────────────────────────────
     if recovery_score is not None:
         if recovery_score >= 67:
@@ -481,6 +539,133 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
     await redis_pool.set(dedup_key, "1", ex=86400)
 
 
+async def run_whoop_followup():
+    """Runs every 30 min. For users who got a plan-only brief this morning
+    (WHOOP was connected but not yet synced), check if WHOOP has synced.
+    If yes → send a short recovery follow-up and clear the pending key."""
+    from sqlalchemy import select
+    from app.models.user import User
+    from app.redis import redis_pool
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(User).where(
+                User.onboarding_complete == True,
+                User.linq_chat_id.isnot(None),
+                User.whoop_access_token.isnot(None),
+            )
+        )
+        users = list(result.scalars().all())
+
+    for user in users:
+        try:
+            tz_name = user.timezone or "Europe/Berlin"
+            try:
+                tz = ZoneInfo(tz_name)
+            except ZoneInfoNotFoundError:
+                tz = ZoneInfo("Europe/Berlin")
+            local_now = datetime.now(tz)
+            today_str = local_now.strftime("%Y-%m-%d")
+
+            pending_key = f"whoop:pending_brief:{user.id}:{today_str}"
+            sent_key = f"whoop:followup_sent:{user.id}:{today_str}"
+
+            if not await redis_pool.get(pending_key):
+                continue
+            if await redis_pool.get(sent_key):
+                continue
+
+            # Try to fetch WHOOP data now
+            recovery_score = None
+            hrv = None
+            rhr = None
+            try:
+                from app.api.whoop import _ensure_fresh_token
+                from app.services import whoop as whoop_svc
+                async with async_session() as db2:
+                    access_token = await _ensure_fresh_token(user, db2)
+                    if access_token:
+                        rec = await whoop_svc.get_today_recovery(access_token)
+                        if rec is None:
+                            rec = await whoop_svc.get_latest_recovery(access_token)
+                        if rec:
+                            score = rec.get("score", {}) or {}
+                            rs = score.get("recovery_score")
+                            if rs is not None:
+                                recovery_score = int(rs)
+                            if score.get("hrv_rmssd_milli") is not None:
+                                hrv = float(score["hrv_rmssd_milli"])
+                            if score.get("resting_heart_rate") is not None:
+                                rhr = int(score["resting_heart_rate"])
+            except Exception as ex:
+                print(f"[whoop_followup] fetch failed for {user.name}: {ex}")
+                continue
+
+            if recovery_score is None:
+                continue  # still not synced — try again next 30 min
+
+            # Build follow-up message
+            if recovery_score >= 67:
+                emoji = "🟢"; verdict = "full send"; tip = "Push your top sets today."
+            elif recovery_score >= 34:
+                emoji = "🟡"; verdict = "stay the course"; tip = "Stick to planned loads — no need to back off."
+            else:
+                emoji = "🔴"; verdict = "take it easier"; tip = "Drop loads ~20% and cut one set per exercise — you'll come back stronger for it."
+
+            bio_bits = []
+            if hrv: bio_bits.append(f"{hrv:.0f}ms HRV")
+            if rhr: bio_bits.append(f"{rhr}bpm RHR")
+            bio_str = f" ({', '.join(bio_bits)})" if bio_bits else ""
+
+            followup_prompt = (
+                f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+                f"Athlete: {user.name}\n"
+                f"WHOOP just synced: {emoji} {recovery_score}%{bio_str} — verdict: {verdict}\n"
+                f"Coaching tip: {tip}\n\n"
+                "TASK: Write a very short follow-up text (2-3 sentences max). "
+                "Tell them their WHOOP just synced, give the recovery verdict, and say what that means for today's session. "
+                "Sound like a real coach texting — direct, no fluff, no markdown."
+            )
+
+            try:
+                from app.config import settings as cfg
+                from openai import AsyncOpenAI
+                client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+                resp = await client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": followup_prompt}],
+                    max_tokens=120,
+                    temperature=0.75,
+                )
+                followup_msg = resp.choices[0].message.content.strip()
+            except Exception as ex:
+                print(f"[whoop_followup] LLM failed for {user.name}: {ex}")
+                followup_msg = f"Your WHOOP just synced — {emoji} {recovery_score}%{bio_str}. {tip}"
+
+            from app.services import linq as linq_svc
+            from app.services.memory import add_message
+            if user.linq_chat_id:
+                await linq_svc.send_message(user.linq_chat_id, followup_msg)
+                async with async_session() as db3:
+                    try:
+                        await add_message(user.id, "assistant", followup_msg, db3)
+                    except Exception:
+                        pass
+                print(f"[whoop_followup] sent to {user.name} (recovery={recovery_score}%)")
+
+            # Clear pending, set sent to prevent double-fire
+            await redis_pool.delete(pending_key)
+            await redis_pool.set(sent_key, "1", ex=86400)
+
+        except Exception as e:
+            print(f"[whoop_followup] failed for {user.id}: {e}")
+        await asyncio.sleep(0.5)
+
+
+async def whoop_followup_task(ctx):
+    await run_whoop_followup()
+
+
 def _build_redis_settings():
     from arq.connections import RedisSettings
     redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
@@ -505,7 +690,7 @@ async def startup(ctx):
 
 class WorkerSettings:
     on_startup = startup
-    functions = [proactive_task, morning_whoop_task, evening_checkin_task, weekly_coach_notes_task]
+    functions = [proactive_task, morning_whoop_task, evening_checkin_task, weekly_coach_notes_task, whoop_followup_task]
     cron_jobs = [
         # Proactive idle-user pings stay disabled for now (too chatty pre-beta).
         # cron(proactive_task, minute={0, 30}),
@@ -516,6 +701,10 @@ class WorkerSettings:
         # window for the cron to land on each user's tz.
         cron(morning_whoop_task, minute={0, 30}),
         cron(evening_checkin_task, minute={0, 30}),
+        # WHOOP follow-up: checks every 30 min if WHOOP has synced for users
+        # who received a plan-only brief this morning (WHOOP was connected but
+        # not yet synced at 8am). Fires until data arrives or 12h window expires.
+        cron(whoop_followup_task, minute={0, 30}),
         cron(weekly_coach_notes_task, weekday=6, hour=0, minute=0),   # Sunday 00:00 UTC (no user-facing messages)
     ]
     redis_settings = _redis_settings
