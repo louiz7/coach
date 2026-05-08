@@ -387,19 +387,40 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
 
 
 async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    """Accept plan feedback and transition to the 7-day challenge pitch."""
+    """Accept plan feedback.
+
+    If the user asks for a change → actually regenerate the plan, send the
+    fresh link, then continue to the challenge pitch.
+    Any other reply (ok / looks good / yes / 🔥 etc.) → go straight to pitch.
+    """
     _MODIFY_HINTS = [
         "change", "swap", "add", "remove", "replace", "different",
         "more", "less", "instead", "andern", "ändern", "tauschen",
-        "hinzufügen", "anders", "ohne",
+        "hinzufügen", "anders", "ohne", "not enough", "zu wenig",
+        "zu viel", "too much", "too little", "don't want", "don't like",
+        "hate", "prefer", "instead of",
     ]
     t = (text or "").lower()
-    if any(h in t for h in _MODIFY_HINTS):
-        await _send(
-            chat_id, user.id,
-            "noted — you can text me changes anytime and I'll update your plan 🔄",
-            db,
-        )
+    wants_change = any(h in t for h in _MODIFY_HINTS)
+
+    if wants_change:
+        await _send(chat_id, user.id, "on it — rebuilding your plan now ⚙️", db)
+        try:
+            from app.services.training_plan import generate_plan
+            from app.services.token import create_plan_token
+            await generate_plan(user, db, user_request=text)
+            token = create_plan_token(user.phone)
+            base_url = settings.ALLOWED_ORIGINS.split(",")[0].strip()
+            plan_url = f"{base_url}/plan?token={token}"
+            await _send(chat_id, user.id, f"updated 💪\n{plan_url}", db)
+        except Exception as ex:
+            print(f"[_handle_plan_review] regen error: {ex}")
+            await _send(
+                chat_id, user.id,
+                "hmm, had trouble rebuilding — you can text me changes anytime and I'll fix it 🔄",
+                db,
+            )
+
     await _challenge_pitch(user, chat_id, db)
 
 

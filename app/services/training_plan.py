@@ -36,7 +36,8 @@ def _build_research_queries(user: User, request_text: Optional[str]) -> list[tup
     goal = (user.goal or "general fitness").strip()
     sports = (user.sports_focus or "").strip()
     intensity = (user.coach_intensity or "moderate").strip()
-    freq = user.training_frequency or 3
+    freq = user.training_frequency if user.training_frequency is not None else 3
+    freq = max(freq, 2)
 
     q_prescription = (
         f"Optimal sets, reps, and RPE prescription for {goal}. "
@@ -191,7 +192,8 @@ async def generate_plan(
     is_modification = existing is not None
 
     profile = _profile_string(user)
-    freq = user.training_frequency or 3
+    freq = user.training_frequency if user.training_frequency is not None else 3
+    freq = max(freq, 2)  # minimum 2 training days
 
     # Pull scientific research relevant to this user's goal/intensity/sports
     research_block = await _gather_research_for_plan(user, request_text, db)
