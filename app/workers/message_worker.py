@@ -156,20 +156,36 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
                 from app.services import whoop as whoop_svc
                 recovery = await whoop_svc.get_today_recovery(user.whoop_access_token)
                 strain = await whoop_svc.get_today_strain(user.whoop_access_token)
+
+                whoop_lines = []
                 if recovery:
                     score = recovery.get("score", {})
-                    if score.get("recovery_score") is not None:
-                        user.last_recovery_score = int(score["recovery_score"])
-                    if score.get("hrv_rmssd_milli") is not None:
-                        user.last_hrv = float(score["hrv_rmssd_milli"])
-                    if score.get("sleep_performance_percentage") is not None:
-                        user.last_sleep_performance = int(score["sleep_performance_percentage"])
+                    rs = score.get("recovery_score")
+                    hrv = score.get("hrv_rmssd_milli")
+                    sleep = score.get("sleep_performance_percentage")
+                    rhr = score.get("resting_heart_rate")
+                    if rs is not None:
+                        user.last_recovery_score = int(rs)
+                        emoji = "🟢" if rs >= 67 else ("🟡" if rs >= 34 else "🔴")
+                        whoop_lines.append(f"Recovery: {emoji} {int(rs)}%")
+                    if hrv is not None:
+                        user.last_hrv = float(hrv)
+                        whoop_lines.append(f"HRV: {float(hrv):.0f}ms")
+                    if sleep is not None:
+                        user.last_sleep_performance = int(sleep)
+                        whoop_lines.append(f"Sleep performance: {int(sleep)}%")
+                    if rhr is not None:
+                        whoop_lines.append(f"Resting HR: {int(rhr)}bpm")
                 if strain is not None:
-                    # Store strain temporarily in handler_context so the prompt gets it
-                    extra = f"TODAY'S WHOOP STRAIN: {strain}/21\n"
+                    whoop_lines.append(f"Today's strain: {strain}/21")
+
+                if whoop_lines:
+                    extra = "LIVE WHOOP DATA (just fetched — use these exact numbers):\n"
+                    extra += "\n".join(whoop_lines) + "\n"
                     handler_context = (handler_context or "") + extra
+
                 await db.commit()
-                print(f"[message_worker] live WHOOP fetch: recovery={user.last_recovery_score} strain={strain}")
+                print(f"[message_worker] live WHOOP fetch: recovery={user.last_recovery_score} hrv={user.last_hrv} sleep={user.last_sleep_performance} strain={strain}")
             except Exception as e:
                 print(f"[message_worker] WHOOP live fetch failed (non-fatal): {e}")
 
