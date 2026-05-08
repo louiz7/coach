@@ -72,11 +72,46 @@ async def run_morning_brief():
                 continue
 
             async with async_session() as db:
+                # Gate users who have passed their 7-day trial without subscribing
+                if await _is_past_trial_unsubscribed(user, db, local_now):
+                    await redis_pool.set(today_key, "1", ex=86400)
+                    continue
                 await _send_morning_brief(user, db, today_key, local_now)
 
         except Exception as e:
             print(f"[morning_brief] failed for {user.id}: {e}")
         await asyncio.sleep(0.5)
+
+
+async def _is_past_trial_unsubscribed(user, db, local_now: datetime) -> bool:
+    """Return True if user's 7-day challenge is over AND they have no active subscription."""
+    from sqlalchemy import select
+    from app.models.training_plan import TrainingPlan
+    from app.models.subscription import Subscription
+    from datetime import datetime as dt
+
+    plan_result = await db.execute(
+        select(TrainingPlan)
+        .where(TrainingPlan.user_id == user.id, TrainingPlan.is_current == True)
+        .order_by(TrainingPlan.created_at.desc())
+    )
+    active_plan = plan_result.scalars().first()
+    if not active_plan or not active_plan.created_at:
+        return False
+
+    delta = local_now.date() - active_plan.created_at.date()
+    if delta.days < 7:  # still within the 7-day window
+        return False
+
+    sub_result = await db.execute(
+        select(Subscription).where(Subscription.user_id == user.id)
+    )
+    sub = sub_result.scalar_one_or_none()
+    if sub and sub.status in ("active", "trialing"):
+        if not sub.current_period_end or sub.current_period_end > dt.utcnow():
+            return False
+
+    return True  # past trial, not subscribed
 
 
 async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> None:
@@ -475,15 +510,33 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
 
     is_training_day = today_workout is not None
 
-    # Compute challenge day number (1–7) based on first plan creation date.
-    # After day 7 we stop the challenge framing.
+    # Compute challenge day number based on first plan creation date.
+    # Day 1 = plan creation day. Days 1-7 = challenge. Day 8+ = paywall.
     challenge_day: int | None = None
+    plan_day_num: int = 0
     if active_plan and active_plan.created_at:
         plan_date = active_plan.created_at.date()
         delta = local_now.date() - plan_date
-        day_num = delta.days + 1  # day 1 = plan creation day
-        if 1 <= day_num <= 7:
-            challenge_day = day_num
+        plan_day_num = delta.days + 1  # day 1 = plan creation day
+        if 1 <= plan_day_num <= 7:
+            challenge_day = plan_day_num
+
+    # --- PAYWALL: Day 8+ without active subscription ---
+    if plan_day_num >= 8:
+        from app.models.subscription import Subscription
+        from datetime import datetime as dt
+        sub_result = await db.execute(
+            select(Subscription).where(Subscription.user_id == user.id)
+        )
+        sub = sub_result.scalar_one_or_none()
+        is_subscribed = (
+            sub is not None
+            and sub.status in ("active", "trialing")
+            and (not sub.current_period_end or sub.current_period_end > dt.utcnow())
+        )
+        if not is_subscribed:
+            await _send_paywall_nudge(user, db, dedup_key, local_now, plan_day_num)
+            return
 
     # Build day-of-challenge prefix (e.g. "Tag 3 von 7 ✅")
     day_prefix = f"Tag {challenge_day} von 7 ✅\n\n" if challenge_day else ""
@@ -563,6 +616,77 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
         except Exception:
             pass
         print(f"[evening_checkin] sent to {user.name} (training_day={is_training_day}, logged={has_log})")
+
+    await redis_pool.set(dedup_key, "1", ex=86400)
+
+
+async def _send_paywall_nudge(
+    user, db, dedup_key: str, local_now: datetime, plan_day_num: int
+) -> None:
+    """Sent instead of the normal evening check-in once the 7-day trial is over.
+
+    - Day 8: warm, earned paywall message + payment link.
+    - Day 9+: short daily reminder until they subscribe.
+    Both paths use a daily dedup key so the user gets at most one nudge per day.
+    """
+    from app.services import linq as linq_svc
+    from app.services.memory import add_message
+    from app.redis import redis_pool
+    from app.config import settings as cfg
+    from openai import AsyncOpenAI
+
+    payment_link = cfg.STRIPE_PAYMENT_LINK or "https://hercules.chat/subscribe"
+
+    if plan_day_num == 8:
+        # First paywall hit — warm earned message
+        prompt = (
+            f"You are Hercules, a personal fitness coach texting via iMessage.\n\n"
+            f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'}\n\n"
+            "The athlete just completed their 7-day challenge. "
+            "Write a short (3-4 sentences) message that:\n"
+            "1. Celebrates what they just pulled off — a full week of commitment\n"
+            "2. Paints the picture: this is what consistent coaching looks like every week\n"
+            "3. Ends with a single line inviting them to keep going, then on a NEW line just the payment link: "
+            f"{payment_link}\n\n"
+            "Keep it personal, earned, not pushy. Sound like a real coach, not a sales pitch. "
+            "No markdown. No emojis except one optional ✅ or 🔥 max."
+        )
+    else:
+        # Day 9+ gentle daily reminder
+        days_since = plan_day_num - 7
+        prompt = (
+            f"You are Hercules, a personal fitness coach texting via iMessage.\n\n"
+            f"Athlete: {user.name}\n\n"
+            f"It's been {days_since} day(s) since their 7-day challenge ended. "
+            "Write a single short sentence reminding them the door is still open, "
+            "then on a NEW line just the payment link: "
+            f"{payment_link}\n\n"
+            "No markdown. Keep it very short — one sentence max before the link."
+        )
+
+    try:
+        client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=150,
+            temperature=0.8,
+        )
+        message = response.choices[0].message.content.strip()
+    except Exception as ex:
+        print(f"[paywall_nudge] LLM failed for {user.name}: {ex}")
+        message = (
+            f"You just completed a full week with Hercules — that's real. "
+            f"If you want to keep this going, here's how:\n{payment_link}"
+        )
+
+    if user.linq_chat_id:
+        await linq_svc.send_message(user.linq_chat_id, message)
+        try:
+            await add_message(user.id, "assistant", message, db)
+        except Exception:
+            pass
+        print(f"[paywall_nudge] sent to {user.name} (plan_day={plan_day_num})")
 
     await redis_pool.set(dedup_key, "1", ex=86400)
 

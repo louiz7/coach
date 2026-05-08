@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PRICE_ID: str = ""
+    STRIPE_PAYMENT_LINK: str = ""  # Static Stripe Payment Link for iMessage paywall
     ALLOWED_ORIGINS: str = "https://hercules.chat"
     DEFAULT_LANGUAGE: str = "de"
     PROACTIVE_MAX_PER_DAY: int = 3
