@@ -475,10 +475,18 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
 
     is_training_day = today_workout is not None
 
-    # Skip rest days entirely — no evening check-in on non-training days
-    if not is_training_day:
-        await redis_pool.set(dedup_key, "1", ex=86400)
-        return
+    # Compute challenge day number (1–7) based on first plan creation date.
+    # After day 7 we stop the challenge framing.
+    challenge_day: int | None = None
+    if active_plan and active_plan.created_at:
+        plan_date = active_plan.created_at.date()
+        delta = local_now.date() - plan_date
+        day_num = delta.days + 1  # day 1 = plan creation day
+        if 1 <= day_num <= 7:
+            challenge_day = day_num
+
+    # Build day-of-challenge prefix (e.g. "Tag 3 von 7 ✅")
+    day_prefix = f"Tag {challenge_day} von 7 ✅\n\n" if challenge_day else ""
 
     # Build the prompt
     user_ctx = (
@@ -486,8 +494,18 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
         f"Coach style: {user.coach_style or 'direct'}"
     )
 
+    if challenge_day:
+        challenge_ctx = (
+            f"This is day {challenge_day} of the athlete's 7-day challenge. "
+            "Start the message with exactly this line (no changes): "
+            f"\"Tag {challenge_day} von 7 ✅\" then a blank line, then your message. "
+        )
+    else:
+        challenge_ctx = ""
+
     if is_training_day and not has_log:
         task = (
+            f"{challenge_ctx}"
             f"Today was a {weekday} training day ({today_workout.get('focus', 'workout')}). "
             "The athlete has NOT logged their workout yet. "
             "Write a short evening check-in (2-3 sentences max): "
@@ -497,21 +515,24 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
         )
     elif is_training_day and has_log:
         task = (
+            f"{challenge_ctx}"
             f"Today was a {weekday} training day and the athlete already logged their workout. "
             "Write a short encouraging evening message (1-2 sentences): "
             "acknowledge they got it done and say something motivating about consistency. "
             "No markdown. No questions."
         )
     elif not is_training_day and not has_log:
-        # Rest day — short recovery tip, no log nudge
+        # Rest day — short recovery tip
         task = (
+            f"{challenge_ctx}"
             "Today is a rest day. Write a very short message (1-2 sentences) "
             "reminding them rest is part of the plan and giving one recovery tip "
             "(sleep, nutrition, mobility). No markdown."
         )
     else:
-        # Rest day but they logged something (extra activity) — acknowledge
+        # Rest day but they logged some extra activity — acknowledge
         task = (
+            f"{challenge_ctx}"
             "Today was a rest day but the athlete logged some activity. "
             "Write 1-2 sentences acknowledging it positively without overdoing it. No markdown."
         )
