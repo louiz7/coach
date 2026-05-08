@@ -362,7 +362,6 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
         plan_url = f"{base_url}/plan?token={token}"
 
         user.onboarding_state = OnboardingState.PLAN_REVIEW
-        user.onboarding_complete = True
         await db.commit()
 
         await _send_multi(chat_id, user.id, [
@@ -373,7 +372,6 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
     except Exception as ex:
         print(f"[onboarding _build_plan_and_advance] plan gen ERROR: {ex}")
         user.onboarding_state = OnboardingState.PLAN_REVIEW
-        user.onboarding_complete = True
         await db.commit()
         await _send(
             chat_id, user.id,
@@ -383,11 +381,9 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
         await _challenge_pitch(user, chat_id, db)
         return
 
-    # Share contact card now that onboarding is done
-    try:
-        await linq.share_contact_card(chat_id)
-    except Exception as cc_err:
-        print(f"[onboarding] contact card share failed (non-fatal): {cc_err}")
+    # NOTE: contact card was already shared on the very first inbound message
+    # in message_worker.py (so the user could save us before answering the
+    # name prompt). No need to share again here.
 
 
 async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
@@ -428,6 +424,7 @@ async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSessio
     _NO_WORDS = {"no", "n", "nope", "nein", "pass", "nah", "not now", "later", "nö"}
 
     user.onboarding_state = OnboardingState.DONE
+    user.onboarding_complete = True
     await db.commit()
 
     if t in _NO_WORDS:
@@ -454,5 +451,6 @@ async def _handle_sports_focus_backfill(user: User, chat_id: str, text: str, db:
         return
     user.sports_focus = cleaned[:2000]
     user.onboarding_state = OnboardingState.DONE
+    user.onboarding_complete = True
     await db.commit()
     await _send(chat_id, user.id, "got it 💪 just text me whenever you need anything.", db)

@@ -123,7 +123,11 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         else:
             has_sub = await check_subscription(user.id, db)
         if not has_sub:
-            paywall_msg = "Hey! Um weiter zu chatten, brauchst du ein Abo. Check die App fuer mehr Infos 🙏"
+            payment_link = settings.STRIPE_PAYMENT_LINK or "https://hercules.chat/subscribe"
+            paywall_msg = (
+                f"you completed your week with me — that's real 💪\n\n"
+                f"if you want to keep this going, here's how:\n{payment_link}"
+            )
             await linq.send_message(chat_id, paywall_msg)
             return
 

@@ -311,10 +311,10 @@ def test_build_plan_and_advance_success():
     run(oc._build_plan_and_advance(user, CHAT, db))
 
     assert user.onboarding_state == OnboardingState.PLAN_REVIEW
-    assert user.onboarding_complete is True
+    assert user.onboarding_complete is False  # only set after CHALLENGE response
     texts = sent_texts()
     assert any("plantok" in t or "plan" in t.lower() for t in texts)
-    linq_mock_card.assert_called_once_with(CHAT)
+    linq_mock_card.assert_not_called()  # contact card is shared earlier (on first message)
 
 
 # ── 12. _build_plan_and_advance: plan gen fails → graceful fallback ───────────
@@ -327,7 +327,7 @@ def test_build_plan_and_advance_failure():
 
     run(oc._build_plan_and_advance(user, CHAT, db))
 
-    assert user.onboarding_complete is True
+    assert user.onboarding_complete is False  # only set after CHALLENGE response
     texts = sent_texts()
     assert any("trouble" in t.lower() or "plan" in t.lower() for t in texts)
 
@@ -356,6 +356,7 @@ def test_challenge_yes():
     run(oc._handle_challenge(user, CHAT, "yes!", db))
 
     assert user.onboarding_state == OnboardingState.DONE
+    assert user.onboarding_complete is True
     texts = sent_texts()
     assert any("🔥" in t or "check-in" in t.lower() for t in texts)
 
@@ -370,6 +371,7 @@ def test_challenge_no():
     run(oc._handle_challenge(user, CHAT, "nope", db))
 
     assert user.onboarding_state == OnboardingState.DONE
+    assert user.onboarding_complete is True
     texts = sent_texts()
     assert any("no worries" in t.lower() for t in texts)
 
