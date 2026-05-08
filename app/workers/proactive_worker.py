@@ -167,10 +167,14 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
             f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'} | "
             f"Focus: {user.sports_focus or 'general'}\n\n"
             f"Today's workout:\n{workout_text_early}\n\n"
-            "TASK: Write a morning brief with today's workout. Keep it short and punchy — "
-            "max 4 lines, no markdown. At the end add one short line telling them to open "
-            "their WHOOP app so you can check their recovery and fine-tune today's session "
-            "for them. Sound like a real coach texting, not a report."
+            "TASK: Write a morning brief. Use this exact structure:\n"
+            "Line 1: short punchy opening (one sentence, no fluff)\n"
+            "Line 2: empty line\n"
+            "Line 3: session title, e.g. 'monday — upper body'\n"
+            "Lines 4+: each exercise on its own line formatted exactly as: 'Exercise name — NxN @RPE N'\n"
+            "Last line: empty line, then one short line telling them to open their WHOOP app.\n\n"
+            "Rules: no markdown, no bullet points, no dashes at line start. "
+            "Sound like a real coach texting."
         )
         try:
             from app.config import settings as cfg
@@ -272,12 +276,14 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         else:
             line1 = "Line 1 — Morning greeting: one short energetic sentence to start the day.\n"
         adjust_instruction = (
-            "TASK: Write a morning workout brief. Structure it exactly like this:\n"
-            f"{line1}"
-            f"Line 2 — Adaptation note: {adapt_note} Keep it to one short sentence, conversational.\n"
-            "Line 3 — Today's session: name the focus and list the exercises with sets/reps. Keep it as a compact text list, no markdown bullets.\n"
-            "Line 4 — One punchy coaching tip (max 1 sentence).\n\n"
-            "Rules: No markdown. Max 6 lines total. Sound like a real coach texting, not a report. "
+            "TASK: Write a morning workout brief. Use this exact structure:\n"
+            f"Line 1 — {line1.strip()}\n"
+            f"Line 2 — Adaptation note: {adapt_note} One short conversational sentence.\n"
+            "Line 3 — empty line\n"
+            "Line 4 — Session title: 'day name — focus', e.g. 'friday — upper body'\n"
+            "Lines 5+ — Each exercise on its own line, formatted exactly as: 'Exercise name — NxN @RPE N'. No bullets, no dashes at start.\n"
+            "Last line — empty line, then one punchy coaching tip (max 1 sentence).\n\n"
+            "Rules: no markdown. Sound like a real coach texting, not a report. "
             "IMPORTANT: Do NOT mention WHOOP, recovery scores, or biometric data unless actual WHOOP data is provided above."
         )
     else:
