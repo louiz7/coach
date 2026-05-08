@@ -146,6 +146,29 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         if handler_context == "__SENT__":
             return
 
+        # Live-fetch WHOOP data when user asks about their metrics
+        if "WHOOP_DATA" in intents and user.whoop_access_token:
+            try:
+                from app.services import whoop as whoop_svc
+                recovery = await whoop_svc.get_today_recovery(user.whoop_access_token)
+                strain = await whoop_svc.get_today_strain(user.whoop_access_token)
+                if recovery:
+                    score = recovery.get("score", {})
+                    if score.get("recovery_score") is not None:
+                        user.last_recovery_score = int(score["recovery_score"])
+                    if score.get("hrv_rmssd_milli") is not None:
+                        user.last_hrv = float(score["hrv_rmssd_milli"])
+                    if score.get("sleep_performance_percentage") is not None:
+                        user.last_sleep_performance = int(score["sleep_performance_percentage"])
+                if strain is not None:
+                    # Store strain temporarily in handler_context so the prompt gets it
+                    extra = f"TODAY'S WHOOP STRAIN: {strain}/21\n"
+                    handler_context = (handler_context or "") + extra
+                await db.commit()
+                print(f"[message_worker] live WHOOP fetch: recovery={user.last_recovery_score} strain={strain}")
+            except Exception as e:
+                print(f"[message_worker] WHOOP live fetch failed (non-fatal): {e}")
+
         # Load persona
         result = await db.execute(
             select(CoachPersona).where(CoachPersona.id == user.persona_id)

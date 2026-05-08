@@ -164,6 +164,31 @@ async def get_today_recovery(access_token: str) -> Optional[dict]:
         return rec
 
 
+async def get_today_strain(access_token: str) -> Optional[float]:
+    """Fetch today's strain score from the current cycle.
+
+    Strain lives in the cycle record itself (score.strain), so this is a
+    single API call — no extra round-trip needed.
+    Returns None if cycle isn't scored yet or has no strain.
+    """
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{WHOOP_API_BASE}/v2/cycle",
+            params={"limit": 1},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if resp.status_code != 200:
+            return None
+        cycles = resp.json().get("records", [])
+        if not cycles:
+            return None
+        score = cycles[0].get("score") or {}
+        strain = score.get("strain")
+        if strain is None:
+            return None
+        return round(float(strain), 1)
+
+
 async def get_latest_sleep(access_token: str) -> Optional[dict]:
     """Fetch the most recent sleep record (v2 API)."""
     async with httpx.AsyncClient() as client:

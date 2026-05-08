@@ -201,7 +201,7 @@ async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) 
     await _send_multi(chat_id, user.id, [
         f"nice to meet you {user.name} 💪 you're one of the first — I'm still in beta.",
         "I can build your workout plan, adapt it to your recovery data, and check in daily so you actually hit your goals.",
-        "let's get into it. what are your fitness goals? could be running a 10k, building muscle, losing weight, improving cardio — throw everything at me, no need to pick just one 🎯",
+        "let's get into it. what are your fitness goals? could be running a 10k, building muscle, losing weight, improving cardio — throw everything at me, no need to pick just one 🎯 (1/4)",
     ], db)
 
 
@@ -232,7 +232,7 @@ async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSes
 
     await _send_multi(chat_id, user.id, [
         "got it 👊",
-        "how does your current training look like? how many days a week, what do you do and when — give me the honest version 🤙",
+        "how does your current training look like? how many days a week, what do you do and when — give me the honest version 🤙 (2/4)",
     ], db)
 
 
@@ -264,7 +264,7 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
 
     await _send_multi(chat_id, user.id, [
         "noted.",
-        "what should I keep in mind when coaching you and building your plan? injuries, busy weeks, exercises you hate, multiple disciplines like running + gym — anything goes 🙌",
+        "what should I keep in mind when coaching you and building your plan? injuries, busy weeks, exercises you hate, multiple disciplines like running + gym — anything goes 🙌 (3/4)",
     ], db)
 
 
@@ -302,7 +302,7 @@ async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSess
     whoop_url = f"{base_url}/whoop/connect?token={token}"
 
     await _send_multi(chat_id, user.id, [
-        "got it. next I need some basics about you.",
+        "got it. last thing before I build your plan (4/4)",
         (
             f"if you connect your WHOOP I can skip most of this and give you data-driven coaching — "
             f"recovery-based plans, adaptive training intensity, the lot 🟢\n{whoop_url}"
