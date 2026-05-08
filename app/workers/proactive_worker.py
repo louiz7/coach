@@ -13,9 +13,10 @@ from app.services.proactive import get_idle_users, send_checkin
 _MORNING_HOUR_START = 8   # 08:00 local
 _MORNING_HOUR_END   = 10  # up to 10:59 local (catches restarts up to 2h late)
 
-# Hour at which the evening check-in is sent (local time).
-# Skipped if the user already logged progress today.
-_EVENING_HOUR = 20
+# Window for evening check-in (local time). Cron fires every 30 min;
+# dedup key ensures only ONE message per user per day.
+_EVENING_HOUR_START = 20  # 20:00 local
+_EVENING_HOUR_END   = 21  # up to 21:59 local
 
 
 async def run_proactive_checkins():
@@ -446,7 +447,7 @@ async def run_evening_checkin():
                 tz = ZoneInfo("Europe/Berlin")
 
             local_now = datetime.now(tz)
-            if local_now.hour != _EVENING_HOUR:
+            if not (_EVENING_HOUR_START <= local_now.hour <= _EVENING_HOUR_END):
                 continue
 
             today_key = f"evening_sent:{user.id}:{local_now.strftime('%Y-%m-%d')}"
