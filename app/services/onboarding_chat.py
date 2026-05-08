@@ -200,8 +200,9 @@ async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) 
 
     await _send_multi(chat_id, user.id, [
         f"nice to meet you {user.name} 💪 you're one of the first — I'm still in beta.",
-        "I can build your workout plan, adapt it to your recovery data, and check in daily so you actually hit your goals.",
-        "let's get into it. what are your fitness goals? could be running a 10k, building muscle, losing weight, improving cardio — throw everything at me, no need to pick just one 🎯 (1/4)",
+        "I can build your workout plan, check in daily to keep you on track, and hook up your wearables for data-driven coaching.",
+        "so you actually hit your goals 🎯",
+        "what are they? could be running a 5k, building muscle, losing weight, improving cardio — throw everything at me (1/4)",
     ], db)
 
 
@@ -232,7 +233,7 @@ async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSes
 
     await _send_multi(chat_id, user.id, [
         "got it 👊",
-        "how does your current training look like? how many days a week, what do you do and when — give me the honest version 🤙 (2/4)",
+        "how does your training look right now? days per week, what you do — give me the honest version (2/4)",
     ], db)
 
 
@@ -264,7 +265,7 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
 
     await _send_multi(chat_id, user.id, [
         "noted.",
-        "what should I keep in mind when coaching you and building your plan? injuries, busy weeks, exercises you hate, multiple disciplines like running + gym — anything goes 🙌 (3/4)",
+        "anything I should keep in mind for your plan? injuries, busy weeks, exercises you hate, equipment you have — anything goes (3/4)",
     ], db)
 
 
@@ -303,11 +304,8 @@ async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSess
 
     await _send_multi(chat_id, user.id, [
         "got it. last thing before I build your plan (4/4)",
-        (
-            f"if you connect your WHOOP I can skip most of this and give you data-driven coaching — "
-            f"recovery-based plans, adaptive training intensity, the lot 🟢\n{whoop_url}"
-        ),
-        "no WHOOP? just reply with your age, weight and gender — like: 24, 78 kg, male",
+        f"connect your WHOOP and I can skip most of this — recovery-based plans, adaptive intensity, the lot 🟢\n{whoop_url}",
+        "no WHOOP? just send your age, weight and gender — like: 24, 78kg, male",
     ], db)
 
 
@@ -350,7 +348,7 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
     await assign_persona_from_style(user, db)
 
     await _send_multi(chat_id, user.id, [
-        "ty, got everything I need 🙏",
+        "ty 🙏",
         "building your plan now — give me a sec…",
     ], db)
 
@@ -430,11 +428,8 @@ async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
     await db.commit()
     await _send_multi(chat_id, user.id, [
         "perfect, your plan is locked in 😊",
-        "one more thing... and this is important.",
-        (
-            "I want you to do a 7-day challenge with me. complete it and you earn your spot as "
-            "a Hercules member. think of it as proving to yourself you actually want this 👊"
-        ),
+        "one more thing — and this is important.",
+        "I want you to do a 7-day challenge with me. complete it and you earn your spot as a Hercules member. it's about proving to yourself you actually want this 👊",
         "you in?",
     ], db)
 
@@ -451,13 +446,13 @@ async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSessio
     if t in _NO_WORDS:
         await _send(
             chat_id, user.id,
-            "no worries — I'll still check in and keep you on track 💪 just text me whenever you're ready.",
+            "no worries — still here whenever you're ready 💪",
             db,
         )
     else:
         await _send_multi(chat_id, user.id, [
-            "let's get it 🔥 your first check-in is tomorrow morning.",
-            "I'll message you then. don't ghost me 👊",
+            "let's get it 🔥",
+            "first check-in is tomorrow morning. don't ghost me 👊",
         ], db)
 
 
