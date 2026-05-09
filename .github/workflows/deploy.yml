@@ -22,7 +22,9 @@ jobs:
           script: |
             set -e
             cd /root/coach
-            git pull origin main
+            git fetch origin main
+            git clean -fd          # remove untracked files/dirs (e.g. stale scripts)
+            git reset --hard origin/main
 
             # Clean up any orphaned/half-recreated containers from a previous
             # cancelled deploy so `up -d --build` doesn't hit name conflicts.
