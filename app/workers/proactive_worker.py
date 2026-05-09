@@ -175,8 +175,39 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         await redis_pool.set(dedup_key, "1", ex=86400)
         return
 
-    # Skip rest days entirely — no morning brief on non-training days
+    # Rest day — send a short recovery nudge instead of skipping
     if active_plan and not today_workout:
+        rest_prompt = (
+            f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+            f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'} | "
+            f"Focus: {user.sports_focus or 'general'}\n\n"
+            "Today is a rest day for this athlete.\n\n"
+            "TASK: Write a short rest-day morning message (2-3 sentences max).\n"
+            "Cover 1-2 of these topics naturally: hydration (drink enough water), "
+            "clean eating for recovery, sleep/rest quality, light mobility.\n"
+            "Rules: no markdown, no bullet points, no emojis. "
+            "Sound like a real coach texting, not a wellness app. Keep it brief and direct."
+        )
+        try:
+            client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+            resp = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": rest_prompt}],
+                max_tokens=120,
+                temperature=0.75,
+            )
+            rest_msg = resp.choices[0].message.content.strip()
+        except Exception as ex:
+            print(f"[morning_brief] rest-day LLM failed for {user.name}: {ex}")
+            rest_msg = f"Rest day today, {user.name}. Make sure you're drinking enough water and keeping your meals clean — recovery happens in the kitchen too."
+
+        if user.linq_chat_id:
+            await linq_svc.send_message(user.linq_chat_id, rest_msg)
+            try:
+                await add_message(user.id, "assistant", rest_msg, db)
+            except Exception:
+                pass
+            print(f"[morning_brief] rest-day nudge sent to {user.name}")
         await redis_pool.set(dedup_key, "1", ex=86400)
         return
 
