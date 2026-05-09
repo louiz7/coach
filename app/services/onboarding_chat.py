@@ -391,15 +391,43 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
     fresh link, then continue to the challenge pitch.
     Any other reply (ok / looks good / yes / 🔥 etc.) → go straight to pitch.
     """
-    _MODIFY_HINTS = [
-        "change", "swap", "add", "remove", "replace", "different",
-        "more", "less", "instead", "andern", "ändern", "tauschen",
-        "hinzufügen", "anders", "ohne", "not enough", "zu wenig",
-        "zu viel", "too much", "too little", "don't want", "don't like",
-        "hate", "prefer", "instead of",
-    ]
-    t = (text or "").lower()
-    wants_change = any(h in t for h in _MODIFY_HINTS)
+    from openai import AsyncOpenAI
+    from app.config import settings as cfg
+
+    # Use LLM to classify — keyword lists miss natural phrasing like
+    # "yeah I'd rather have 5 days" or "actually can you make it harder"
+    try:
+        client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+        clf = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "The user just reviewed their training plan. "
+                        "Reply with exactly one word: CHANGE if they want any modification "
+                        "(different days, exercises, frequency, intensity, style, etc.), "
+                        "or OK if they are happy with it / confirming it's good."
+                    ),
+                },
+                {"role": "user", "content": text or ""},
+            ],
+            max_tokens=5,
+            temperature=0,
+        )
+        verdict = clf.choices[0].message.content.strip().upper()
+        wants_change = verdict == "CHANGE"
+    except Exception:
+        # Fallback to keyword check if LLM fails
+        _MODIFY_HINTS = [
+            "change", "swap", "add", "remove", "replace", "different",
+            "more", "less", "instead", "andern", "ändern", "tauschen",
+            "hinzufügen", "anders", "ohne", "not enough", "zu wenig",
+            "zu viel", "too much", "too little", "don't want", "don't like",
+            "hate", "prefer", "instead of", "rather", "would like",
+        ]
+        t = (text or "").lower()
+        wants_change = any(h in t for h in _MODIFY_HINTS)
 
     if wants_change:
         await _send(chat_id, user.id, "on it — rebuilding your plan now ⚙️", db)
