@@ -508,7 +508,7 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
         select(func.count(ProgressEntry.id))
         .where(
             ProgressEntry.user_id == user.id,
-            func.date(ProgressEntry.created_at) == today_str,
+            func.date(ProgressEntry.recorded_at) == today_str,
         )
     )
     has_log = (logged_today.scalar_one() or 0) > 0
