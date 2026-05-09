@@ -48,6 +48,11 @@ _LEGACY_STATES = {
 # ─── LLM extraction helper ────────────────────────────────────────────────────
 
 _EXTRACT_PROMPTS: dict[str, str] = {
+    "name": (
+        'Extract the person\'s first name from this message: "{text}"\n'
+        'Return JSON: {{"name": "FirstName or null", "valid": true or false}}\n'
+        "valid=false if no real name is present (e.g. it's a question, random words, or a greeting with no name)."
+    ),
     "goal": (
         'Extract fitness goals from this message: "{text}"\n'
         'Return JSON: {{"goal": "concise goal description", "sports_focus": "sports/activities mentioned or null", "valid": true or false}}\n'
@@ -188,13 +193,14 @@ async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) 
         await _send(chat_id, user.id, "what's your name?", db)
         return
 
-    first = raw.split()[0].strip()
-    first = re.sub(r"[^\w\-]+$", "", first)
-    if not first or len(first) < 2:
+    data = await _llm_extract("name", raw)
+    extracted = (data or {}).get("name") if (data or {}).get("valid") else None
+
+    if not extracted:
         await _send(chat_id, user.id, "just your first name is fine 🙂", db)
         return
 
-    user.name = first.capitalize()
+    user.name = extracted.strip().capitalize()
     user.onboarding_state = OnboardingState.CAPTURE_GOAL
     await db.commit()
 

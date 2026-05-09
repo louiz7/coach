@@ -44,10 +44,6 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         )
         user = result.scalar_one_or_none()
 
-        # --- PROJECT ROUTING ---
-        if user and user.project != ProjectEnum.HERCULES:
-            return
-
         # --- NEW HERCULES USER — any message starts the new onboarding ---
         if not user:
             user = User(
