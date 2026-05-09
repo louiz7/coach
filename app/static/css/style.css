@@ -110,29 +110,28 @@ body {
   width: 100%;
   max-width: 350px;
   font-family: "Inter", sans-serif;
-  font-weight: 700;
+  font-weight: 900;
   font-size: 40px;
   line-height: 1.2;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.32px;
   text-align: center;
   color: #000;
 }
 
 .hero__title--accent {
-  color: #0057c3;
-  font-style: italic;
+  color: #0158c3;
 }
 
 .hero__subtext {
   margin: 0;
   width: 100%;
   max-width: 300px;
-  font-family: "Albertus Nova", "Inter", sans-serif;
-  font-weight: 300;
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
   font-size: 18px;
-  line-height: 1.5;
+  line-height: 1.4;
   text-align: center;
-  color: rgba(0, 0, 0, 0.7);
+  color: #000;
 }
 
 /* ---------- Hero phone screenshot ---------- */
