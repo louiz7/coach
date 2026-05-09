@@ -196,17 +196,33 @@ async def _restart_inform(user: User, chat_id: str, db: AsyncSession) -> None:
 
 
 async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    """Capture the user's first name, then pitch and ask for their goal."""
+    """Capture the user's first name, then pitch and ask for their goal.
+
+    If the message doesn't contain a name (e.g. "whats hercules?", "hi", etc.)
+    and the user hasn't shared their name yet, send the full intro instead of
+    a cold reask. The intro itself asks for the name.
+    """
     raw = (text or "").strip()
+    name_already_set = (user.name or "").lower() not in {"", "unbekannt"}
+
     if not raw:
-        await _send(chat_id, user.id, "what's your name?", db)
+        if not name_already_set:
+            await _send_inform_intro(chat_id, user.id, db)
+        else:
+            await _send(chat_id, user.id, "what's your name?", db)
         return
 
     data = await _llm_extract("name", raw)
     extracted = (data or {}).get("name") if (data or {}).get("valid") else None
 
     if not extracted:
-        await _send(chat_id, user.id, "just your first name is fine 🙂", db)
+        # No name found — if user has never identified themselves, this is
+        # effectively a first-touch message ("whats hercules?", "hi", etc.).
+        # Send the intro so they get a proper greeting.
+        if not name_already_set:
+            await _send_inform_intro(chat_id, user.id, db)
+        else:
+            await _send(chat_id, user.id, "just your first name is fine 🙂", db)
         return
 
     user.name = extracted.strip().capitalize()
