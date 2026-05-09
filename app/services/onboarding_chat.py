@@ -11,7 +11,6 @@ fast-forwarded to INFORM so users who started the old flow get a clean restart.
 
 import asyncio
 import json
-import re
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,6 +71,16 @@ _EXTRACT_PROMPTS: dict[str, str] = {
         'Extract body basics from: "{text}"\n'
         'Return JSON: {{"age": <int or null>, "weight_kg": <float or null>, "gender": "male/female/other or null", "valid": true or false}}\n'
         "valid=false only if none of age/weight/gender could be extracted."
+    ),
+    "constraints_intent": (
+        'Does this message indicate the person has NO constraints, injuries, or special requirements? Message: "{text}"\n'
+        'Return JSON: {{"no_constraints": true or false}}\n'
+        "no_constraints=true if they said something like none, nothing, all good, nope, no injuries, etc. false if they mentioned anything specific."
+    ),
+    "challenge": (
+        'The user was asked if they want to do a 7-day fitness challenge. Did they say yes or no? Message: "{text}"\n'
+        'Return JSON: {{"accepted": true or false}}\n'
+        "accepted=true for yes/sure/let's go/in/absolutely/etc. false for no/nope/pass/later/not now/etc."
     ),
 }
 
@@ -279,10 +288,10 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
 async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Extract injuries, equipment and other constraints from free text."""
     raw = (text or "").strip()
-    no_constraints = raw.lower() in {
-        "none", "nothing", "no", "nope", "nein", "all good",
-        "nothing really", "none really", "keine", "alles gut",
-    }
+
+    # Use LLM to detect "no constraints" intent — handles any language/phrasing
+    intent = await _llm_extract("constraints_intent", raw)
+    no_constraints = (intent or {}).get("no_constraints", False)
 
     if not no_constraints and raw:
         data = await _llm_extract("constraints", raw)
@@ -471,14 +480,15 @@ async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
 
 async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Handle the 7-day challenge response and complete onboarding."""
-    t = (text or "").strip().lower().rstrip("!.? ")
-    _NO_WORDS = {"no", "n", "nope", "nein", "pass", "nah", "not now", "later", "nö"}
+    result = await _llm_extract("challenge", text or "")
+    # Default to accepted=True if LLM fails — better to onboard than to reject
+    accepted = (result or {}).get("accepted", True)
 
     user.onboarding_state = OnboardingState.DONE
     user.onboarding_complete = True
     await db.commit()
 
-    if t in _NO_WORDS:
+    if not accepted:
         await _send(
             chat_id, user.id,
             "no worries — still here whenever you're ready 💪",
