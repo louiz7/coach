@@ -171,7 +171,7 @@ async def handle(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
 async def _send_inform_intro(chat_id: str, user_id, db: AsyncSession) -> None:
     """Send the Hercules intro and ask for the user's name."""
     await _send_multi(chat_id, user_id, [
-        "I'm your AI personal trainer, right here in iMessage 💪",
+        "I'm your AI personal trainer, right here in iMessage",
         "before we get into it: what's your name?",
     ], db, delay=1.0)
 
@@ -205,10 +205,10 @@ async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) 
     await db.commit()
 
     await _send_multi(chat_id, user.id, [
-        f"nice to meet you {user.name} 💪 you're one of the first — I'm still in beta.",
+        f"nice to meet you {user.name}!",
         "I can build your workout plan, check in daily to keep you on track, and hook up your wearables for data-driven coaching.",
-        "so you actually hit your goals 🎯",
-        "what are they? could be running a 5k, building muscle, losing weight, improving cardio — throw everything at me (1/4)",
+        "so you actually hit your goals",
+        "Speaking of goals, what are your fitness goals? running a 5k? building muscle? losing weight? throw everything at me",
     ], db)
 
 
@@ -238,8 +238,9 @@ async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSes
     await db.commit()
 
     await _send_multi(chat_id, user.id, [
-        "got it 👊",
-        "how does your training look right now? days per week, what you do — give me the honest version (2/4)",
+        "got it. how does your current training look like?",
+        "how many days a week, what do you do and when",
+        "give me the honest version"
     ], db)
 
 
@@ -256,7 +257,7 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
             await _inc_reask(user.id, OnboardingState.STATUS_QUO)
             await _send(
                 chat_id, user.id,
-                "just a quick picture of your week — like 'I train 3x, mostly lifting, sometimes I run' 🙂",
+                "just a quick picture of your week like 'I train 3x, mostly lifting, sometimes I run'",
                 db,
             )
             return
@@ -270,8 +271,8 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
     await db.commit()
 
     await _send_multi(chat_id, user.id, [
-        "noted.",
-        "anything I should keep in mind for your plan? injuries, busy weeks, exercises you hate, equipment you have — anything goes (3/4)",
+        "what should I keep in mind when coaching you and creating your plan?",
+        "injuries, busy weeks/days, exercises you hate, multiple disciplines (e.g. running + gym) – anything goes",
     ], db)
 
 
@@ -309,9 +310,9 @@ async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSess
     whoop_url = f"{base_url}/whoop/connect?token={token}"
 
     await _send_multi(chat_id, user.id, [
-        "got it. last thing before I build your plan (4/4)",
-        f"connect your WHOOP and I can skip most of this — recovery-based plans, adaptive intensity, the lot 🟢\n{whoop_url}",
-        "no WHOOP? just send your age, weight and gender — like: 24, 78kg, male",
+        "got it. last thing before I build your plan",
+        f"if you connect me with your WHOOP you can skip most of this + get data-driven coaching (more wearables coming soon)\n{whoop_url}",
+        "no WHOOP? just reply with your age, weight and gender",
     ], db)
 
 
@@ -328,7 +329,7 @@ async def _handle_whoop_or_basics(user: User, chat_id: str, text: str, db: Async
             await _inc_reask(user.id, OnboardingState.WHOOP_OR_BASICS)
             await _send(
                 chat_id, user.id,
-                "just send your age, weight and gender — like: 24, 78 kg, male 🙂",
+                "just send your age, weight and gender — like: 24, 78 kg, male",
                 db,
             )
             return
@@ -354,8 +355,8 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
     await assign_persona_from_style(user, db)
 
     await _send_multi(chat_id, user.id, [
-        "ty 🙏",
-        "building your plan now — give me a sec…",
+        "ty, got your WHOOP data",
+        "building your plan now…",
     ], db)
 
     try:
@@ -379,7 +380,7 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
         await db.commit()
         await _send(
             chat_id, user.id,
-            "I had trouble building your plan right now — text me 'build me a plan' in a moment and I'll get it done 💪",
+            "I had trouble building your plan right now — text me 'build me a plan' in a moment and I'll get it done",
             db,
         )
         await _challenge_pitch(user, chat_id, db)
@@ -461,9 +462,9 @@ async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
     user.onboarding_state = OnboardingState.CHALLENGE
     await db.commit()
     await _send_multi(chat_id, user.id, [
-        "perfect, your plan is locked in 😊",
-        "one more thing — and this is important.",
-        "I want you to do a 7-day challenge with me. complete it and you earn your spot as a Hercules member. it's about proving to yourself you actually want this 👊",
+        "perfect, your plan is locked in 🫡",
+        "oone more thing... and this is important",
+        "I want you to do a 7-day challenge with me. complete it and you earn your spot as a Hercules member. think of it as proving to yourself you actually want this",
         "you in?",
     ], db)
 
@@ -485,8 +486,8 @@ async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSessio
         )
     else:
         await _send_multi(chat_id, user.id, [
-            "let's get it 🔥",
-            "first check-in is tomorrow morning. don't ghost me 👊",
+            "let's get it. our first check-in is tomorrow morning",
+            "I'll message you then. don't ghost me",
         ], db)
 
 
