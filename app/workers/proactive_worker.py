@@ -216,60 +216,55 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
     # and park a pending key so the follow-up task can text them once WHOOP syncs.
     whoop_pending_key = f"whoop:pending_brief:{user.id}:{local_now.strftime('%Y-%m-%d')}"
     if user.whoop_access_token and recovery_score is None:
-        # Build the plan-only part of the message
-        ex_lines_early = []
-        if today_workout:
-            for ex in today_workout.get("exercises", []):
-                sets = ex.get("sets", "?"); reps = ex.get("reps", "?"); rpe = ex.get("rpe", "")
-                line = f"- {ex.get('name','')}: {sets}x{reps}"
-                if rpe: line += f" @RPE{rpe}"
-                ex_lines_early.append(line)
-        workout_text_early = (
-            f"{today_workout.get('day','')} — {today_workout.get('focus','')}\n"
-            + "\n".join(ex_lines_early)
-        ) if today_workout else ""
+        # WHOOP connected but not synced yet — send plan link + nudge
+        focus = today_workout.get("focus", "") if today_workout else ""
+        day_name = today_workout.get("day", local_now.strftime("%A")).lower() if today_workout else local_now.strftime("%A").lower()
 
         early_prompt = (
             f"You are Kano, a personal fitness coach messaging via iMessage.\n\n"
-            f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'} | "
-            f"Focus: {user.sports_focus or 'general'}\n\n"
-            f"Today's workout:\n{workout_text_early}\n\n"
-            "TASK: Write a morning brief. Use this exact structure:\n"
-            "Line 1: short punchy opening (one sentence, no fluff)\n"
-            "Line 2: empty line\n"
-            "Line 3: session title, e.g. 'monday — upper body'\n"
-            "Lines 4+: each exercise on its own line formatted exactly as: 'Exercise name — NxN @RPE N'\n"
-            "Last line: empty line, then one short line telling them to open their WHOOP app.\n\n"
-            "Rules: no markdown, no bullet points, no dashes at line start. "
-            "Sound like a real coach texting."
+            f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'}\n"
+            f"Today: {day_name} — {focus or 'rest day'}\n\n"
+            "TASK: Write ONE short morning message (2-3 sentences max).\n"
+            "Mention what type of day today is (e.g. leg day, upper body, rest day).\n"
+            "Tell them their WHOOP hasn't synced yet and to open the app.\n"
+            "Rules: no markdown, no bullet points, no exercise lists. Real coach texting tone."
         )
         try:
-            from app.config import settings as cfg
-            from openai import AsyncOpenAI
             client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
             resp = await client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": early_prompt}],
-                max_tokens=220,
+                max_tokens=120,
                 temperature=0.75,
             )
             early_msg = resp.choices[0].message.content.strip()
         except Exception as ex:
             print(f"[morning_brief] early LLM failed for {user.name}: {ex}")
-            early_msg = f"Morning {user.name}! Here's your session for today:\n{workout_text_early}\n\nOpen your WHOOP app so I can check your recovery and adjust if needed."
+            early_msg = f"Morning {user.name}! {day_name.capitalize()} — {focus or 'rest day'} is on the card. Open your WHOOP so I can check your recovery."
 
-        from app.services import linq as linq_svc
-        from app.services.memory import add_message
         if user.linq_chat_id:
             await linq_svc.send_message(user.linq_chat_id, early_msg)
             try:
                 await add_message(user.id, "assistant", early_msg, db)
             except Exception:
                 pass
+
+            # Message 2: plan link
+            if today_workout and active_plan:
+                from app.services.token import create_plan_token
+                token = create_plan_token(user.phone)
+                plan_url = f"{cfg.PUBLIC_BASE_URL.rstrip('/')}/plan?token={token}"
+                await asyncio.sleep(1.2)
+                link_msg = f"if you want to check today's exercises: {plan_url}"
+                await linq_svc.send_message(user.linq_chat_id, link_msg)
+                try:
+                    await add_message(user.id, "assistant", link_msg, db)
+                except Exception:
+                    pass
+
             print(f"[morning_brief] plan-only sent to {user.name} (WHOOP not synced yet)")
 
-        # Park pending so follow-up task picks it up when WHOOP syncs
-        await redis_pool.set(whoop_pending_key, "1", ex=43200)  # 12h window
+        await redis_pool.set(whoop_pending_key, "1", ex=43200)
         await redis_pool.set(dedup_key, "1", ex=86400)
         return
 
@@ -297,22 +292,9 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
 
     # ── Today's workout from plan ─────────────────────────────────────────
     if today_workout:
-        ex_lines = []
-        for ex in today_workout.get("exercises", []):
-            sets = ex.get("sets", "?")
-            reps = ex.get("reps", "?")
-            rpe  = ex.get("rpe", "")
-            rest = ex.get("rest_seconds", "")
-            line = f"- {ex.get('name','')}: {sets}x{reps}"
-            if rpe:
-                line += f" @RPE{rpe}"
-            if rest:
-                line += f" ({rest}s rest)"
-            ex_lines.append(line)
-        workout_block = (
-            f"Planned workout: {today_workout.get('day','')} — {today_workout.get('focus','')}\n"
-            + "\n".join(ex_lines)
-        )
+        day_label = today_workout.get("day", local_now.strftime("%A")).lower()
+        focus_label = today_workout.get("focus", "")
+        workout_block = f"Today: {day_label} — {focus_label}"
         is_rest_day = False
     elif active_plan:
         workout_block = "Today is a rest day per their training plan."
@@ -330,35 +312,32 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
     )
 
     if not is_rest_day and today_workout:
-        if recovery_score is not None and recovery_score < 34:
-            adapt_note = "Since recovery is LOW, explicitly tell the athlete you've adjusted today's session for them (lighter loads, one less set) so they recover properly and come back stronger."
-        elif recovery_score is not None and recovery_score >= 67:
-            adapt_note = "Since recovery is HIGH, explicitly tell the athlete their body is primed and you've flagged where they can push a top set today."
-        elif recovery_score is not None:
-            adapt_note = "Briefly mention you've checked their WHOOP data and today's session reflects their current readiness."
-        else:
-            adapt_note = "Give one short motivational line to kick off the session."
         if recovery_score is not None:
-            line1 = "Line 1 — Recovery status: one sentence with the recovery score + one-word readiness verdict.\n"
+            if recovery_score < 34:
+                adapt_note = "Recovery is LOW — tell them in one short sentence to take it easier today and trust the process."
+            elif recovery_score >= 67:
+                adapt_note = "Recovery is HIGH — one short sentence, they're primed to push."
+            else:
+                adapt_note = "Recovery is MODERATE — one short sentence, stick to plan."
+            adjust_instruction = (
+                "TASK: Write ONE short morning message (3-4 sentences max).\n"
+                f"Start with their WHOOP recovery score ({recovery_score}%) in natural language.\n"
+                f"Mention what type of session today is (e.g. leg day, push day, upper body — use the workout info).\n"
+                f"{adapt_note}\n"
+                "Rules: no markdown, no bullet points, NO exercise lists. Real coach texting tone."
+            )
         else:
-            line1 = "Line 1 — Morning greeting: one short energetic sentence to start the day.\n"
-        adjust_instruction = (
-            "TASK: Write a morning workout brief. Use this exact structure:\n"
-            f"Line 1 — {line1.strip()}\n"
-            f"Line 2 — Adaptation note: {adapt_note} One short conversational sentence.\n"
-            "Line 3 — empty line\n"
-            "Line 4 — Session title: 'day name — focus', e.g. 'friday — upper body'\n"
-            "Lines 5+ — Each exercise on its own line, formatted exactly as: 'Exercise name — NxN @RPE N'. No bullets, no dashes at start.\n"
-            "Last line — empty line, then one punchy coaching tip (max 1 sentence).\n\n"
-            "Rules: no markdown. Sound like a real coach texting, not a report. "
-            "IMPORTANT: Do NOT mention WHOOP, recovery scores, or biometric data unless actual WHOOP data is provided above."
-        )
+            adjust_instruction = (
+                "TASK: Write ONE short morning message (2-3 sentences max).\n"
+                "Mention what type of session today is (e.g. leg day, push day, upper body — use the workout info).\n"
+                "Add one short motivational line.\n"
+                "Rules: no markdown, no bullet points, NO exercise lists. Real coach texting tone."
+            )
     else:
         adjust_instruction = (
-            "TASK: Write a 2-3 sentence morning message. "
-            "If it's a rest day, acknowledge it and give one general recovery tip. "
-            "No markdown. Sound like a real coach texting. "
-            "IMPORTANT: Do NOT mention WHOOP or recovery scores — this athlete has no WHOOP connected."
+            "TASK: Write a 2-3 sentence morning message.\n"
+            "If it's a rest day, acknowledge it and give one general recovery tip.\n"
+            "Rules: no markdown, NO exercise lists. Real coach texting tone."
         )
 
     prompt = (
@@ -383,22 +362,26 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         return
 
     if user.linq_chat_id:
-        # Split into 2 messages: recovery line + workout block (feels more natural)
-        lines = message.split("\n", 1)
-        if len(lines) == 2 and len(lines[0]) < 120:
-            await linq_svc.send_message(user.linq_chat_id, lines[0].strip())
-            await asyncio.sleep(1.5)
-            await linq_svc.send_message(user.linq_chat_id, lines[1].strip())
+        # Message 1: recovery + day focus
+        await linq_svc.send_message(user.linq_chat_id, message)
+        try:
+            await add_message(user.id, "assistant", message, db)
+        except Exception:
+            pass
+
+        # Message 2: plan link (only if there's a workout today)
+        if today_workout and active_plan:
+            from app.services.token import create_plan_token
+            token = create_plan_token(user.phone)
+            plan_url = f"{cfg.PUBLIC_BASE_URL.rstrip('/')}/plan?token={token}"
+            await asyncio.sleep(1.2)
+            link_msg = f"if you want to check today's exercises: {plan_url}"
+            await linq_svc.send_message(user.linq_chat_id, link_msg)
             try:
-                await add_message(user.id, "assistant", message, db)
+                await add_message(user.id, "assistant", link_msg, db)
             except Exception:
                 pass
-        else:
-            await linq_svc.send_message(user.linq_chat_id, message)
-            try:
-                await add_message(user.id, "assistant", message, db)
-            except Exception:
-                pass
+
         print(f"[morning_brief] sent to {user.name} (recovery={recovery_score}, plan={today_workout is not None})")
 
     # Set dedup AFTER successful send
