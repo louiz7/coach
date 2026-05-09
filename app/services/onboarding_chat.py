@@ -108,6 +108,65 @@ async def _llm_extract(step: str, text: str) -> dict | None:
         return None
 
 
+# ─── Sidebar question detector ──────────────────────────────────────────────────
+
+_SIDEBAR_PROMPT = """
+You are Kano, an AI personal fitness coach onboarding a new user via iMessage.
+You just asked the user: "{pending_question}"
+They replied: "{user_message}"
+
+Decide: is their reply a separate question or comment about how Kano works,
+or is it an attempt to answer your question?
+
+Return JSON:
+{{
+  "is_sidebar": true or false,
+  "answer": "if is_sidebar=true: your short direct answer to their question (1-3 sentences max, casual iMessage tone). null otherwise."
+}}
+
+is_sidebar=true examples: questions about privacy/data storage, how the app works, pricing, what WHOOP is, etc.
+is_sidebar=false examples: actually answering the question you asked, even briefly.
+"""
+
+
+async def _sidebar_check(
+    user: User,
+    chat_id: str,
+    text: str,
+    pending_question: str,
+    db: AsyncSession,
+) -> bool:
+    """Check if the user's message is a sidebar question rather than an onboarding answer.
+
+    If it is, answer it briefly and re-ask the pending question.
+    Returns True if it was a sidebar (caller should return early),
+    False if the message is an actual answer (proceed with extraction).
+    """
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    try:
+        prompt = _SIDEBAR_PROMPT.format(
+            pending_question=pending_question,
+            user_message=text or "",
+        )
+        resp = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        data = json.loads(resp.choices[0].message.content)
+        if data.get("is_sidebar") and data.get("answer"):
+            await _send(chat_id, user.id, data["answer"], db)
+            await asyncio.sleep(0.8)
+            await _send(chat_id, user.id, pending_question, db)
+            return True
+    except Exception as e:
+        print(f"[onboarding _sidebar_check] failed: {e}")
+    return False
+
+
 # ─── Reask counter (Redis-backed, per user per state) ─────────────────────────
 
 async def _reask_count(user_id, state: str) -> int:
@@ -239,6 +298,13 @@ async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) 
 
 async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Extract fitness goal and sports focus from free text."""
+    if await _sidebar_check(
+        user, chat_id, text,
+        "what are your fitness goals? build muscle? lose weight? run a 5k? throw everything at me 🎯",
+        db,
+    ):
+        return
+
     data = await _llm_extract("goal", text or "")
 
     if not data or not data.get("valid"):
@@ -271,6 +337,13 @@ async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSes
 
 async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Extract current training frequency and schedule from free text."""
+    if await _sidebar_check(
+        user, chat_id, text,
+        "how does your current training look? how many days a week, what do you do — give me the honest version",
+        db,
+    ):
+        return
+
     data = await _llm_extract("status", text or "")
 
     if not data or not data.get("valid"):
@@ -303,6 +376,13 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
 
 async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Extract injuries, equipment and other constraints from free text."""
+    if await _sidebar_check(
+        user, chat_id, text,
+        "what should I keep in mind when coaching you? injuries, busy days, exercises you hate, anything goes",
+        db,
+    ):
+        return
+
     raw = (text or "").strip()
 
     # Use LLM to detect "no constraints" intent — handles any language/phrasing
@@ -343,6 +423,13 @@ async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSess
 
 async def _handle_whoop_or_basics(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Parse manual age / weight / gender basics, then build the plan."""
+    if await _sidebar_check(
+        user, chat_id, text,
+        "just send your age, weight and gender — like: 24, 78 kg, male",
+        db,
+    ):
+        return
+
     data = await _llm_extract("basics", text or "")
 
     if not data or not data.get("valid"):
