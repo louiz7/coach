@@ -1,6 +1,6 @@
 """Persona auto-assignment helper.
 
-Hercules now uses a SINGLE coaching persona ("calm" — supportive, grounded,
+Kano now uses a SINGLE coaching persona ("calm" — supportive, grounded,
 direct without being pushy). The legacy multi-persona picker has been retired.
 
 This helper still exists so the old call sites in onboarding don't have to
@@ -20,7 +20,7 @@ async def assign_persona_from_style(
     coach_style: Optional[str] = None,      # back-compat, ignored
     coach_intensity: Optional[str] = None,  # back-compat, ignored
 ) -> Optional[CoachPersona]:
-    """Assign the single active Hercules persona to the user.
+    """Assign the single active Kano persona to the user.
 
     `coach_style` / `coach_intensity` are accepted for backwards compatibility
     with old call sites but no longer affect persona selection.

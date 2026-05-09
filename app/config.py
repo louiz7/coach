@@ -15,7 +15,13 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PRICE_ID: str = ""
     STRIPE_PAYMENT_LINK: str = ""  # Static Stripe Payment Link for iMessage paywall
-    ALLOWED_ORIGINS: str = "https://hercules.chat"
+    # Public base URL used in outbound links (WHOOP redirect, plan link, payment fallback,
+    # sitemap, etc.). Override per-environment via env var. During the kano.fit DNS/SSL
+    # cutover, set this to https://hercules.chat in the server .env, then flip to
+    # https://kano.fit once DNS + cert are live — no code changes needed.
+    PUBLIC_BASE_URL: str = "https://kano.fit"
+    # Comma-separated list of allowed CORS origins. Includes both domains during cutover.
+    ALLOWED_ORIGINS: str = "https://kano.fit,https://www.kano.fit,https://hercules.chat,https://www.hercules.chat"
     DEFAULT_LANGUAGE: str = "de"
     PROACTIVE_MAX_PER_DAY: int = 3
     PROACTIVE_IDLE_HOURS: int = 2
@@ -26,7 +32,7 @@ class Settings(BaseSettings):
     MUSCLEWIKI_API_KEY: str = ""
     # Beta phase
     BETA_MODE: bool = True
-    BETA_CODE: str = "hercules2026!"
+    BETA_CODE: str = "kano2026!"
     WHATSAPP_COMMUNITY_URL: str = "https://chat.whatsapp.com/LIOlg1tHtq07Vkebqazr6u?mode=hqctcli"
 
     class Config:

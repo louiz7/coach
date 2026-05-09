@@ -6,9 +6,12 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
-# Project identifiers for shared Linq number routing
+# Project identifiers (legacy: was used for shared Linq number routing with twinnn).
+# twinnn is decommissioned; KANO is the new canonical value. HERCULES is retained
+# only for backward compat with existing rows until they're migrated.
 class ProjectEnum:
-    HERCULES = "hercules"
+    KANO = "kano"
+    HERCULES = "hercules"  # legacy alias; migrated to "kano" by alembic 017
     UNKNOWN = "unknown"
 
 

@@ -32,7 +32,7 @@ async def run_proactive_checkins():
 
 
 async def run_morning_brief():
-    """Daily morning brief for ALL onboarded Hercules users.
+    """Daily morning brief for ALL onboarded Kano users.
 
     - Fires every 30 min via cron; only acts when a user's local hour matches
       _MORNING_HOUR (so each user is processed at most twice per day).
@@ -178,7 +178,7 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
     # Rest day — send a short recovery nudge instead of skipping
     if active_plan and not today_workout:
         rest_prompt = (
-            f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+            f"You are Kano, a personal fitness coach messaging via iMessage.\n\n"
             f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'} | "
             f"Focus: {user.sports_focus or 'general'}\n\n"
             "Today is a rest day for this athlete.\n\n"
@@ -230,7 +230,7 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         ) if today_workout else ""
 
         early_prompt = (
-            f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+            f"You are Kano, a personal fitness coach messaging via iMessage.\n\n"
             f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'} | "
             f"Focus: {user.sports_focus or 'general'}\n\n"
             f"Today's workout:\n{workout_text_early}\n\n"
@@ -362,7 +362,7 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
         )
 
     prompt = (
-        f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+        f"You are Kano, a personal fitness coach messaging via iMessage.\n\n"
         f"{user_ctx}\n\n"
         f"{recovery_line}\n\n"
         f"{workout_block}\n\n"
@@ -623,7 +623,7 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
         )
 
     prompt = (
-        f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+        f"You are Kano, a personal fitness coach messaging via iMessage.\n\n"
         f"{user_ctx}\n\n"
         f"{task}"
     )
@@ -667,12 +667,12 @@ async def _send_paywall_nudge(
     from app.config import settings as cfg
     from openai import AsyncOpenAI
 
-    payment_link = cfg.STRIPE_PAYMENT_LINK or "https://hercules.chat/subscribe"
+    payment_link = cfg.STRIPE_PAYMENT_LINK or f"{cfg.PUBLIC_BASE_URL.rstrip('/')}/subscribe"
 
     if plan_day_num == 8:
         # First paywall hit — warm earned message
         prompt = (
-            f"You are Hercules, a personal fitness coach texting via iMessage.\n\n"
+            f"You are Kano, a personal fitness coach texting via iMessage.\n\n"
             f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'}\n\n"
             "The athlete just completed their 7-day challenge. "
             "Write a short (3-4 sentences) message that:\n"
@@ -687,7 +687,7 @@ async def _send_paywall_nudge(
         # Day 9+ gentle daily reminder
         days_since = plan_day_num - 7
         prompt = (
-            f"You are Hercules, a personal fitness coach texting via iMessage.\n\n"
+            f"You are Kano, a personal fitness coach texting via iMessage.\n\n"
             f"Athlete: {user.name}\n\n"
             f"It's been {days_since} day(s) since their 7-day challenge ended. "
             "Write a single short sentence reminding them the door is still open, "
@@ -708,7 +708,7 @@ async def _send_paywall_nudge(
     except Exception as ex:
         print(f"[paywall_nudge] LLM failed for {user.name}: {ex}")
         message = (
-            f"You just completed a full week with Hercules — that's real. "
+            f"You just completed a full week with Kano — that's real. "
             f"If you want to keep this going, here's how:\n{payment_link}"
         )
 
@@ -802,7 +802,7 @@ async def run_whoop_followup():
             bio_str = f" ({', '.join(bio_bits)})" if bio_bits else ""
 
             followup_prompt = (
-                f"You are Hercules, a personal fitness coach messaging via iMessage.\n\n"
+                f"You are Kano, a personal fitness coach messaging via iMessage.\n\n"
                 f"Athlete: {user.name}\n"
                 f"WHOOP just synced: {emoji} {recovery_score}%{bio_str} — verdict: {verdict}\n"
                 f"Coaching tip: {tip}\n\n"

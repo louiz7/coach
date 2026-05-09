@@ -14,7 +14,9 @@ from app.config import settings
 WHOOP_AUTH_URL = "https://api.prod.whoop.com/oauth/oauth2/auth"
 WHOOP_TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token"
 WHOOP_API_BASE = "https://api.prod.whoop.com/developer"
-WHOOP_REDIRECT_URI = "https://hercules.chat/whoop/callback"
+# Derived from PUBLIC_BASE_URL so the same code works on hercules.chat (legacy)
+# and kano.fit (new) — switch by setting PUBLIC_BASE_URL in the server .env.
+WHOOP_REDIRECT_URI = f"{settings.PUBLIC_BASE_URL.rstrip('/')}/whoop/callback"
 SCOPES = (
     "read:recovery read:cycles read:sleep read:workout "
     "read:profile read:body_measurement offline"

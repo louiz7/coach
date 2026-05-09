@@ -146,7 +146,7 @@ async def whoop_connected():
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>WHOOP Connected — Hercules</title>
+  <title>WHOOP Connected — Kano</title>
   <link rel="icon" type="image/png" href="/static/images/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -164,7 +164,7 @@ async def whoop_connected():
     <div class="card">
       <div class="badge">🟢</div>
       <h1>WHOOP Connected!</h1>
-      <p>Head back to iMessage — Hercules will now coach you based on your real recovery, sleep, and workout data.</p>
+      <p>Head back to iMessage — Kano will now coach you based on your real recovery, sleep, and workout data.</p>
     </div>
   </main>
 </body>
@@ -339,7 +339,7 @@ async def _handle_recovery(user: User, access_token: str, db) -> None:
     bio_detail = ", ".join(filter(None, [hrv_str, rhr_str]))
 
     prompt = (
-        f"You are Hercules, a personal fitness coach on iMessage. Be very concise (2-3 sentences max).\n\n"
+        f"You are Kano, a personal fitness coach on iMessage. Be very concise (2-3 sentences max).\n\n"
         f"User: {user.name} | Goal: {user.goal or 'general fitness'} | "
         f"Preferred intensity: {user.coach_intensity or 'moderate'} | "
         f"Coach style: {user.coach_style or 'direct'}\n\n"
@@ -417,7 +417,7 @@ async def _handle_sleep(user: User, access_token: str, sleep_id: str, db) -> Non
         sleep_detail += f", {respiratory_rate:.1f} breaths/min"
 
     prompt = (
-        f"You are Hercules, a personal fitness coach on iMessage. Be very concise (2-3 sentences max).\n\n"
+        f"You are Kano, a personal fitness coach on iMessage. Be very concise (2-3 sentences max).\n\n"
         f"User: {user.name} | Goal: {user.goal or 'general fitness'} | "
         f"Coach style: {user.coach_style or 'direct'}\n\n"
         f"Sleep data just recorded: {sleep_detail}\n\n"
@@ -470,7 +470,7 @@ async def _handle_workout(user: User, access_token: str, workout_id: str) -> Non
 
     client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
     prompt = (
-        f"You are Hercules, a personal fitness coach on iMessage. 1-2 sentences max.\n\n"
+        f"You are Kano, a personal fitness coach on iMessage. 1-2 sentences max.\n\n"
         f"User: {user.name} | Goal: {user.goal or 'general fitness'}\n"
         f"Just completed: {', '.join(details)}\n\n"
         f"Write a brief, energetic acknowledgment. Be specific to what they did. No filler."

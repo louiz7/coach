@@ -35,7 +35,8 @@ async def main() -> None:
         for user in users:
             try:
                 token = create_onboarding_token(user.phone)
-                url = f"https://hercules.chat/whoop/connect?token={token}"
+                from app.config import settings
+                url = f"{settings.PUBLIC_BASE_URL.rstrip('/')}/whoop/connect?token={token}"
                 msg = MSG_TEMPLATE.format(url=url)
                 await linq.send_message(user.linq_chat_id, msg)
                 print(f"  ✓ messaged {user.name} ({user.phone})")

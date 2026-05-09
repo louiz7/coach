@@ -1,4 +1,4 @@
-"""In-chat onboarding state machine for Hercules.
+"""In-chat onboarding state machine for Kano.
 
 New conversational flow — 7 steps, free text, LLM extraction, no letter menus:
 
@@ -178,7 +178,7 @@ async def handle(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
 # ─── Initial intro (called by message_worker for brand-new users) ─────────────
 
 async def _send_inform_intro(chat_id: str, user_id, db: AsyncSession) -> None:
-    """Send the Hercules intro and ask for the user's name."""
+    """Send the Kano intro and ask for the user's name."""
     await _send_multi(chat_id, user_id, [
         "I'm your AI personal trainer, right here in iMessage",
         "before we get into it: what's your name?",
@@ -198,7 +198,7 @@ async def _restart_inform(user: User, chat_id: str, db: AsyncSession) -> None:
 async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Capture the user's first name, then pitch and ask for their goal.
 
-    If the message doesn't contain a name (e.g. "whats hercules?", "hi", etc.)
+    If the message doesn't contain a name (e.g. "whats kano?", "hi", etc.)
     and the user hasn't shared their name yet, send the full intro instead of
     a cold reask. The intro itself asks for the name.
     """
@@ -217,7 +217,7 @@ async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) 
 
     if not extracted:
         # No name found — if user has never identified themselves, this is
-        # effectively a first-touch message ("whats hercules?", "hi", etc.).
+        # effectively a first-touch message ("whats kano?", "hi", etc.).
         # Send the intro so they get a proper greeting.
         if not name_already_set:
             await _send_inform_intro(chat_id, user.id, db)
@@ -489,7 +489,7 @@ async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
     await _send_multi(chat_id, user.id, [
         "perfect, your plan is locked in 🫡",
         "oone more thing... and this is important",
-        "I want you to do a 7-day challenge with me. complete it and you earn your spot as a Hercules member. think of it as proving to yourself you actually want this",
+        "I want you to do a 7-day challenge with me. complete it and you earn your spot as a Kano member. think of it as proving to yourself you actually want this",
         "you in?",
     ], db)
 

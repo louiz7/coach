@@ -44,14 +44,14 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         )
         user = result.scalar_one_or_none()
 
-        # --- NEW HERCULES USER — any message starts the new onboarding ---
+        # --- NEW KANO USER — any message starts the new onboarding ---
         if not user:
             user = User(
                 linq_chat_id=chat_id,
                 phone=phone or chat_id,
                 name="Unbekannt",
                 password_hash="pending",
-                project=ProjectEnum.HERCULES,
+                project=ProjectEnum.KANO,
                 onboarding_state=OnboardingState.INFORM,
                 onboarding_complete=False,
                 is_active=True,
@@ -107,7 +107,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             token = create_onboarding_token(user.phone)
             whoop_msg = (
                 f"Tap the link below to connect your WHOOP 🟢\n"
-                f"https://hercules.chat/whoop/connect?token={token}"
+                f"{settings.PUBLIC_BASE_URL.rstrip('/')}/whoop/connect?token={token}"
             )
             await linq.send_message(chat_id, whoop_msg)
             return
@@ -119,7 +119,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         else:
             has_sub = await check_subscription(user.id, db)
         if not has_sub:
-            payment_link = settings.STRIPE_PAYMENT_LINK or "https://hercules.chat/subscribe"
+            payment_link = settings.STRIPE_PAYMENT_LINK or f"{settings.PUBLIC_BASE_URL.rstrip('/')}/subscribe"
             paywall_msg = (
                 f"you completed your week with me — that's real 💪\n\n"
                 f"if you want to keep this going, here's how:\n{payment_link}"

@@ -114,7 +114,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     try:
                         welcome = (
                             f"You're in, {user.name}! 🎉\n\n"
-                            "I'm your Hercules coach and I'll be texting you right here on iMessage. "
+                            "I'm your Kano coach and I'll be texting you right here on iMessage. "
                             "Let's get to work 💪"
                         )
                         await linq_svc.send_message(user.linq_chat_id, welcome)

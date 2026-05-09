@@ -53,7 +53,7 @@ def verify_onboarding_token(token: str) -> dict:
             algorithms=[settings.JWT_ALGORITHM],
         )
     except jwt.ExpiredSignatureError:
-        raise ValueError("This link has expired. Please ask Hercules for a new one.")
+        raise ValueError("This link has expired. Please ask Kano for a new one.")
     except jwt.InvalidTokenError as e:
         raise ValueError(f"Invalid token: {e}")
 

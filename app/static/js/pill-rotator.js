@@ -2,13 +2,13 @@
   "use strict";
 
   const MESSAGES = [
-    "Hercules kept Lisa consistent when her motivation ran out",
-    "Hercules helped Lena lose 6 kg — without giving up pasta",
-    "Hercules helped Chris add 20 kg to his deadlift in 8 weeks",
-    "Hercules turned Mia's Sunday slump into her best training day",
-    "Hercules pushed Marco to show up — even on bad days",
-    "Hercules finally got Tom to hit his protein goals every day",
-    "Hercules coached Nina from the couch to her first 5K",
+    "Kano kept Lisa consistent when her motivation ran out",
+    "Kano helped Lena lose 6 kg — without giving up pasta",
+    "Kano helped Chris add 20 kg to his deadlift in 8 weeks",
+    "Kano turned Mia's Sunday slump into her best training day",
+    "Kano pushed Marco to show up — even on bad days",
+    "Kano finally got Tom to hit his protein goals every day",
+    "Kano coached Nina from the couch to her first 5K",
   ];
 
   const ROTATE_MS = 4000;
