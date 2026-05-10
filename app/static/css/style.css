@@ -51,11 +51,13 @@ body {
 }
 
 body {
-  background: #f0eee5;
+  background: #58ade5;
   color: #000;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* the full-bleed sky on desktop may run a hair past the viewport */
+  overflow-x: hidden;
 }
 
 .page {
@@ -63,37 +65,74 @@ body {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 390px;
   margin: 0 auto;
 }
 
 /* =========================================================
-   Above the fold
+   Above the fold (blue sky backdrop)
    ========================================================= */
 .above-fold {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 40px;
   padding-top: 24px;
   width: 100%;
-  overflow: hidden;
+}
+
+/* The sky photo sits behind the hero and bleeds under the section
+   below, so its rounded top corners reveal a sliver of sky. Width is
+   fluid (fills the column at any screen size); the height stays fixed
+   at 900px so the framing is consistent and `cover` crops the sides.
+   From the frame breakpoint up the section goes full-bleed (see the
+   media query at the bottom). The mask fades the hard bottom edge into
+   the page colour. */
+.above-fold::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 900px;
+  background: url("../images/blue-sky-wide.png") center top / cover no-repeat;
+  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Soft blur over the lower portion of the sky so it blends into the
+   section below. Sits behind the hero content (z-index: -1) but above
+   the sky layer, so only the sky gets blurred — not the hero content. */
+.above-fold::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 460px;
+  width: 100%;
+  height: 440px;
+  z-index: -1;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 45%);
+  mask-image: linear-gradient(to bottom, transparent, #000 45%);
 }
 
 .logo {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 350px;
-  max-width: 100%;
+  width: 100%;
   height: 48px;
   text-decoration: none;
 }
 
 .logo img {
   display: block;
-  width: 113px;
-  height: 18px;
+  width: 88px;
+  height: 20px;
 }
 
 .hero {
@@ -110,17 +149,13 @@ body {
   width: 100%;
   max-width: 350px;
   font-family: "Inter", sans-serif;
-  font-style: normal;
   font-weight: 900;
+  font-style: italic;
   font-size: 40px;
-  line-height: 120%;
+  line-height: 1.2;
   letter-spacing: -0.8px;
   text-align: center;
-  color: #000;
-}
-
-.hero__title--accent {
-  color: #0158c3;
+  color: #fff;
 }
 
 .hero__subtext {
@@ -128,12 +163,11 @@ body {
   width: 100%;
   max-width: 300px;
   font-family: "Inter", sans-serif;
-  font-style: normal;
   font-weight: 500;
   font-size: 18px;
-  line-height: 140%;
+  line-height: 1.4;
   text-align: center;
-  color: #000;
+  color: #fff;
 }
 
 /* ---------- Hero phone screenshot ---------- */
@@ -141,7 +175,7 @@ body {
   position: relative;
   width: 100%;
   max-width: 350px;
-  height: 360px;
+  height: 383px;
   overflow: hidden;
 }
 
@@ -150,24 +184,11 @@ body {
   top: 0;
   left: 3.16%;
   width: 93.69%;
-  height: 187.49%;
+  height: 176.23%;
   object-fit: cover;
   object-position: top;
   pointer-events: none;
   user-select: none;
-}
-
-.hero-image::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(240, 238, 229, 0) 0%,
-    rgba(240, 238, 229, 0) 74.25%,
-    #f0eee5 100%
-  );
-  pointer-events: none;
 }
 
 /* =========================================================
@@ -188,7 +209,7 @@ body {
   padding: 10px;
   background: #0057c3;
   border-radius: 20px;
-  box-shadow: inset 0 0 3px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 0 3px 1px rgba(255, 255, 255, 0.8);
   text-decoration: none;
   color: inherit;
   transition: filter 120ms ease, transform 120ms ease;
@@ -239,7 +260,7 @@ body {
   font-family: "Inter", sans-serif;
   font-weight: 400;
   font-size: 9px;
-  line-height: 110%;
+  line-height: 1.1;
   letter-spacing: -0.09px;
   color: rgba(0, 0, 0, 0.5);
   text-align: center;
@@ -251,43 +272,131 @@ body {
   text-underline-offset: 2px;
 }
 
+/* Legal line on the dark hero backdrop. */
+.cta--on-dark .cta__legal {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Legal line under the closing CTA is a touch larger. */
+.cta--closing .cta__legal {
+  font-size: 10px;
+  letter-spacing: -0.1px;
+}
+
 /* =========================================================
-   Works with WHOOP
+   Works with (logo strip)
    ========================================================= */
 .works-with {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 16px;
   padding: 32px 20px;
   width: 100%;
+  background: linear-gradient(to bottom, #e3f3ff, #abddff);
+  border-radius: 40px;
+  box-shadow: inset 0 0 4px 0 #fff;
+  overflow: hidden;
 }
 
-.works-with__heading {
-  margin: 0;
+.works-with__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  background: #000;
+  border-radius: 10px;
   font-family: "Inter", sans-serif;
-  font-weight: 600;
-  font-size: 24px;
+  font-weight: 400;
+  font-size: 14px;
   line-height: 1.3;
-  letter-spacing: -0.24px;
-  text-align: center;
-  color: #000;
+  letter-spacing: -0.14px;
+  color: #fff;
   white-space: nowrap;
 }
 
-.works-with__card {
+.works-with__logos {
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+
+/* The track contains two copies of the logo set; translating it by -50%
+   lands the second copy exactly where the first started, so the loop is
+   seamless. */
+.works-with__track {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 32px;
-  background: #000;
-  border-radius: 10px;
+  flex-shrink: 0;
+  animation: works-with-scroll 22s linear infinite;
+}
+
+.works-with__track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes works-with-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .works-with__track {
+    animation: none;
+  }
 }
 
 .works-with__logo {
   display: block;
+  flex-shrink: 0;
+}
+
+.works-with__logo--whoop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 164px;
+  height: 80px;
+}
+
+.works-with__logo--whoop img {
+  display: block;
   width: 100px;
   height: 16px;
+}
+
+.works-with__logo--amazfit {
+  width: 142px;
+  height: 80px;
+}
+
+.works-with__logo--oura {
+  width: 122px;
+  height: 80px;
+}
+
+.works-with__logo--garmin {
+  width: 169px;
+  height: 80px;
 }
 
 /* =========================================================
@@ -298,8 +407,12 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 32px;
-  padding: 32px 0;
+  padding: 32px 0 19px;
+  margin-top: 24px;
   width: 100%;
+  background: #c0e6ff;
+  border-radius: 40px;
+  box-shadow: inset 0 0 4px 0 #fff;
   overflow: hidden;
 }
 
@@ -309,6 +422,7 @@ body {
   align-items: center;
   gap: 16px;
   margin: 0;
+  padding: 0 20px;
   text-align: center;
   width: 100%;
 }
@@ -318,7 +432,8 @@ body {
   width: 100%;
   max-width: 350px;
   font-family: "Inter", sans-serif;
-  font-weight: 700;
+  font-weight: 900;
+  font-style: italic;
   font-size: 32px;
   line-height: 1.3;
   letter-spacing: -0.32px;
@@ -330,10 +445,9 @@ body {
   width: 100%;
   max-width: 300px;
   font-family: "Inter", sans-serif;
-  font-style: normal;
   font-weight: 500;
   font-size: 18px;
-  line-height: 140%;
+  line-height: 1.4;
   color: #000;
 }
 
@@ -341,22 +455,15 @@ body {
    Feature card component
    ========================================================= */
 .feature-card {
-  background: #fff;
-  border-radius: 30px;
-  padding: 5px;
-  width: 350px;
-  max-width: calc(100% - 40px);
-}
-
-.feature-card__inner {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  height: 640px;
-  padding: 35px 35px 0;
+  align-items: center;
+  gap: 40px;
+  width: 350px;
+  max-width: calc(100% - 40px);
+  padding: 30px 30px 0;
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 25px;
+  border-radius: 30px;
   overflow: hidden;
 }
 
@@ -370,7 +477,7 @@ body {
 
 .feature-card__title {
   margin: 0;
-  width: 220px;
+  width: 250px;
   max-width: 100%;
   font-family: "Inter", sans-serif;
   font-weight: 700;
@@ -396,18 +503,18 @@ body {
   position: relative;
   width: 270px;
   max-width: 100%;
-  height: 400px;
+  /* keep the figma crop window (≈270×400) at any card width */
+  aspect-ratio: 270 / 400;
   overflow: hidden;
 }
 
 .feature-card__image img {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
-  height: 138.94%;
+  height: 100%;
   object-fit: cover;
-  object-position: top;
+  object-position: top center;
   pointer-events: none;
   user-select: none;
 }
@@ -419,11 +526,12 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 24px;
+  gap: 32px;
   padding: 32px 20px;
+  margin-top: 24px;
   width: 100%;
-  min-height: 400px;
+  background: #fff;
+  border-radius: 40px 40px 0 0;
   text-align: center;
 }
 
@@ -440,7 +548,8 @@ body {
   width: 100%;
   max-width: 350px;
   font-family: "Inter", sans-serif;
-  font-weight: 700;
+  font-weight: 900;
+  font-style: italic;
   font-size: 32px;
   line-height: 1.3;
   letter-spacing: -0.32px;
@@ -448,29 +557,30 @@ body {
   color: #000;
 }
 
-.closing-cta__title em {
-  font-style: italic;
-  font-weight: 700;
-}
-
 .closing-cta__subtext {
   margin: 0;
   width: 100%;
   max-width: 300px;
   font-family: "Inter", sans-serif;
-  font-style: normal;
   font-weight: 500;
   font-size: 18px;
-  line-height: 140%;
+  line-height: 1.4;
   text-align: center;
   color: #000;
 }
 
 /* =========================================================
-   Wider viewports — keep mobile-frame look but center it
+   Phones get the full viewport width; on tablets and up we fall
+   back to the centered mobile-frame look — but the sky behind the
+   hero goes full-bleed there (same image, fixed 900px height,
+   responsive width).
    ========================================================= */
-@media (min-width: 391px) {
+@media (min-width: 640px) {
   .page {
     max-width: 390px;
+  }
+
+  .above-fold {
+    width: 100vw;
   }
 }

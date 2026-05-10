@@ -7,13 +7,11 @@
     image_alt   — alt text
 #}
 <article class="feature-card">
-  <div class="feature-card__inner">
-    <div class="feature-card__heading">
-      <h3 class="feature-card__title">{{ title|safe }}</h3>
-      <p class="feature-card__body">{{ body }}</p>
-    </div>
-    <div class="feature-card__image">
-      <img src="/static/images/{{ image }}" alt="{{ image_alt|default('', true) }}" />
-    </div>
+  <div class="feature-card__heading">
+    <h3 class="feature-card__title">{{ title|safe }}</h3>
+    <p class="feature-card__body">{{ body }}</p>
+  </div>
+  <div class="feature-card__image">
+    <img src="/static/images/{{ image }}" alt="{{ image_alt|default('', true) }}" />
   </div>
 </article>

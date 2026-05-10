@@ -4,23 +4,23 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Kano — AI Personal Trainer via iMessage</title>
-    <meta name="description" content="Kano is your AI personal trainer, delivered through iMessage. Personalized training plans, WHOOP recovery coaching, and daily check-ins — no app needed." />
+    <title>Kano - Your Connected Personal Trainer</title>
+    <meta name="description" content="Kano is your connected personal trainer. Daily coaching and personalized training plans based on your wearable data — right in your texts." />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://kano.fit" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://kano.fit" />
-    <meta property="og:title" content="Kano — AI Personal Trainer via iMessage" />
-    <meta property="og:description" content="Personalized training plans built around your recovery data. No app. Just iMessage." />
+    <meta property="og:title" content="Kano - Your Connected Personal Trainer" />
+    <meta property="og:description" content="Daily coaching and personalized training plans based on your wearable data — right in your texts." />
     <meta property="og:image" content="https://kano.fit/static/images/meta_img.png" />
     <meta property="og:site_name" content="Kano" />
 
     <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Kano — AI Personal Trainer via iMessage" />
-    <meta name="twitter:description" content="Personalized training plans built around your recovery data. No app. Just iMessage." />
+    <meta name="twitter:title" content="Kano - Your Connected Personal Trainer" />
+    <meta name="twitter:description" content="Daily coaching and personalized training plans based on your wearable data — right in your texts." />
     <meta name="twitter:image" content="https://kano.fit/static/images/meta_img.png" />
 
     <!-- Structured Data -->
@@ -29,7 +29,7 @@
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": "Kano",
-      "description": "AI personal trainer delivered via iMessage. Personalized training plans, WHOOP recovery coaching, and daily check-ins.",
+      "description": "Your connected personal trainer. Personalized training plans built around your wearable data, daily check-ins, and coaching over text.",
       "applicationCategory": "HealthApplication",
       "operatingSystem": "iOS",
       "url": "https://kano.fit",
@@ -40,7 +40,7 @@
       },
       "featureList": [
         "Personalized training plans",
-        "WHOOP recovery integration",
+        "Wearable recovery integration",
         "Daily coaching via iMessage",
         "Workout tracking"
       ]
@@ -51,7 +51,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,900&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/style.css" />
@@ -62,19 +62,16 @@
       {# ---------- Above the fold ---------- #}
       <section class="above-fold">
         <a class="logo" href="/" aria-label="Kano">
-          <img src="/static/images/kano-wordmark.svg" alt="Kano" />
+          <img src="/static/images/kano-wordmark-white.svg" alt="Kano" width="88" height="20" />
         </a>
 
         <div class="hero">
-          <h1 class="hero__title">
-            Your connected
-            <span class="hero__title--accent">personal trainer</span>
-          </h1>
+          <h1 class="hero__title">Your connected personal trainer</h1>
           <p class="hero__subtext">
             Daily coaching and personalized training plans based on your wearable data right in your texts
           </p>
 
-          <div class="cta">
+          <div class="cta cta--on-dark">
             <a
               class="cta__button"
               href="sms:+19453943079?&body=whats%20kano%3F"
@@ -103,53 +100,81 @@
         </div>
       </section>
 
-      {# ---------- Works with WHOOP ---------- #}
+      {# ---------- Works with ---------- #}
       <section class="works-with">
-        <h2 class="works-with__heading">Works with</h2>
-        <div class="works-with__card">
-          <img
-            class="works-with__logo"
-            src="/static/images/whoop-logo-white.svg"
-            alt="WHOOP"
-          />
+        <span class="works-with__label">works with</span>
+        <div class="works-with__logos">
+          {# Track holds the logo set twice so the marquee loops seamlessly.
+             The second copy is hidden from assistive tech. #}
+          <div class="works-with__track">
+            {% for dup in [false, true] %}
+            <span class="works-with__logo works-with__logo--whoop" {% if dup %}aria-hidden="true"{% endif %}>
+              <img src="/static/images/whoop-logo.svg" alt="{{ '' if dup else 'WHOOP' }}" width="100" height="16" />
+            </span>
+            <img
+              class="works-with__logo works-with__logo--amazfit"
+              src="/static/images/logo-amazfit.svg"
+              alt="{{ '' if dup else 'Amazfit — coming soon' }}"
+              width="142"
+              height="80"
+              {% if dup %}aria-hidden="true"{% endif %}
+            />
+            <img
+              class="works-with__logo works-with__logo--oura"
+              src="/static/images/logo-oura.svg"
+              alt="{{ '' if dup else 'Oura — coming soon' }}"
+              width="122"
+              height="80"
+              {% if dup %}aria-hidden="true"{% endif %}
+            />
+            <img
+              class="works-with__logo works-with__logo--garmin"
+              src="/static/images/logo-garmin.svg"
+              alt="{{ '' if dup else 'Garmin — coming soon' }}"
+              width="169"
+              height="80"
+              {% if dup %}aria-hidden="true"{% endif %}
+            />
+            {% endfor %}
+          </div>
         </div>
       </section>
 
       {# ---------- Features ---------- #}
       <section class="features">
         <header class="features__heading">
-          <h2 class="features__title">Your 24/7 personal coach in iMessage</h2>
+          <h2 class="features__title">Achieve your fitness goals with Kano</h2>
           <p class="features__subtext">
-            Get personalized guidance and actionable advice from your own 24/7 coach
+            Personalized workout plans, regular check-ins, motivation and actionable advice 24/7
           </p>
         </header>
 
         {# Render four feature cards via the shared partial. #}
-        {% with title="Get answers from your data",
-                body="Kano knows your sleep, your strain, your history for advice that's based on you.",
-                image="feature-card-data.png",
-                image_alt="Kano answering a question grounded in your WHOOP data" %}
+        {% with title="Workout plans that adapt to you",
+                body="Kano builds your plan around your goals and adjusts when life gets in the way",
+                image="feature-card-plans.png",
+                image_alt="Kano adapting your training plan over text" %}
           {% include "_feature_card.html" %}
         {% endwith %}
 
-        {% with title="Proactive<br>check-ins",
-                body="Every morning, Kano tells you exactly how hard you can push today.",
+        {% with title="Kano texts you first to check in",
+                body="Kano tells you exactly how hard you can push today.",
                 image="feature-card-checkins.png",
                 image_alt="Kano sending a morning check-in" %}
           {% include "_feature_card.html" %}
         {% endwith %}
 
-        {% with title="Never miss<br>what matters",
-                body="Supplements, rest days, hydration. Kano reminds you at the right time.",
-                image="feature-card-reminders.png",
-                image_alt="Kano sending a reminder" %}
+        {% with title="Ask anything about your data",
+                body="Ask questions about your fitness data and get answers grounded in your own metrics",
+                image="feature-card-data.png",
+                image_alt="Kano answering a question grounded in your fitness data" %}
           {% include "_feature_card.html" %}
         {% endwith %}
 
-        {% with title="Plans that<br>adapt to you",
-                body="Kano builds your plan around your goals and adjusts when life gets in the way.",
-                image="feature-card-plans.png",
-                image_alt="Kano adapting your plan" %}
+        {% with title="Never miss what matters",
+                body="Supplements, rest days, hydration. Kano reminds you at the right time.",
+                image="feature-card-reminders.png",
+                image_alt="Kano sending a reminder" %}
           {% include "_feature_card.html" %}
         {% endwith %}
       </section>
@@ -157,14 +182,12 @@
       {# ---------- Closing CTA ---------- #}
       <section class="closing-cta">
         <header class="closing-cta__heading">
-          <h2 class="closing-cta__title">
-            <em>Lock in</em> this summer
-          </h2>
+          <h2 class="closing-cta__title">Lock in this summer</h2>
           <p class="closing-cta__subtext">
             Become the best version of yourself. It all starts with one text.
           </p>
         </header>
-        <div class="cta">
+        <div class="cta cta--closing">
           <a
             class="cta__button"
             href="sms:+19453943079?&body=whats%20kano%3F"
