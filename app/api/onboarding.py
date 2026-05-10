@@ -170,7 +170,7 @@ async def create_checkout_session(
         )
         customer_id = customer.id
 
-    base_url = settings.ALLOWED_ORIGINS.split(",")[0]
+    base_url = settings.PUBLIC_BASE_URL.rstrip('/')
 
     session = stripe.checkout.Session.create(
         customer=customer_id,

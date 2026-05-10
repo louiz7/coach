@@ -411,7 +411,7 @@ async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSess
     # Build WHOOP link
     from app.services.token import create_onboarding_token
     token = create_onboarding_token(user.phone)
-    base_url = settings.ALLOWED_ORIGINS.split(",")[0].strip()
+    base_url = settings.PUBLIC_BASE_URL.rstrip('/')
     whoop_url = f"{base_url}/whoop/connect?token={token}"
 
     await _send_multi(chat_id, user.id, [
@@ -475,7 +475,7 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
         from app.services.training_plan import generate_plan
         await generate_plan(user, db)
         token = create_plan_token(user.phone)
-        base_url = settings.ALLOWED_ORIGINS.split(",")[0].strip()
+        base_url = settings.PUBLIC_BASE_URL.rstrip('/')
         plan_url = f"{base_url}/plan?token={token}"
 
         user.onboarding_state = OnboardingState.PLAN_REVIEW
@@ -555,7 +555,7 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
             from app.services.token import create_plan_token
             await generate_plan(user, db, user_request=text)
             token = create_plan_token(user.phone)
-            base_url = settings.ALLOWED_ORIGINS.split(",")[0].strip()
+            base_url = settings.PUBLIC_BASE_URL.rstrip('/')
             plan_url = f"{base_url}/plan?token={token}"
             await _send(chat_id, user.id, f"updated 💪\n{plan_url}", db)
         except Exception as ex:

@@ -14,32 +14,19 @@ from app.services.memory import get_conversation
 
 
 def _get_today_workout(plan) -> Optional[str]:
-    """Extract today's workout block from plan_json. Returns None if not found."""
+    """Extract today's workout block from plan_json using weekday-name matching."""
     try:
-        data = plan.plan_json
-        if not isinstance(data, dict):
-            return None
-        weeks = data.get("weeks") or data.get("days") or []
-        # flat list of days
-        days = []
-        for item in weeks:
-            if isinstance(item, dict) and "days" in item:
-                days.extend(item["days"])
-            elif isinstance(item, dict) and "exercises" in item:
-                days.append(item)
-        if not days:
-            return None
-        # pick today by day-of-week index (0=Mon)
-        today_idx = date.today().weekday()  # 0=Mon, 6=Sun
-        day = days[today_idx % len(days)] if days else None
+        from app.services.training_plan import get_workout_for_today
+        weekday = date.today().strftime("%A")  # e.g. "Monday"
+        day = get_workout_for_today(plan.plan_json, weekday)
         if not day:
             return None
-        label = day.get("label") or day.get("name") or f"Day {today_idx + 1}"
+        label = day.get("focus") or day.get("day") or weekday
         exercises = day.get("exercises") or []
         if not exercises:
             return f"{label}: rest day"
         lines = [label + ":"]
-        for ex in exercises[:8]:  # cap at 8 exercises
+        for ex in exercises[:8]:
             name = ex.get("name") or ex.get("exercise") or ""
             sets = ex.get("sets", "")
             reps = ex.get("reps", "")
@@ -111,7 +98,7 @@ async def build_system_prompt(
             prompt += "\nWHOOP CONNECTED: Yes — but no biometric data cached yet (data arrives via webhooks when user syncs their WHOOP).\n"
 
     # ── Training plan — only inject when the message is plan-related ───────
-    _PLAN_INTENTS = {"PLAN_REQUEST", "MODIFY_PLAN", "PROGRESS_LOG", "WHOOP_DATA"}
+    _PLAN_INTENTS = {"PLAN_REQUEST", "MODIFY_PLAN", "VIEW_PLAN", "NEW_PLAN", "PROGRESS_LOG", "WHOOP_DATA"}
     if intents and _PLAN_INTENTS.intersection(intents):
         result = await db.execute(
             select(TrainingPlan)
@@ -210,26 +197,3 @@ async def call_llm(system_prompt: str, conversation: list[dict], max_tokens: int
         return response.json()["choices"][0]["message"]["content"]
 
 
-async def classify_intent(text: str) -> str:
-    """Quick intent classification via LLM."""
-    async with httpx.AsyncClient(timeout=15) as client:
-        response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": (
-                        "Classify the user message into exactly one category. "
-                        "Reply with ONLY the category name, nothing else.\n"
-                        "Categories: PROGRESS_LOG, PLAN_REQUEST, EXERCISE_QUESTION, "
-                        "NUTRITION_QUESTION, GENERAL"
-                    )},
-                    {"role": "user", "content": text},
-                ],
-                "max_tokens": 10,
-                "temperature": 0,
-            },
-        )
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip()
