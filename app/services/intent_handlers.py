@@ -11,60 +11,9 @@ from app.models.user import User
 from app.services import linq
 from app.services.memory import add_message
 from app.services.progress import parse_and_store_progress
-from app.services.training_plan import generate_plan, chunk_plan_text
 from app.redis import redis_pool
 
 
-# When user says they feel bad/tired and want today lighter — handle as today view + coach tip, NOT a plan modification
-_TODAY_ONLY_PATTERNS = (
-    "heute", "today", "this session", "diese einheit", "jetzt", "right now",
-    "for today", "für heute", "today only", "nur heute",
-)
-
-# Day name overrides — if user specifies a day explicitly
-_DAY_NAMES = {
-    "monday": "Monday", "montag": "Monday",
-    "tuesday": "Tuesday", "dienstag": "Tuesday",
-    "wednesday": "Wednesday", "mittwoch": "Wednesday",
-    "thursday": "Thursday", "donnerstag": "Thursday",
-    "friday": "Friday", "freitag": "Friday",
-    "saturday": "Saturday", "samstag": "Saturday",
-    "sunday": "Sunday", "sonntag": "Sunday",
-}
-
-
-def _extract_day_from_text(text: str):
-    """Return explicit day name mentioned in text, or None."""
-    t = text.lower()
-    for key, val in _DAY_NAMES.items():
-        if key in t:
-            return val
-    return None
-
-
-# Modification verbs/phrases — permanent plan changes (only when no today-only qualifier)
-_MODIFICATION_KEYWORDS = (
-    # direct action words
-    "swap", "replace", "change", "remove", "add", "drop", "skip",
-    "make it", "instead of", "more", "less", "fewer", "shorter", "longer",
-    "harder", "easier", "tweak", "adjust", "modify", "update",
-    # complaint / absence phrasing — user notices something missing
-    "don't see", "dont see", "not in my plan", "missing", "no running",
-    "no cardio", "not there", "still not", "i want", "include",
-    "why is there no", "where is", "can you add", "can you include",
-    "put in", "add in", "need more", "want more", "want less",
-    # german
-    "tausch", "änder", "ersetze", "füge", "hinzufüg", "entfern",
-    "ich sehe kein", "fehlt", "nicht im plan", "ich will", "mehr", "weniger",
-)
-
-# When ANY of these appear the user explicitly wants the whole weekly plan.
-_FULL_PLAN_KEYWORDS = (
-    "full plan", "whole plan", "entire plan", "all days", "weekly plan",
-    "whole week", "all workouts", "show me the plan", "send the plan",
-    "send me the plan", "complete plan", "full week", "den ganzen plan",
-    "gesamten plan", "ganzen plan", "alle tage", "ganze woche",
-)
 
 
 
@@ -185,17 +134,16 @@ async def handle_new_plan(user: User, text: str, db: AsyncSession) -> Optional[s
         return "Plan creation failed. Apologize briefly and ask them to try again."
 
 
-async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Optional[str]:
-    """Legacy fallback — routes to modify or view based on keyword detection."""
-    text_lower = (text or "").lower()
-    is_today_only = any(p in text_lower for p in _TODAY_ONLY_PATTERNS)
-    is_modification = (
-        any(kw in text_lower for kw in _MODIFICATION_KEYWORDS)
-        and not is_today_only
+async def handle_connect_whoop(user: User, text: str, db: AsyncSession) -> Optional[str]:
+    """User wants to connect their WHOOP — generate a connect link and return as context."""
+    from app.services.token import create_onboarding_token
+    from app.config import settings
+    token = create_onboarding_token(user.phone)
+    url = f"{settings.PUBLIC_BASE_URL.rstrip('/')}/whoop/connect?token={token}"
+    return (
+        f"WHOOP CONNECT URL: {url}. "
+        "Tell the user to tap the link to connect their WHOOP. Keep it to 1 sentence + the URL."
     )
-    if is_modification:
-        return await handle_modify_plan(user, text, db)
-    return await handle_view_plan(user, text, db)
 
 
 async def handle_whoop_data(user: User, text: str, db: AsyncSession) -> Optional[str]:
@@ -326,9 +274,9 @@ _HANDLER_MAP = {
     "MODIFY_PLAN": handle_modify_plan,
     "VIEW_PLAN": handle_view_plan,
     "NEW_PLAN": handle_new_plan,
-    "PLAN_REQUEST": handle_plan_request,  # legacy fallback
     "STREAK_CHECK": handle_streak_check,
     "WHOOP_DATA": handle_whoop_data,
+    "CONNECT_WHOOP": handle_connect_whoop,
 }
 
 

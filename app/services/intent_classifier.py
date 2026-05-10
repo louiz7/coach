@@ -9,6 +9,7 @@ INTENTS = [
     "NEW_PLAN",           # User wants a completely new plan built from scratch
     "STREAK_CHECK",       # User asks about their streak / consistency
     "WHOOP_DATA",         # User asks about their WHOOP / recovery / HRV / sleep data
+    "CONNECT_WHOOP",      # User wants to connect / link / add their WHOOP device
     "EXERCISE_QUESTION",  # How-to, form, technique, exercise science
     "NUTRITION_QUESTION", # Diet, macros, food, supplements
     "GENERAL",            # Everything else
@@ -40,6 +41,10 @@ NEW_PLAN — user wants a brand new plan built from scratch.
 STREAK_CHECK — user asks about consistency, streak, how often they've trained.
 
 WHOOP_DATA — user asks about recovery score, HRV, sleep, biometrics, WHOOP stats.
+
+CONNECT_WHOOP — user wants to connect, link, add, or set up their WHOOP device/account.
+  YES: "connect my whoop", "link whoop", "add whoop", "how do I connect whoop", "whoop connect", "set up whoop"
+  NO: asking about WHOOP data they already have (WHOOP_DATA)
 
 EXERCISE_QUESTION — form, technique, how to do an exercise, which exercise is best for X.
 
