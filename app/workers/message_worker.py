@@ -136,15 +136,20 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # Start typing
         await linq.start_typing(chat_id)
 
-        # Classify intents (multi-intent)
-        intents = await classify_intents(text)
+        # Load recent conversation for context-aware intent classification
+        recent_conv = await get_conversation(user.id, db)
+        # Pass last 4 messages (2 turns) as context so classifier understands follow-ups
+        context_messages = [
+            {"role": m["role"], "content": m["content"]}
+            for m in recent_conv[-4:]
+        ] if recent_conv else None
 
-        # Run all matched handlers in parallel, collect context
+        # Classify intents with conversational context
+        intents = await classify_intents(text, context_messages=context_messages)
+
+        # Run all matched handlers — they perform actions and return context for the LLM
+        # The LLM ALWAYS responds; handlers never bypass it
         handler_context = await run_handlers(intents, user, text, db)
-
-        # If a handler already sent its own reply (e.g. plan link), skip LLM
-        if handler_context == "__SENT__":
-            return
 
         # Live-fetch WHOOP data when user asks about their metrics
         if "WHOOP_DATA" in intents and user.whoop_access_token:
@@ -200,7 +205,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         if handler_context:
             system_prompt += f"\nCONTEXT:\n{handler_context}\n"
 
-        conversation = await get_conversation(user.id, db)
+        conversation = recent_conv  # already loaded above
 
         # Call LLM
         try:

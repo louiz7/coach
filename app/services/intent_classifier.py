@@ -3,36 +3,74 @@ from app.config import settings
 
 
 INTENTS = [
-    "PROGRESS_LOG",    # User is logging a workout / exercise / weight
-    "PLAN_REQUEST",    # User wants a new or modified training plan
-    "STREAK_CHECK",    # User asks about their streak / consistency
-    "WHOOP_DATA",      # User asks about their WHOOP / recovery / HRV / sleep data
-    "EXERCISE_QUESTION",
-    "NUTRITION_QUESTION",
-    "GENERAL",
+    "PROGRESS_LOG",       # User is logging a workout / exercise / weight
+    "MODIFY_PLAN",        # User wants to permanently change their plan structure/exercises
+    "VIEW_PLAN",          # User wants to see / retrieve their existing plan
+    "NEW_PLAN",           # User wants a completely new plan built from scratch
+    "STREAK_CHECK",       # User asks about their streak / consistency
+    "WHOOP_DATA",         # User asks about their WHOOP / recovery / HRV / sleep data
+    "EXERCISE_QUESTION",  # How-to, form, technique, exercise science
+    "NUTRITION_QUESTION", # Diet, macros, food, supplements
+    "GENERAL",            # Everything else
 ]
 
-SYSTEM_PROMPT = (
-    "Classify the user message into one OR MORE of these categories. "
-    "A message may contain multiple intents (e.g. logging a workout AND asking a question). "
-    "Reply with a comma-separated list of matching categories, nothing else. "
-    "Categories: PROGRESS_LOG, PLAN_REQUEST, STREAK_CHECK, WHOOP_DATA, EXERCISE_QUESTION, "
-    "NUTRITION_QUESTION, GENERAL\n"
-    "WHOOP_DATA: user asks about recovery score, HRV, sleep, biometric data, WHOOP stats, or how they're feeling based on data.\n"
-    "PLAN_REQUEST: user explicitly wants to SEE their plan, BUILD a new plan, or PERMANENTLY CHANGE the plan structure. "
-    "Examples: 'build me a plan', 'change bench press to dumbbell press', 'add a leg day', 'show me my plan', "
-    "'what\'s my workout today', 'send me the full plan', 'I don\'t see running in my plan', "
-    "'there\'s no cardio in my plan', 'can you add running', 'why is there no leg day'.\n"
-    "NOT PLAN_REQUEST: questions about progress, timeline, expectations ('when will I see results', 'how long until I'm stronger'), "
-    "feeling tired today ('I don't feel well today', 'I'm tired'), asking how exercises work, nutrition questions. "
-    "If the user says they feel bad/tired/sore today and want it easier TODAY — that is GENERAL, not PLAN_REQUEST. "
-    "Only use PLAN_REQUEST if they clearly want to see or permanently modify the plan.\n"
-    "Example: 'PROGRESS_LOG, EXERCISE_QUESTION'"
-)
+SYSTEM_PROMPT = """Classify the user message into one OR MORE intent categories.
+A message may have multiple intents. Reply ONLY with a comma-separated list of matching categories.
+
+Categories and rules:
+
+PROGRESS_LOG — user is logging completed exercise, sets, reps, weight, distance, or time.
+  YES: "did 5x5 bench at 100kg", "ran 5k today", "finished my workout"
+  NO: asking about how to do an exercise, asking what to do today
+
+MODIFY_PLAN — user wants to permanently change something in their training plan.
+  YES: "swap squats for leg press", "add more cardio", "I want weight and rep tracking",
+       "customize the plan", "make it harder", "add a rest day", "remove deadlifts",
+       "change the exercises", "I don't like X", "can you add X", "not listening" (if prior context shows plan frustration),
+       "include specific weights", "more sets", "fewer reps"
+  NO: "how do I do squats" (EXERCISE_QUESTION), "I'm tired today" (GENERAL)
+
+VIEW_PLAN — user wants to see/retrieve their existing plan.
+  YES: "show me my plan", "what's my workout today", "send me the plan", "what day is it"
+  NO: user wants to change it (MODIFY_PLAN)
+
+NEW_PLAN — user wants a brand new plan built from scratch.
+  YES: "build me a new plan", "start over", "create a plan for me"
+
+STREAK_CHECK — user asks about consistency, streak, how often they've trained.
+
+WHOOP_DATA — user asks about recovery score, HRV, sleep, biometrics, WHOOP stats.
+
+EXERCISE_QUESTION — form, technique, how to do an exercise, which exercise is best for X.
+
+NUTRITION_QUESTION — diet, macros, protein, food, supplements, calories.
+
+GENERAL — anything else: motivation, feelings, general chat, frustration not about the plan.
+
+CONTEXT NOTE: If the conversation history shows the assistant just updated a plan, and the user
+expresses dissatisfaction ("you not listening", "that's not what I meant", "still wrong") —
+classify as MODIFY_PLAN.
+
+Example output: PROGRESS_LOG, EXERCISE_QUESTION"""
 
 
-async def classify_intents(text: str) -> list[str]:
-    """Return a list of intent strings for the given user message."""
+async def classify_intents(
+    text: str,
+    context_messages: list[dict] | None = None,
+) -> list[str]:
+    """Return a list of intent strings for the given user message.
+
+    Args:
+        text: The current user message.
+        context_messages: Optional list of recent conversation turns
+            (OpenAI message format: [{"role": "user"|"assistant", "content": "..."}])
+            to give the classifier conversational context.
+    """
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if context_messages:
+        messages.extend(context_messages[-4:])  # last 2 turns (4 messages)
+    messages.append({"role": "user", "content": text})
+
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(
@@ -40,10 +78,7 @@ async def classify_intents(text: str) -> list[str]:
                 headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
                 json={
                     "model": "gpt-4o-mini",
-                    "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": text},
-                    ],
+                    "messages": messages,
                     "max_tokens": 30,
                     "temperature": 0,
                 },

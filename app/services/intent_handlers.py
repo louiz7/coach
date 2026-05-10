@@ -117,63 +117,85 @@ async def handle_progress_log(user: User, text: str, db: AsyncSession) -> Option
         return None
 
 
-async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Optional[str]:
-    """Plan handler — link-only delivery.
-
-    Whether it's a brand-new plan, a modification, or a re-request, we never
-    paste the full plan into iMessage. We just (re)generate or fetch and send
-    a single message with the /plan webpage link.
-    """
-    from datetime import datetime
-    from app.services.training_plan import _get_active_plan
+def _plan_url(user) -> str:
+    """Generate a signed plan URL for the user."""
     from app.services.token import create_plan_token
     from app.config import settings
+    token = create_plan_token(user.phone)
+    base = settings.PUBLIC_BASE_URL.rstrip('/')
+    return f"{base}/plan?token={token}"
 
+
+async def handle_modify_plan(user: User, text: str, db: AsyncSession) -> Optional[str]:
+    """User wants to permanently change their plan — regenerate with their request, return context."""
+    try:
+        from app.services.training_plan import generate_plan
+        await generate_plan(user, db, user_request=text)
+        url = _plan_url(user)
+        return (
+            f"PLAN UPDATED: You just regenerated the user's training plan based on their request: '{text}'. "
+            f"Plan URL: {url}. "
+            "In your reply: confirm in 1-2 short sentences what you changed (reference their specific request), "
+            "then include the plan URL so they can view it. "
+            "Do NOT say you can't modify plans through text — you already did it."
+        )
+    except Exception as ex:
+        print(f"[handle_modify_plan ERROR] {ex}")
+        return "Plan update failed. Tell the user briefly and ask them to try again."
+
+
+async def handle_view_plan(user: User, text: str, db: AsyncSession) -> Optional[str]:
+    """User wants to see their existing plan — return the URL as context."""
+    try:
+        from app.services.training_plan import _get_active_plan, generate_plan
+        active_plan = await _get_active_plan(user, db)
+        if active_plan is None:
+            # No plan yet — generate one
+            await generate_plan(user, db)
+            url = _plan_url(user)
+            return (
+                f"NEW PLAN CREATED: You just built a training plan for the user. "
+                f"Plan URL: {url}. "
+                "Tell them their plan is ready and include the URL."
+            )
+        url = _plan_url(user)
+        return (
+            f"PLAN URL: {url}. "
+            "Include this URL in your reply so the user can view their training plan. "
+            "Answer any specific question they asked about the plan first, then offer the link."
+        )
+    except Exception as ex:
+        print(f"[handle_view_plan ERROR] {ex}")
+        return "Failed to retrieve training plan. Apologize briefly."
+
+
+async def handle_new_plan(user: User, text: str, db: AsyncSession) -> Optional[str]:
+    """User wants a brand new plan built from scratch."""
+    try:
+        from app.services.training_plan import generate_plan
+        await generate_plan(user, db, user_request=text)
+        url = _plan_url(user)
+        return (
+            f"NEW PLAN CREATED from scratch based on the user's request. "
+            f"Plan URL: {url}. "
+            "Tell them their new plan is ready and include the URL."
+        )
+    except Exception as ex:
+        print(f"[handle_new_plan ERROR] {ex}")
+        return "Plan creation failed. Apologize briefly and ask them to try again."
+
+
+async def handle_plan_request(user: User, text: str, db: AsyncSession) -> Optional[str]:
+    """Legacy fallback — routes to modify or view based on keyword detection."""
     text_lower = (text or "").lower()
     is_today_only = any(p in text_lower for p in _TODAY_ONLY_PATTERNS)
     is_modification = (
         any(kw in text_lower for kw in _MODIFICATION_KEYWORDS)
         and not is_today_only
     )
-
-    def _plan_url() -> str:
-        token = create_plan_token(user.phone)
-        base = settings.ALLOWED_ORIGINS.split(",")[0].strip()
-        return f"{base}/plan?token={token}"
-
-    async def _send_link(intro: str) -> None:
-        if not user.linq_chat_id:
-            return
-        msg = f"{intro}\n{_plan_url()}"
-        await linq.send_message(user.linq_chat_id, msg)
-        await add_message(user.id, "assistant", msg, db)
-
-    try:
-        # ── Modification request → regenerate, then link
-        if is_modification:
-            await generate_plan(user, db, user_request=text)
-            await _send_link("Done, updated your plan ✅ View it here:")
-            return "__SENT__"
-
-        # ── No active plan → generate, then link
-        active_plan = await _get_active_plan(user, db)
-        if active_plan is None:
-            await generate_plan(user, db, user_request=text)
-            await _send_link("Your training plan is ready 💪")
-            return "__SENT__"
-
-        # ── Plan exists and no modification detected → let LLM handle it
-        # Don't just dump the link — the user may be asking a question about
-        # their plan, not requesting to see it. Return context so the LLM
-        # can reply naturally and include the link only if appropriate.
-        token = create_plan_token(user.phone)
-        base = settings.ALLOWED_ORIGINS.split(",")[0].strip()
-        plan_url = f"{base}/plan?token={token}"
-        return f"USER_PLAN_URL: {plan_url} — if the user is asking to SEE their plan or wants a link, include this URL in your reply. If they're asking a question about the plan, answer the question and optionally include the link at the end."
-
-    except Exception as ex:
-        print(f"[handle_plan_request ERROR] {ex}")
-        return "Failed to retrieve training plan. Apologize briefly and ask them to try again."
+    if is_modification:
+        return await handle_modify_plan(user, text, db)
+    return await handle_view_plan(user, text, db)
 
 
 async def handle_whoop_data(user: User, text: str, db: AsyncSession) -> Optional[str]:
@@ -301,7 +323,10 @@ async def handle_streak_check(user: User, text: str, db: AsyncSession) -> Option
 
 _HANDLER_MAP = {
     "PROGRESS_LOG": handle_progress_log,
-    "PLAN_REQUEST": handle_plan_request,
+    "MODIFY_PLAN": handle_modify_plan,
+    "VIEW_PLAN": handle_view_plan,
+    "NEW_PLAN": handle_new_plan,
+    "PLAN_REQUEST": handle_plan_request,  # legacy fallback
     "STREAK_CHECK": handle_streak_check,
     "WHOOP_DATA": handle_whoop_data,
 }
@@ -312,7 +337,8 @@ async def run_handlers(
 ) -> str:
     """
     Run all matched handlers in parallel and return a combined context string
-    to inject into the system prompt.
+    to inject into the system prompt. The LLM always gets to respond — handlers
+    only perform actions and return context, never bypass the LLM.
     """
     tasks = [
         _HANDLER_MAP[intent](user, text, db)
@@ -323,8 +349,8 @@ async def run_handlers(
         return ""
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    # If any handler already sent its own reply, signal the worker to skip LLM
-    if any(r == "__SENT__" for r in results if isinstance(r, str)):
-        return "__SENT__"
-    lines = [r for r in results if isinstance(r, str) and r]
+    lines = [
+        r for r in results
+        if isinstance(r, str) and r and r != "__SENT__"
+    ]
     return "\n".join(lines)
