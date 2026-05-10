@@ -578,7 +578,7 @@ async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
     payment_link = settings.STRIPE_PAYMENT_LINK
     await _send_multi(chat_id, user.id, [
         "perfect, your plan is locked in 🫡",
-        f"first 7 days are on me — free trial, no charge. after that it's $29.99/month, cancel anytime",
+        "first 7 days are on me — free trial, no charge",
         f"start your free trial here 👇\n{payment_link}",
     ], db)
 
