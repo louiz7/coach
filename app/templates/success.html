@@ -27,9 +27,18 @@
         />
         <h1 class="step-panel__title">You're in! 🎉</h1>
         <p style="margin-top: 1rem; color: var(--color-text-muted, #888); font-size: 1rem; line-height: 1.7;">
-          Your subscription is confirmed.<br />
+          Your free trial is confirmed.<br />
           Head back to iMessage and lock in with Kano.
         </p>
+
+        <div style="margin-top: 2rem;">
+          <a
+            href="sms:{{ sms_number }}"
+            style="display:inline-flex;align-items:center;gap:0.6rem;background:#0b93f6;border:none;border-radius:12px;padding:0.9rem 1.4rem;color:#fff;text-decoration:none;font-size:0.95rem;font-weight:600;width:100%;justify-content:center;box-sizing:border-box;"
+          >
+            <span style="font-size:1.1rem;">💬</span> Back to iMessage
+          </a>
+        </div>
 
         {% if token %}
         <div style="margin-top: 2.5rem;">

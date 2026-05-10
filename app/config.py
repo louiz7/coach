@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     LINQ_API_TOKEN: str = ""
     LINQ_WEBHOOK_SECRET: str = ""
+    LINQ_PHONE_NUMBER: str = ""  # Kano iMessage/SMS number shown on success page (e.g. +16505551234)
     JWT_SECRET: str = "change-me"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440  # 24h

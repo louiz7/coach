@@ -79,7 +79,10 @@ app.include_router(whoop.router)
 @app.get("/success", response_class=HTMLResponse)
 async def success(request: Request) -> HTMLResponse:
     token = request.query_params.get("token", "")
-    return templates.TemplateResponse(request, "success.html", {"token": token})
+    return templates.TemplateResponse(request, "success.html", {
+        "token": token,
+        "sms_number": settings.LINQ_PHONE_NUMBER,
+    })
 
 
 @app.get("/cancel", response_class=HTMLResponse)

@@ -570,38 +570,22 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
 
 
 async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
-    """Send the 7-day challenge pitch and advance state to CHALLENGE."""
-    user.onboarding_state = OnboardingState.CHALLENGE
+    """Send the free trial pitch and complete onboarding."""
+    from app.config import settings
+    user.onboarding_state = OnboardingState.DONE
+    user.onboarding_complete = True
     await db.commit()
+    payment_link = settings.STRIPE_PAYMENT_LINK
     await _send_multi(chat_id, user.id, [
         "perfect, your plan is locked in 🫡",
-        "oone more thing... and this is important",
-        "I want you to do a 7-day challenge with me. complete it and you earn your spot as a Kano member. think of it as proving to yourself you actually want this",
-        "you in?",
+        f"first 7 days are on me — free trial, no charge. after that it's $29.99/month, cancel anytime",
+        f"start your free trial here 👇\n{payment_link}",
     ], db)
 
 
 async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
-    """Handle the 7-day challenge response and complete onboarding."""
-    result = await _llm_extract("challenge", text or "")
-    # Default to accepted=True if LLM fails — better to onboard than to reject
-    accepted = (result or {}).get("accepted", True)
-
-    user.onboarding_state = OnboardingState.DONE
-    user.onboarding_complete = True
-    await db.commit()
-
-    if not accepted:
-        await _send(
-            chat_id, user.id,
-            "no worries — still here whenever you're ready 💪",
-            db,
-        )
-    else:
-        await _send_multi(chat_id, user.id, [
-            "let's get it. our first check-in is tomorrow morning",
-            "I'll message you then. don't ghost me",
-        ], db)
+    """Legacy handler — onboarding already complete at pitch. Hand off to coach."""
+    pass
 
 
 async def _handle_sports_focus_backfill(user: User, chat_id: str, text: str, db: AsyncSession) -> None:

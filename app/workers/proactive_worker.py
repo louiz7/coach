@@ -553,23 +553,12 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
             await _send_paywall_nudge(user, db, dedup_key, local_now, plan_day_num)
             return
 
-    # Build day-of-challenge prefix (e.g. "Tag 3 von 7 ✅")
-    day_prefix = f"Tag {challenge_day} von 7 ✅\n\n" if challenge_day else ""
-
     # Build the prompt
     user_ctx = (
         f"Athlete: {user.name} | Goal: {user.goal or 'general fitness'} | "
         f"Coach style: {user.coach_style or 'direct'}"
     )
-
-    if challenge_day:
-        challenge_ctx = (
-            f"This is day {challenge_day} of the athlete's 7-day challenge. "
-            "Start the message with exactly this line (no changes): "
-            f"\"Tag {challenge_day} von 7 ✅\" then a blank line, then your message. "
-        )
-    else:
-        challenge_ctx = ""
+    challenge_ctx = ""
 
     if is_training_day and not has_log:
         task = (
