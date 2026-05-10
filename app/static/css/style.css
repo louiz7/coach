@@ -293,7 +293,8 @@ body {
   align-items: center;
   gap: 16px;
   padding: 32px 20px;
-  width: 100%;
+  width: 390px;
+  max-width: 100%;
   background: linear-gradient(to bottom, #e3f3ff, #abddff);
   border-radius: 40px;
   box-shadow: inset 0 0 4px 0 #fff;
@@ -409,7 +410,8 @@ body {
   gap: 32px;
   padding: 32px 0 19px;
   margin-top: 24px;
-  width: 100%;
+  width: 390px;
+  max-width: 100%;
   background: #c0e6ff;
   border-radius: 40px;
   box-shadow: inset 0 0 4px 0 #fff;
@@ -526,13 +528,20 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
+  gap: 120px;
   padding: 32px 20px;
   margin-top: 24px;
-  width: 100%;
+  width: 390px;
+  max-width: 100%;
   background: #fff;
   border-radius: 40px 40px 0 0;
-  text-align: center;
+}
+
+.closing-cta__top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
 }
 
 .closing-cta__heading {
@@ -567,6 +576,79 @@ body {
   line-height: 1.4;
   text-align: center;
   color: #000;
+}
+
+/* ---------- Site footer (inside the closing card) ---------- */
+.site-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 32px;
+  width: 350px;
+  max-width: 100%;
+  text-align: left;
+}
+
+.site-footer__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.site-footer__logo {
+  display: block;
+  width: 88px;
+  height: 20px;
+}
+
+.site-footer__copyright {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 1.1;
+  letter-spacing: -0.1px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.site-footer__legal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+
+.site-footer__legal-heading {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.4;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.site-footer__links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.site-footer__links a {
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.4;
+  color: #000;
+  text-decoration: none;
+}
+
+.site-footer__links a:hover {
+  text-decoration: underline;
 }
 
 /* =========================================================

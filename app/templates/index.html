@@ -179,36 +179,58 @@
         {% endwith %}
       </section>
 
-      {# ---------- Closing CTA ---------- #}
+      {# ---------- Closing CTA + footer ---------- #}
       <section class="closing-cta">
-        <header class="closing-cta__heading">
-          <h2 class="closing-cta__title">Lock in this summer</h2>
-          <p class="closing-cta__subtext">
-            Become the best version of yourself. It all starts with one text.
-          </p>
-        </header>
-        <div class="cta cta--closing">
-          <a
-            class="cta__button"
-            href="sms:+19453943079?&body=whats%20kano%3F"
-            aria-label="Get started on iMessage with Kano"
-          >
-            <span class="cta__button__inner">
-              <img
-                class="cta__icon"
-                src="/static/images/imessage.png"
-                alt=""
-                width="25"
-                height="25"
-              />
-              <span class="cta__label">Get started on iMessage</span>
-            </span>
-          </a>
-          <p class="cta__legal">
-            By continuing, you agree to our
-            <a href="/terms">Terms</a> and <a href="/privacy">Privacy</a>
-          </p>
+        <div class="closing-cta__top">
+          <header class="closing-cta__heading">
+            <h2 class="closing-cta__title">Lock in this summer</h2>
+            <p class="closing-cta__subtext">
+              Become the best version of yourself. It all starts with one text.
+            </p>
+          </header>
+          <div class="cta cta--closing">
+            <a
+              class="cta__button"
+              href="sms:+19453943079?&body=whats%20kano%3F"
+              aria-label="Get started on iMessage with Kano"
+            >
+              <span class="cta__button__inner">
+                <img
+                  class="cta__icon"
+                  src="/static/images/imessage.png"
+                  alt=""
+                  width="25"
+                  height="25"
+                />
+                <span class="cta__label">Get started on iMessage</span>
+              </span>
+            </a>
+            <p class="cta__legal">
+              By continuing, you agree to our
+              <a href="/terms">Terms</a> and <a href="/privacy">Privacy</a>
+            </p>
+          </div>
         </div>
+
+        <footer class="site-footer">
+          <div class="site-footer__brand">
+            <img
+              class="site-footer__logo"
+              src="/static/images/kano-wordmark.svg"
+              alt="Kano"
+              width="88"
+              height="20"
+            />
+            <p class="site-footer__copyright">© Kano Labs FZ-LLC 2026</p>
+          </div>
+          <nav class="site-footer__legal" aria-label="Legal">
+            <p class="site-footer__legal-heading">Legal</p>
+            <ul class="site-footer__links">
+              <li><a href="/terms">Terms of service</a></li>
+              <li><a href="/privacy">Privacy policy</a></li>
+            </ul>
+          </nav>
+        </footer>
       </section>
     </main>
   </body>
