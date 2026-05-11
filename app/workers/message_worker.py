@@ -85,6 +85,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             OnboardingState.WHOOP_OR_BASICS,
             OnboardingState.PLAN_REVIEW,
             OnboardingState.CHALLENGE,
+            OnboardingState.AWAITING_SUBSCRIPTION,
             # Legacy — routed to handler for graceful fast-forward to new flow
             OnboardingState.BETA_GATE,
             OnboardingState.CHAT_NAME,

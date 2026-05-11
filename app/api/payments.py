@@ -104,12 +104,23 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             user = result.scalar_one_or_none()
             if user:
                 from app.models.user import OnboardingState
+                was_awaiting = user.onboarding_state == OnboardingState.AWAITING_SUBSCRIPTION
                 user.onboarding_complete = True
-                user.onboarding_state = OnboardingState.DONE
+                if was_awaiting:
+                    # State will be advanced to PLAN_REVIEW inside _deliver_plan_after_subscription
+                    pass
+                else:
+                    user.onboarding_state = OnboardingState.DONE
                 await db.commit()
 
-                # Send welcome iMessage
-                if user.linq_chat_id:
+                # If user was waiting for subscription to get their plan, deliver it now
+                if was_awaiting and user.linq_chat_id:
+                    from app.services.onboarding_chat import _deliver_plan_after_subscription
+                    import asyncio
+                    asyncio.create_task(_deliver_plan_after_subscription(user, user.linq_chat_id, db))
+
+                # Send welcome iMessage (only if not delivering plan — plan delivery has its own message)
+                elif user.linq_chat_id:
                     from app.services import linq as linq_svc
                     try:
                         welcome = (

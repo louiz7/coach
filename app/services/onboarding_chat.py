@@ -218,13 +218,14 @@ async def handle(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
         return
 
     dispatch = {
-        OnboardingState.INFORM:          _handle_inform,
-        OnboardingState.CAPTURE_GOAL:    _handle_capture_goal,
-        OnboardingState.STATUS_QUO:      _handle_status_quo,
-        OnboardingState.CONSTRAINTS:     _handle_constraints,
-        OnboardingState.WHOOP_OR_BASICS: _handle_whoop_or_basics,
-        OnboardingState.PLAN_REVIEW:     _handle_plan_review,
-        OnboardingState.CHALLENGE:       _handle_challenge,
+        OnboardingState.INFORM:                  _handle_inform,
+        OnboardingState.CAPTURE_GOAL:            _handle_capture_goal,
+        OnboardingState.STATUS_QUO:              _handle_status_quo,
+        OnboardingState.CONSTRAINTS:             _handle_constraints,
+        OnboardingState.WHOOP_OR_BASICS:         _handle_whoop_or_basics,
+        OnboardingState.PLAN_REVIEW:             _handle_plan_review,
+        OnboardingState.CHALLENGE:               _handle_challenge,
+        OnboardingState.AWAITING_SUBSCRIPTION:   _handle_awaiting_subscription,
     }
     handler = dispatch.get(state)
     if handler:
@@ -567,22 +568,76 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
                 "hmm, had trouble rebuilding — you can text me changes anytime and I'll fix it 🔄",
                 db,
             )
+        # Stay in PLAN_REVIEW so user can confirm the updated plan
+        return
 
-    await _challenge_pitch(user, chat_id, db)
+    # User is happy — move to DONE (already subscribed at this point)
+    user.onboarding_state = OnboardingState.DONE
+    await db.commit()
+    await _send(chat_id, user.id, "perfect, let's get to work 🫡 text me anytime", db)
 
 
 async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
-    """Send the free trial pitch and complete onboarding."""
-    from app.config import settings
-    user.onboarding_state = OnboardingState.DONE
-    user.onboarding_complete = True
-    await db.commit()
+    """Legacy: send free trial pitch. Now only called if needed as fallback."""
     payment_link = settings.STRIPE_PAYMENT_LINK
     await _send_multi(chat_id, user.id, [
-        "perfect, your plan is locked in 🫡",
         "first 7 days are on me — free trial, no charge",
-        f"start your free trial here 👇\n{payment_link}",
+        f"start here 👇\n{payment_link}",
     ], db)
+
+
+async def _handle_awaiting_subscription(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
+    """User is in the subscription gate. Check if they've subscribed.
+
+    - If subscribed → generate plan, send it, advance to DONE.
+    - If not → remind them about the free trial.
+    """
+    from app.services.billing import check_subscription
+
+    has_sub = await check_subscription(user.id, db)
+    if not has_sub:
+        payment_link = settings.STRIPE_PAYMENT_LINK
+        await _send_multi(chat_id, user.id, [
+            "you just need to start your free trial to get your plan — it only takes 30 seconds 🙌",
+            f"{payment_link}",
+        ], db)
+        return
+
+    # Subscribed — generate the plan now
+    await _deliver_plan_after_subscription(user, chat_id, db)
+
+
+async def _deliver_plan_after_subscription(user: User, chat_id: str, db: AsyncSession) -> None:
+    """Generate and send the plan. Called when subscription is confirmed."""
+    from app.services.training_plan import generate_plan
+    from app.services.token import create_plan_token
+
+    await _send(chat_id, user.id, "building your plan now… 💪", db)
+    try:
+        await generate_plan(user, db)
+        token = create_plan_token(user.phone)
+        base_url = settings.PUBLIC_BASE_URL.rstrip('/')
+        plan_url = f"{base_url}/plan?token={token}"
+
+        user.onboarding_state = OnboardingState.PLAN_REVIEW
+        user.onboarding_complete = True
+        await db.commit()
+
+        await _send_multi(chat_id, user.id, [
+            "your plan is ready 💪",
+            plan_url,
+            "want to change anything or does this work for you?",
+        ], db)
+    except Exception as ex:
+        print(f"[onboarding _deliver_plan_after_subscription] ERROR: {ex}")
+        user.onboarding_state = OnboardingState.DONE
+        user.onboarding_complete = True
+        await db.commit()
+        await _send(
+            chat_id, user.id,
+            "had a small hiccup building your plan — just text me 'build my plan' and i'll get it sorted 🔄",
+            db,
+        )
 
 
 async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSession) -> None:

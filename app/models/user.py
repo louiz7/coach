@@ -29,6 +29,9 @@ class OnboardingState:
     # ── Terminal state ────────────────────────────────────────────────────────
     DONE = "DONE"
 
+    # ── Post-onboarding gate: waiting for free-trial subscription ────────────
+    AWAITING_SUBSCRIPTION = "AWAITING_SUBSCRIPTION"
+
     # ── Legacy states — kept for backward compat, fast-forwarded to INFORM ───
     BETA_GATE             = "BETA_GATE"
     CHAT_NAME             = "CHAT_NAME"
