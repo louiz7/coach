@@ -104,6 +104,28 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             user = result.scalar_one_or_none()
             if user:
                 from app.models.user import OnboardingState
+
+                # Upsert the Subscription row immediately — we have all data here
+                sub_id = data.get("subscription")
+                result2 = await db.execute(
+                    select(Subscription).where(Subscription.user_id == user_id)
+                )
+                existing_sub = result2.scalar_one_or_none()
+                if existing_sub:
+                    existing_sub.stripe_customer_id = customer_id
+                    if sub_id:
+                        existing_sub.stripe_subscription_id = sub_id
+                    if existing_sub.status not in ("active", "trialing"):
+                        existing_sub.status = "trialing"
+                else:
+                    new_sub = Subscription(
+                        user_id=user_id,
+                        stripe_customer_id=customer_id,
+                        stripe_subscription_id=sub_id,
+                        status="trialing",
+                    )
+                    db.add(new_sub)
+
                 was_awaiting = user.onboarding_state == OnboardingState.AWAITING_SUBSCRIPTION
                 user.onboarding_complete = True
                 if was_awaiting:
@@ -116,8 +138,20 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 # If user was waiting for subscription to get their plan, deliver it now
                 if was_awaiting and user.linq_chat_id:
                     from app.services.onboarding_chat import _deliver_plan_after_subscription
+                    from app.database import async_session
                     import asyncio
-                    asyncio.create_task(_deliver_plan_after_subscription(user, user.linq_chat_id, db))
+
+                    _chat_id = user.linq_chat_id
+                    _user_id = str(user.id)
+
+                    async def _deliver_with_fresh_session():
+                        async with async_session() as fresh_db:
+                            result = await fresh_db.execute(select(User).where(User.id == _user_id))
+                            fresh_user = result.scalar_one_or_none()
+                            if fresh_user:
+                                await _deliver_plan_after_subscription(fresh_user, _chat_id, fresh_db)
+
+                    asyncio.create_task(_deliver_with_fresh_session())
 
                 # Send welcome iMessage (only if not delivering plan — plan delivery has its own message)
                 elif user.linq_chat_id:
