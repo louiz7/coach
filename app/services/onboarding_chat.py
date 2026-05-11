@@ -458,52 +458,27 @@ async def _handle_whoop_or_basics(user: User, chat_id: str, text: str, db: Async
 
 
 async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, whoop_connected: bool = False) -> None:
-    """Build the training plan, send the link, and move to PLAN_REVIEW.
+    """Gate plan delivery behind subscription.
 
     Called from both the manual-basics handler and the WHOOP OAuth callback.
+    Sends the free-trial pitch and sets state to AWAITING_SUBSCRIPTION.
+    The plan is only generated after payment is confirmed.
     """
-    from app.services.token import create_plan_token
-
     # Assign persona if not yet set
     await assign_persona_from_style(user, db)
 
+    payment_link = settings.STRIPE_PAYMENT_LINK
     ack = "ty, got your WHOOP data" if whoop_connected else "ty, got your data"
+
+    user.onboarding_state = OnboardingState.AWAITING_SUBSCRIPTION
+    await db.commit()
+
     await _send_multi(chat_id, user.id, [
         ack,
-        "building your plan now…",
+        "i have everything i need to build your plan 💪",
+        "first 7 days are on me — free trial, no charge upfront",
+        f"start here and i'll send your plan straight here 👇\n{payment_link}",
     ], db)
-
-    try:
-        from app.services.training_plan import generate_plan
-        await generate_plan(user, db)
-        token = create_plan_token(user.phone)
-        base_url = settings.PUBLIC_BASE_URL.rstrip('/')
-        plan_url = f"{base_url}/plan?token={token}"
-
-        user.onboarding_state = OnboardingState.PLAN_REVIEW
-        await db.commit()
-
-        await _send_multi(chat_id, user.id, [
-            "your plan is ready 💪",
-            plan_url,
-            "want to change anything or does this work for you?",
-        ], db)
-
-    except Exception as ex:
-        print(f"[onboarding _build_plan_and_advance] plan gen ERROR: {ex}")
-        user.onboarding_state = OnboardingState.PLAN_REVIEW
-        await db.commit()
-        await _send(
-            chat_id, user.id,
-            "I had trouble building your plan right now — text me 'build me a plan' in a moment and I'll get it done",
-            db,
-        )
-        await _challenge_pitch(user, chat_id, db)
-        return
-
-    # NOTE: contact card was already shared on the very first inbound message
-    # in message_worker.py (so the user could save us before answering the
-    # name prompt). No need to share again here.
 
 
 async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
