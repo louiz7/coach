@@ -491,11 +491,24 @@ async def _handle_workout(user: User, access_token: str, workout_id: str) -> Non
     # Vector memory for the workout
     try:
         from app.services.memory_search import store_memory
+        from app.services.fitness_profile import update_profile_from_workout
         from datetime import date as _date
         # Need a db session here — _handle_workout currently doesn't take one, so create a fresh one
         from app.database import async_session
         async with async_session() as _db:
             mem = f"WHOOP {sport} workout, {', '.join(details[1:]) or 'no details'} on {_date.today().isoformat()}"
             await store_memory(user.id, mem, "workout", _db)
+            # Update fitness profile: streak + total_workouts_logged
+            # Strain is 0-21; convert loosely to a logged value so PRs aren't set
+            try:
+                await update_profile_from_workout(
+                    user.id, _db,
+                    label=f"WHOOP {sport}",
+                    value=float(strain) if strain is not None else 0.0,
+                    unit="strain",
+                    category="exercise",
+                )
+            except Exception as _pe:
+                _log(f"profile workout update failed: {_pe}")
     except Exception as _e:
         _log(f"memory workout store failed: {_e}")

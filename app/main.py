@@ -303,6 +303,18 @@ async def plan_update(request: Request):
                         reps=r_val,
                         notes="logged via plan page",
                     ))
+                    # Update fitness profile: PRs + streak + total_workouts_logged
+                    try:
+                        from app.services.fitness_profile import update_profile_from_workout
+                        await update_profile_from_workout(
+                            user.id, db,
+                            label=ex.name,
+                            value=w_val,
+                            unit=unit,
+                            category="exercise",
+                        )
+                    except Exception as _pe:
+                        print(f"[plan_update profile ERROR] {_pe}")
                     break  # one representative entry per exercise per session
 
         await db.commit()
