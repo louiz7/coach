@@ -98,7 +98,7 @@ async def build_system_prompt(
             prompt += "\nWHOOP CONNECTED: Yes — but no biometric data cached yet (data arrives via webhooks when user syncs their WHOOP).\n"
 
     # ── Training plan — only inject when the message is plan-related ───────
-    _PLAN_INTENTS = {"PLAN_REQUEST", "MODIFY_PLAN", "VIEW_PLAN", "NEW_PLAN", "PROGRESS_LOG", "WHOOP_DATA"}
+    _PLAN_INTENTS = {"PLAN_REQUEST", "MODIFY_PLAN", "VIEW_PLAN", "NEW_PLAN", "PROGRESS_LOG", "WHOOP_DATA", "PERFORMANCE_DATA"}
     if intents and _PLAN_INTENTS.intersection(intents):
         result = await db.execute(
             select(TrainingPlan)
@@ -174,6 +174,7 @@ RULES:
 14. No excessive hedging: not "this could potentially perhaps help…"
 15. Non-fitness topics: decline in one sentence.
 16. If the CONTEXT block says "PLAN UPDATED" or "NEW PLAN CREATED" — you already did the action. Confirm it naturally and include the URL. Never say you "can't modify plans through text".
+17. Users can log weights and reps per set directly on their plan page. If they ask about tracking weights or viewing past lift numbers, mention they can also log it here by texting you (e.g. "did 5x5 bench at 80kg").
 """
     return prompt
 

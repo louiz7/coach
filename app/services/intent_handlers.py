@@ -265,6 +265,50 @@ async def handle_streak_check(user: User, text: str, db: AsyncSession) -> Option
         return None
 
 
+async def handle_performance_data(user: User, text: str, db: AsyncSession) -> Optional[str]:
+    """Fetch recent logged weights/reps from progress_entries and return as context."""
+    try:
+        from sqlalchemy import select
+        from app.models.progress_entry import ProgressEntry
+
+        result = await db.execute(
+            select(ProgressEntry)
+            .where(
+                ProgressEntry.user_id == user.id,
+                ProgressEntry.category == "exercise",
+            )
+            .order_by(ProgressEntry.recorded_at.desc())
+            .limit(15)
+        )
+        entries = result.scalars().all()
+        if not entries:
+            return (
+                "User has no workout history logged yet via chat. "
+                "Let them know they can log workouts by texting Kano (e.g. 'did 5x5 bench at 80kg'). "
+                "They can also log sets directly on their plan page."
+            )
+
+        lines = []
+        for e in entries:
+            parts = [f"{e.label}: {e.value}{e.unit or ''}"]
+            if e.sets and e.reps:
+                parts.append(f"({e.sets}x{e.reps})")
+            date_str = e.recorded_at.strftime("%b %d") if e.recorded_at else ""
+            if date_str:
+                parts.append(f"on {date_str}")
+            lines.append(" ".join(parts))
+
+        history = "\n".join(f"  - {l}" for l in lines)
+        return (
+            f"USER'S RECENT WORKOUT HISTORY (last {len(lines)} logged entries):\n{history}\n"
+            "Use this data to answer their question about previous lifts or progress. "
+            "Be specific with the numbers."
+        )
+    except Exception as ex:
+        print(f"[handle_performance_data ERROR] {ex}")
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
@@ -277,6 +321,7 @@ _HANDLER_MAP = {
     "STREAK_CHECK": handle_streak_check,
     "WHOOP_DATA": handle_whoop_data,
     "CONNECT_WHOOP": handle_connect_whoop,
+    "PERFORMANCE_DATA": handle_performance_data,
 }
 
 

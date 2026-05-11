@@ -12,6 +12,7 @@ INTENTS = [
     "CONNECT_WHOOP",      # User wants to connect / link / add their WHOOP device
     "EXERCISE_QUESTION",  # How-to, form, technique, exercise science
     "NUTRITION_QUESTION", # Diet, macros, food, supplements
+    "PERFORMANCE_DATA",   # User asks what weight/reps they used before, personal records
     "GENERAL",            # Everything else
 ]
 
@@ -49,6 +50,11 @@ CONNECT_WHOOP — user wants to connect, link, add, or set up their WHOOP device
 EXERCISE_QUESTION — form, technique, how to do an exercise, which exercise is best for X.
 
 NUTRITION_QUESTION — diet, macros, protein, food, supplements, calories.
+
+PERFORMANCE_DATA — user asks about their own previous lifts, weights used, personal records, or workout history.
+  YES: "what did I bench last time", "how much was I squatting", "what weight did I use", "what are my numbers",
+       "what's my max", "check my history", "how have I been progressing", "what did I lift last week"
+  NO: logging a new workout (PROGRESS_LOG), asking how to improve technique (EXERCISE_QUESTION)
 
 GENERAL — anything else: motivation, feelings, general chat, frustration not about the plan.
 

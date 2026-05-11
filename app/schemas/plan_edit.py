@@ -11,6 +11,15 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
 
+class LoggedSet(BaseModel):
+    """Per-set weight/reps captured from the plan page workout logger."""
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    weight: Optional[str] = Field(default=None, max_length=20)   # e.g. "80", "BW"
+    reps: Optional[str] = Field(default=None, max_length=10)      # e.g. "8", "10"
+    done: bool = False
+
+
 class PlanExercise(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -21,6 +30,8 @@ class PlanExercise(BaseModel):
     rpe: Optional[float] = Field(None, ge=1, le=10)
     rest_seconds: Optional[int] = Field(None, ge=0, le=900)
     notes: Optional[str] = Field(default="", max_length=500)
+    # Per-set workout log captured from the plan page
+    logged_sets: Optional[List[LoggedSet]] = Field(default=None, max_length=20)
 
 
 class PlanDay(BaseModel):

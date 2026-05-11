@@ -506,11 +506,12 @@
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     </span>
                     {% for i in range((ex.sets or 3) | int) %}
+                      {% set ls = ex.logged_sets[i] if ex.logged_sets and i < ex.logged_sets | length else None %}
                       <span class="set-table__set">{{ i + 1 }}</span>
-                      <span class="set-table__prev">—</span>
-                      <input class="set-table__input" type="text" inputmode="decimal" placeholder="0" aria-label="Weight in kg for set {{ i + 1 }}" />
-                      <input class="set-table__input" type="text" inputmode="numeric" placeholder="0" aria-label="Reps for set {{ i + 1 }}" />
-                      <button type="button" class="set-check" aria-label="Mark set {{ i + 1 }} done">
+                      <span class="set-table__prev">{{ ex.previous_performance if (i == 0 and ex.previous_performance) else '—' }}</span>
+                      <input class="set-table__input" type="text" inputmode="decimal" placeholder="0" value="{{ ls.weight or '' }}" aria-label="Weight in kg for set {{ i + 1 }}" />
+                      <input class="set-table__input" type="text" inputmode="numeric" placeholder="0" value="{{ ls.reps or '' }}" aria-label="Reps for set {{ i + 1 }}" />
+                      <button type="button" class="set-check{% if ls and ls.done %} checked{% endif %}" aria-label="Mark set {{ i + 1 }} done">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
                       </button>
                     {% endfor %}
@@ -563,6 +564,13 @@
         var CHECK_SVG =
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
+        // ── Plan data (injected by Jinja) ────────────────────────────────
+        var PLAN_DATA = {{ plan_data | tojson }};
+        var PLAN_ID   = "{{ plan_id }}";
+        var TOKEN     = "{{ token }}";
+
+        // ── Helpers ──────────────────────────────────────────────────────
+
         function dayIndexFromHash() {
           var m = (location.hash || '').match(/^#day-(\d+)$/);
           if (!m) return null;
@@ -582,13 +590,74 @@
           window.scrollTo(0, 0);
         }
 
+        /** Collect per-set logged data from a detail section and update PLAN_DATA in-place. */
+        function serializeWorkout(dayIdx) {
+          var detailEl = null;
+          for (var i = 0; i < details.length; i++) {
+            if (details[i].getAttribute('data-day-index') === String(dayIdx)) {
+              detailEl = details[i];
+              break;
+            }
+          }
+          if (!detailEl) return;
+
+          var cards = Array.prototype.slice.call(detailEl.querySelectorAll('.detail-card'));
+          var day = PLAN_DATA.days[dayIdx];
+          if (!day) return;
+
+          cards.forEach(function (card, exIdx) {
+            var table = card.querySelector('[data-set-table]');
+            if (!table) return;
+
+            var weights  = Array.prototype.slice.call(table.querySelectorAll('input[inputmode="decimal"]'));
+            var repsEls  = Array.prototype.slice.call(table.querySelectorAll('input[inputmode="numeric"]'));
+            var checks   = Array.prototype.slice.call(table.querySelectorAll('.set-check'));
+
+            var loggedSets = [];
+            for (var s = 0; s < checks.length; s++) {
+              loggedSets.push({
+                weight: (weights[s] && weights[s].value.trim()) || null,
+                reps:   (repsEls[s]  && repsEls[s].value.trim())  || null,
+                done:   checks[s].classList.contains('checked'),
+              });
+            }
+
+            if (day.exercises && day.exercises[exIdx]) {
+              day.exercises[exIdx].logged_sets = loggedSets;
+            }
+          });
+        }
+
+        /** PATCH /plan with the current PLAN_DATA (silently, fire-and-forget). */
+        function saveWorkout(dayIdx) {
+          serializeWorkout(dayIdx);
+          // Strip previous_performance (backend injected, not part of schema)
+          var planCopy = JSON.parse(JSON.stringify(PLAN_DATA));
+          planCopy.days.forEach(function (d) {
+            (d.exercises || []).forEach(function (ex) {
+              delete ex.previous_performance;
+            });
+          });
+          var payload = { plan_id: PLAN_ID, plan_json: planCopy };
+          fetch('/plan?token=' + encodeURIComponent(TOKEN), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }).catch(function () { /* silent fail */ });
+        }
+
+        // ── Event delegation ─────────────────────────────────────────────
+
         body.addEventListener('click', function (e) {
           var openBtn = e.target.closest('[data-open-day]');
           if (openBtn) {
             location.hash = 'day-' + openBtn.getAttribute('data-open-day');
             return;
           }
-          if (e.target.closest('[data-back]')) {
+          var backBtn = e.target.closest('[data-back]');
+          if (backBtn) {
+            var idx = dayIndexFromHash();
+            if (idx !== null) saveWorkout(idx);
             history.replaceState(null, '', location.pathname + location.search);
             syncView();
             return;

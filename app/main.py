@@ -131,7 +131,45 @@ async def plan_view(request: Request) -> HTMLResponse:
                 days = pj.get("days") or pj.get("weekly_schedule") or []
                 # Filter out rest days for the count but keep them in the data
                 training_days = [d for d in days if d.get("exercises")]
-                ctx["plan_data"] = {**pj, "days": training_days}
+
+                # ── Pre-fill PREVIOUS column from progress_entries ──────────
+                from app.models.progress_entry import ProgressEntry
+                from sqlalchemy import select as sa_select
+                from collections import defaultdict
+
+                pe_result = await db.execute(
+                    sa_select(ProgressEntry)
+                    .where(
+                        ProgressEntry.user_id == user.id,
+                        ProgressEntry.category == "exercise",
+                    )
+                    .order_by(ProgressEntry.recorded_at.desc())
+                    .limit(200)
+                )
+                all_entries = pe_result.scalars().all()
+
+                # Build a map: normalised exercise name → most-recent entry
+                prev_map: dict = {}
+                for entry in all_entries:
+                    key = entry.label.strip().lower()
+                    if key not in prev_map:
+                        val = f"{entry.value}{entry.unit or 'kg'}"
+                        if entry.sets and entry.reps:
+                            val += f" {entry.sets}×{entry.reps}"
+                        prev_map[key] = val
+
+                # Inject into each exercise dict
+                enriched_days = []
+                for day in training_days:
+                    enriched_exs = []
+                    for ex in day.get("exercises", []):
+                        ex_copy = dict(ex)
+                        key = ex_copy.get("name", "").strip().lower()
+                        ex_copy["previous_performance"] = prev_map.get(key)
+                        enriched_exs.append(ex_copy)
+                    enriched_days.append({**day, "exercises": enriched_exs})
+
+                ctx["plan_data"] = {**pj, "days": enriched_days}
                 ctx["generated_at"] = plan.created_at.strftime("%b %d, %Y") if plan.created_at else None
                 ctx["plan_id"] = str(plan.id)
     except Exception as e:
