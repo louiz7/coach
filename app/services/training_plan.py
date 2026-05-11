@@ -218,16 +218,30 @@ async def generate_plan(
             "Apply the evidence — don't quote it.\n\n"
         )
 
+    # If the user explicitly mentions a number of sessions/days in their
+    # request, override the DB-stored training_frequency for this generation
+    # and persist it so future plans stay consistent.
+    if request_text:
+        import re as _re
+        _m = _re.search(r'(\d+)\s*(?:session|day|workout|times?(?:\s+a\s+week)?)', request_text, _re.I)
+        if _m:
+            _parsed = int(_m.group(1))
+            if 2 <= _parsed <= 7:
+                freq = _parsed
+                if user.training_frequency != _parsed:
+                    user.training_frequency = _parsed
+                    await db.commit()
+
     if is_modification:
         try:
             existing_json = json.dumps(existing.plan_json, ensure_ascii=False)
         except Exception:
             existing_json = "{}"
         system_msg += (
-            "MODIFY THE FOLLOWING EXISTING PLAN. Preserve the structure, "
-            "exercises, and progression that already work. Only change what "
-            "the user explicitly asks to change. Keep day count and overall "
-            "philosophy intact unless they ask otherwise.\n\n"
+            "MODIFY THE FOLLOWING EXISTING PLAN. Preserve the exercises and "
+            "progression that already work. Apply every change the user "
+            "explicitly requests — including changes to number of days, "
+            "session splits, or overall structure.\n\n"
             f"CURRENT PLAN:\n{existing_json}\n\n"
         )
         if request_text:
