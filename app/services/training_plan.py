@@ -163,6 +163,45 @@ def _render_plan_text(plan_data: dict) -> str:
     return "\n".join(lines).strip()
 
 
+async def _extract_plan_preferences(request_text: str, current_freq: int) -> dict:
+    """Ask GPT-4o-mini to extract explicit plan preferences from the user's request.
+    Returns a dict with keys that should override current values, e.g.:
+      {"training_frequency": 5, "split_notes": "2 push 2 pull 1 running"}
+    Only returns keys where the user made an explicit request — never guesses.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [
+                        {"role": "system", "content": (
+                            "Extract explicit training plan preferences from the user message. "
+                            f"Current training frequency is {current_freq} days/week. "
+                            "Return a JSON object with ONLY the fields the user explicitly stated. "
+                            "Available fields:\n"
+                            '  "training_frequency": int (2-7) — ONLY set if user clearly asks for a specific number of sessions/days\n'
+                            '  "split_notes": string — brief description of the split they want (e.g. "2 push 2 pull 1 run")\n'
+                            "If the user did not explicitly request a change to a field, omit that field. "
+                            "Return {} if nothing explicit was stated. Return ONLY valid JSON."
+                        )},
+                        {"role": "user", "content": request_text},
+                    ],
+                    "max_tokens": 60,
+                    "temperature": 0,
+                    "response_format": {"type": "json_object"},
+                },
+            )
+            response.raise_for_status()
+            import json as _json
+            return _json.loads(response.json()["choices"][0]["message"]["content"])
+    except Exception as e:
+        print(f"[_extract_plan_preferences ERROR] {e}")
+        return {}
+
+
 async def _get_active_plan(user: User, db: AsyncSession) -> Optional[TrainingPlan]:
     result = await db.execute(
         select(TrainingPlan)
@@ -218,19 +257,19 @@ async def generate_plan(
             "Apply the evidence — don't quote it.\n\n"
         )
 
-    # If the user explicitly mentions a number of sessions/days in their
-    # request, override the DB-stored training_frequency for this generation
-    # and persist it so future plans stay consistent.
+    # If the user's request explicitly mentions plan structure changes,
+    # extract them via LLM and update freq + user record accordingly.
     if request_text:
-        import re as _re
-        _m = _re.search(r'(\d+)\s*(?:session|day|workout|times?(?:\s+a\s+week)?)', request_text, _re.I)
-        if _m:
-            _parsed = int(_m.group(1))
-            if 2 <= _parsed <= 7:
-                freq = _parsed
-                if user.training_frequency != _parsed:
-                    user.training_frequency = _parsed
-                    await db.commit()
+        prefs = await _extract_plan_preferences(request_text, freq)
+        _new_freq = prefs.get("training_frequency")
+        if isinstance(_new_freq, int) and 2 <= _new_freq <= 7:
+            freq = _new_freq
+            if user.training_frequency != _new_freq:
+                user.training_frequency = _new_freq
+                await db.commit()
+        _split_notes = prefs.get("split_notes")
+    else:
+        _split_notes = None
 
     if is_modification:
         try:
@@ -245,10 +284,16 @@ async def generate_plan(
             f"CURRENT PLAN:\n{existing_json}\n\n"
         )
         if request_text:
-            system_msg += f"USER MODIFICATION REQUEST: {request_text}\n\n"
+            system_msg += f"USER MODIFICATION REQUEST: {request_text}\n"
+            if _split_notes:
+                system_msg += f"REQUESTED SPLIT STRUCTURE: {_split_notes}\n"
+            system_msg += "\n"
     else:
         if request_text:
-            system_msg += f"USER PREFERENCE FOR THIS PLAN: {request_text}\n\n"
+            system_msg += f"USER PREFERENCE FOR THIS PLAN: {request_text}\n"
+            if _split_notes:
+                system_msg += f"REQUESTED SPLIT STRUCTURE: {_split_notes}\n"
+            system_msg += "\n"
 
     system_msg += (
         "OUTPUT FORMAT (strict JSON):\n"
