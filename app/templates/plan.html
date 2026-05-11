@@ -3,891 +3,619 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kano — Your Plan</title>
+    <title>Kano — Your Workout Plan</title>
+    <meta name="robots" content="noindex" />
     <link rel="icon" type="image/png" href="/static/images/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400;1,500;1,900&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/style.css" />
     {% include "_analytics.html" %}
     <style>
-      /* Plan page — matches homepage cream/blue identity */
-      :root {
-        --bg: #f0eee5;
-        --panel: #ffffff;
-        --panel-2: #faf8ef;
-        --border: rgba(0, 0, 0, 0.1);
-        --text: #000;
-        --text-dim: rgba(0, 0, 0, 0.6);
-        --text-faint: rgba(0, 0, 0, 0.45);
-        --accent: #0057c3;
-      }
-
+      /* ---------- Plan page — built from the Figma "trainingsplan" frames ---------- */
       body {
-        background: var(--bg);
-        color: var(--text);
-        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: linear-gradient(to top, #58ade5, #0374c2);
         min-height: 100vh;
-        padding: 24px 16px 80px;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
       }
-
       .plan-page {
-        max-width: 720px;
-        margin: 0 auto;
+        min-height: 100vh;
       }
 
-      /* ---------- Header ---------- */
-      .plan-header {
+      /* Logo strip over the blue gradient */
+      .plan-hero {
         display: flex;
+        justify-content: center;
         align-items: center;
-        justify-content: space-between;
-        margin-bottom: 32px;
-      }
-      .plan-header img {
-        height: 18px;
-        width: auto;
-      }
-      .plan-header .athlete {
-        font-family: "Albertus Nova", "Inter", sans-serif;
-        font-size: 14px;
-        color: var(--text-dim);
-        font-weight: 400;
-      }
-
-      /* ---------- Title ---------- */
-      .plan-title {
-        font-size: 36px;
-        font-weight: 700;
-        line-height: 1.15;
-        letter-spacing: -0.4px;
-        margin: 0 0 8px;
-      }
-      .plan-title .accent {
-        color: var(--accent);
-        font-style: italic;
-      }
-      .plan-sub {
-        color: var(--text-dim);
-        font-family: "Albertus Nova", "Inter", sans-serif;
-        font-weight: 300;
-        font-size: 16px;
-        line-height: 1.5;
-        margin: 0 0 28px;
-      }
-
-      /* ---------- RPE legend ---------- */
-      .rpe-legend {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 18px 20px;
-        margin-bottom: 24px;
-      }
-      .rpe-legend__title {
-        margin: 0 0 4px;
-        font-size: 13px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--accent);
-      }
-      .rpe-legend__lead {
-        margin: 0 0 12px;
-        font-size: 14px;
-        color: var(--text-dim);
-        line-height: 1.5;
-      }
-      .rpe-legend__rows {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        column-gap: 14px;
-        row-gap: 6px;
-        font-size: 14px;
-      }
-      .rpe-legend__rows .pill {
-        font-weight: 600;
-        color: var(--accent);
-        font-variant-numeric: tabular-nums;
-      }
-      .rpe-legend__rows .desc {
-        color: var(--text);
-      }
-      .rpe-legend__rows .desc em {
-        color: var(--text-dim);
-        font-style: normal;
-      }
-
-      /* ---------- Day cards ---------- */
-      .day-card {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 20px 22px;
-        margin-bottom: 14px;
-      }
-      .day-head {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 14px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--border);
-      }
-      .day-name {
-        font-size: 20px;
-        font-weight: 700;
-        margin: 0;
-        letter-spacing: -0.2px;
-      }
-      .day-focus {
-        font-size: 12px;
-        color: var(--accent);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        font-weight: 600;
-      }
-
-      /* ---------- Exercise table ---------- */
-      table {
         width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
+        padding: 24px 0;
       }
-      th, td {
-        text-align: left;
-        padding: 10px 8px;
-        border-bottom: 1px solid var(--border);
-        vertical-align: top;
+      .plan-hero img {
+        display: block;
+        width: 88px;
+        height: 20px;
       }
-      th {
-        color: var(--text-faint);
-        font-weight: 600;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-      }
-      tr:last-child td { border-bottom: none; }
-      td.exercise { font-weight: 600; }
-      td.numeric { color: var(--text-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
-      td.notes { color: var(--text-dim); font-size: 13px; line-height: 1.45; }
 
-      /* ---------- Copy button ---------- */
-      .exercise-cell {
+      /* Light-blue body sheet */
+      .plan-body {
+        position: relative;
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 8px;
+        gap: 32px;
+        width: 100%;
+        flex: 1;
+        padding: 32px 20px;
+        background: #c0e6ff;
+        border-radius: 40px 40px 0 0;
+        box-shadow: inset 0 0 4px 0 #fff;
       }
-      .copy-btn {
-        flex: 0 0 auto;
-        width: 28px;
-        height: 28px;
-        border-radius: 7px;
-        border: 1px solid var(--border);
-        background: transparent;
-        color: var(--text-faint);
-        cursor: pointer;
+
+      /* A "view" = either the day overview or one day's detailed breakdown.
+         Only one is visible at a time (toggled via the URL hash). */
+      .plan-view {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 32px;
+        width: 100%;
+      }
+      .plan-view[hidden] {
+        display: none;
+      }
+
+      /* Heading (shared by overview + detail) */
+      .plan-heading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        width: 100%;
+      }
+      .plan-heading__title {
+        margin: 0;
+        width: 100%;
+        max-width: 350px;
+        font-family: "Inter", sans-serif;
+        font-weight: 900;
+        font-style: italic;
+        font-size: 24px;
+        line-height: 1.3;
+        letter-spacing: -0.24px;
+        text-align: center;
+        color: #000;
+      }
+      .plan-heading__pill {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0;
-        transition: all 120ms ease;
+        padding: 5px 10px;
+        border-radius: 100px;
+        background: #e498ff;
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        font-style: italic;
+        font-size: 14px;
+        line-height: 1.4;
+        text-align: center;
+        white-space: nowrap;
+        color: #000;
       }
-      .copy-btn:hover {
-        color: var(--accent);
-        border-color: var(--accent);
-        background: rgba(0, 87, 195, 0.06);
+      .plan-heading__subtitle {
+        margin: 0;
+        width: 100%;
+        max-width: 350px;
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        font-style: italic;
+        font-size: 18px;
+        line-height: 1.4;
+        text-align: center;
+        color: #000;
       }
-      .copy-btn svg { width: 14px; height: 14px; }
-      .copy-btn.copied {
-        color: #fff;
-        background: var(--accent);
-        border-color: var(--accent);
-      }
-      .copy-btn .check { display: none; }
-      .copy-btn.copied .check { display: block; }
-      .copy-btn.copied .copy { display: none; }
 
-      /* ---------- Exercise rows (stacked block layout) ---------- */
-      .ex-list {
+      /* ---------- Overview: day cards (clickable) ---------- */
+      .workout-card {
+        appearance: none;
+        -webkit-appearance: none;
+        margin: 0;
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 16px;
+        width: 100%;
+        padding: 16px;
+        background: #fff;
+        border: none;
+        border-radius: 30px;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        transition: transform 120ms ease, box-shadow 120ms ease;
       }
-      .ex-row {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 10px 12px;
-        padding: 14px;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: var(--panel-2);
+      .workout-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
       }
-      .ex-row .name-cell-wrap {
-        grid-column: 1 / 2;
+      .workout-card:active {
+        transform: translateY(0);
+      }
+      .workout-card:focus-visible {
+        outline: 2px solid #0057c3;
+        outline-offset: 2px;
+      }
+      .workout-card__head {
         display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+      }
+      .workout-card__day {
+        margin: 0;
+        width: 100%;
+        font-family: "Inter", sans-serif;
+        font-weight: 700;
+        font-size: 18px;
+        line-height: 1.2;
+        letter-spacing: -0.18px;
+        text-align: center;
+        color: #000;
+      }
+      .workout-card__focus {
+        margin: 0;
+        width: 100%;
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        font-style: italic;
+        font-size: 16px;
+        line-height: 1.4;
+        text-align: center;
+        color: #000;
+      }
+      .workout-card__divider {
+        width: 100%;
+        height: 1px;
+        background: rgba(0, 0, 0, 0.12);
+      }
+      .workout-card__exercises {
+        display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 8px;
-        min-width: 0;
+        width: 100%;
       }
-      .ex-row .name-cell-wrap .ex-name-link {
-        flex: 1;
-        min-width: 0;
-        font-weight: 600;
-        font-size: 0.95rem;
-        color: var(--accent);
-        text-decoration: none;
+      .exercise-pill {
+        display: inline-block;
+        max-width: 145px;
+        padding: 5px 10px;
+        border-radius: 100px;
+        background: #50dbff;
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        font-size: 14px;
+        line-height: 1.4;
+        text-align: center;
+        color: #000;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      .ex-row .name-cell-wrap .ex-name-link:hover { text-decoration: underline; }
-      /* New-row name input (editable, same visual weight as the link) */
-      .ex-row .name-cell-wrap .ex-name-input {
-        flex: 1; min-width: 0; font-weight: 600; font-size: 0.95rem;
-      }
-      .ex-row .remove-cell-wrap { grid-column: 2 / 3; align-self: center; }
 
-      .ex-row .numerics {
-        grid-column: 1 / -1;
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 8px;
+      /* ---------- Detail view ---------- */
+      .back-link {
+        align-self: flex-start;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin: 0;
+        padding: 0;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        font-size: 14px;
+        line-height: 1.4;
+        color: #0474c2;
       }
-      .ex-row .field {
+      .back-link:hover {
+        text-decoration: underline;
+      }
+      .back-link svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .detail-card {
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        min-width: 0;
-      }
-      .ex-row .field-label {
-        font-size: 10px;
-        color: var(--text-faint);
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-      .ex-row .notes-cell-wrap {
-        grid-column: 1 / -1;
-      }
-
-      .cell-input {
+        align-items: center;
+        gap: 16px;
         width: 100%;
-        padding: 9px 11px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        font: inherit;
-        color: inherit;
+        max-width: 350px;
+        padding: 16px;
         background: #fff;
-        box-sizing: border-box;
-        min-width: 0;
+        border-radius: 24px;
       }
-      .cell-input:hover { border-color: rgba(0,0,0,0.2); }
-      .cell-input:focus {
-        outline: none;
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(0, 87, 195, 0.12);
+      .detail-card__name {
+        margin: 0;
+        width: 100%;
+        font-family: "Inter", sans-serif;
+        font-weight: 600;
+        font-size: 18px;
+        line-height: 1.4;
+        text-align: center;
+        color: #000;
       }
-      .cell-input.numeric { font-variant-numeric: tabular-nums; text-align: center; padding-left: 6px; padding-right: 6px; }
-      .cell-input.notes { font-size: 13px; color: var(--text-dim); }
 
-      .remove-btn {
-        width: 32px; height: 32px;
-        border: 1px solid var(--border);
-        background: #fff;
-        color: var(--text-faint);
-        border-radius: 8px;
-        cursor: pointer;
+      /* The set log table: SET | PREVIOUS | KG | REPS | done */
+      .set-table {
+        display: grid;
+        grid-template-columns: 22px minmax(60px, 1fr) 48px 44px 22px;
+        column-gap: 8px;
+        row-gap: 14px;
+        align-items: center;
+        width: 100%;
+        font-family: "Inter", sans-serif;
+        font-size: 14px;
+        line-height: 1.4;
+        text-align: center;
+      }
+      .set-table__head {
+        color: rgba(0, 0, 0, 0.5);
+        font-weight: 400;
+      }
+      .set-table__head--check {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
-        line-height: 1;
-        padding: 0;
+        color: rgba(0, 0, 0, 0.35);
       }
-      .remove-btn:hover { color: #b00; border-color: #b00; }
-      .add-row-btn {
-        margin-top: 12px;
-        background: transparent;
-        border: 1px dashed var(--border);
-        color: var(--text-dim);
-        padding: 12px 14px;
-        border-radius: 10px;
-        cursor: pointer;
-        font: inherit;
-        font-size: 13px;
-        width: 100%;
+      .set-table__head--check svg {
+        width: 15px;
+        height: 15px;
       }
-      .add-row-btn:hover { color: var(--accent); border-color: var(--accent); }
-
-      /* ---------- Day tabs ---------- */
-      .day-tabs {
-        display: flex;
-        gap: 6px;
-        overflow-x: auto;
-        padding: 4px 0 12px;
-        margin: 0 -4px 16px;
-        scrollbar-width: none;
-        -webkit-overflow-scrolling: touch;
-        position: sticky;
-        top: 0;
-        background: var(--bg);
-        z-index: 40;
-      }
-      .day-tabs::-webkit-scrollbar { display: none; }
-      .day-tab {
-        flex: 0 0 auto;
-        padding: 9px 14px;
-        border: 1px solid var(--border);
-        background: var(--panel);
-        color: var(--text-dim);
-        border-radius: 999px;
-        font: inherit;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        white-space: nowrap;
-        transition: all 120ms ease;
-      }
-      .day-tab:hover { color: var(--text); border-color: rgba(0,0,0,0.2); }
-      .day-tab.active {
-        background: var(--accent);
-        color: #fff;
-        border-color: var(--accent);
-      }
-      .day-tab .day-tab__sub {
+      .set-table__set {
+        color: #000;
         font-weight: 400;
-        opacity: 0.75;
-        margin-left: 6px;
-        font-size: 11px;
       }
-      .day-card { display: none; }
-      .day-card.active { display: block; }
-
-      @media (max-width: 480px) {
-        .ex-row .numerics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .set-table__prev {
+        color: rgba(0, 0, 0, 0.5);
+        font-weight: 500;
+        white-space: nowrap;
       }
-
-      /* Save bar */
-      .save-bar {
-        position: fixed;
-        bottom: 16px;
-        left: 50%;
-        transform: translateX(-50%) translateY(100px);
-        background: var(--accent);
-        color: #fff;
+      .set-table__input {
+        width: 100%;
+        min-width: 0;
+        padding: 3px 2px;
         border: none;
-        border-radius: 999px;
-        padding: 14px 28px;
+        background: transparent;
         font: inherit;
-        font-weight: 600;
-        font-size: 15px;
-        cursor: pointer;
-        box-shadow: 0 8px 28px rgba(0, 87, 195, 0.3);
-        transition: transform 200ms ease, opacity 200ms ease;
-        opacity: 0;
-        z-index: 100;
-      }
-      .save-bar.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
-      .save-bar:disabled { opacity: 0.6; cursor: progress; }
-
-      .save-toast {
-        position: fixed;
-        bottom: 16px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #0a0;
-        color: #fff;
-        padding: 10px 20px;
-        border-radius: 999px;
-        font-size: 14px;
-        z-index: 101;
-        opacity: 0;
-        transition: opacity 200ms ease;
-        pointer-events: none;
-      }
-      .save-toast.visible { opacity: 1; }
-      .save-toast.error { background: #b00; }
-
-      /* "New plan available" banner */
-      .stale-banner {
-        position: sticky;
-        top: 8px;
-        background: #b00;
-        color: #fff;
-        padding: 12px 16px;
-        border-radius: 12px;
-        margin-bottom: 16px;
-        font-size: 14px;
-        line-height: 1.4;
-        display: none;
-        z-index: 50;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-      }
-      .stale-banner.visible { display: block; }
-      .stale-banner button {
-        margin-left: 8px;
-        background: #fff;
-        color: #b00;
-        border: none;
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-weight: 600;
-        cursor: pointer;
-        font: inherit;
-        font-size: 13px;
-      }
-
-      /* ---------- Progression ---------- */
-      .progression {
-        background: var(--panel-2);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 20px 22px;
-        margin-top: 24px;
-      }
-      .progression h3 {
-        margin: 0 0 12px;
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--accent);
-        font-weight: 600;
-      }
-      .progression ul {
-        margin: 0;
-        padding-left: 18px;
-      }
-      .progression li {
-        margin-bottom: 6px;
-        font-size: 14px;
-        line-height: 1.5;
-      }
-
-      /* ---------- Motivation ---------- */
-      .motivation {
-        margin-top: 28px;
+        font-weight: 500;
+        color: #000;
         text-align: center;
-        font-family: "Albertus Nova", "Inter", sans-serif;
-        font-weight: 300;
-        font-style: italic;
-        font-size: 17px;
-        line-height: 1.5;
-        color: var(--accent);
-        max-width: 480px;
-        margin-left: auto;
-        margin-right: auto;
+        border-radius: 6px;
+      }
+      .set-table__input::placeholder {
+        color: rgba(0, 0, 0, 0.3);
+        font-weight: 400;
+      }
+      .set-table__input:focus {
+        outline: none;
+        background: rgba(80, 219, 255, 0.22);
+      }
+      .set-check {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        background: #eef0f1;
+        cursor: pointer;
+        color: rgba(0, 0, 0, 0.25);
+      }
+      .set-check svg {
+        width: 12px;
+        height: 12px;
+      }
+      .set-check.checked {
+        background: #34c759;
+        border-color: #34c759;
+        color: #fff;
       }
 
-      /* ---------- Form-check disclaimer ---------- */
-      .form-check {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 16px 20px;
-        margin-bottom: 24px;
-        display: flex;
-        gap: 14px;
-        align-items: flex-start;
-      }
-      .form-check__icon {
-        flex: 0 0 auto;
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: var(--accent);
-        color: #fff;
+      .add-set-btn {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-weight: 700;
-        font-size: 18px;
-      }
-      .form-check__body {
-        flex: 1;
+        gap: 8px;
+        width: 100%;
+        height: 32px;
+        border: none;
+        border-radius: 8px;
+        background: rgba(80, 219, 255, 0.5);
+        cursor: pointer;
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
         font-size: 14px;
-        line-height: 1.55;
-        color: var(--text);
+        line-height: 1.4;
+        color: #000;
       }
-      .form-check__body strong { font-weight: 600; }
-      .form-check__body a {
-        color: var(--accent);
+      .add-set-btn:hover {
+        background: rgba(80, 219, 255, 0.72);
+      }
+      .add-set-btn svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .finish-btn {
+        width: 280px;
+        max-width: 100%;
+        padding: 16px 20px;
+        border: 1px solid #1174cb;
+        border-radius: 10px;
+        background: #0057c3;
+        box-shadow: inset 0 0 3px 0 rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        font-family: "Inter", sans-serif;
         font-weight: 600;
-        text-decoration: none;
-        border-bottom: 1px solid currentColor;
-      }
-      .form-check__body a:hover { opacity: 0.8; }
-
-      /* ---------- Empty / error ---------- */
-      .empty, .error {
-        text-align: center;
-        padding: 80px 20px;
-      }
-      .empty h2, .error h2 {
-        font-size: 28px;
-        margin: 0 0 12px;
-        letter-spacing: -0.2px;
-      }
-      .empty h2 .accent, .error h2 .accent {
-        color: var(--accent);
-        font-style: italic;
-      }
-      .empty p, .error p {
-        font-family: "Albertus Nova", "Inter", sans-serif;
-        font-weight: 300;
-        color: var(--text-dim);
         font-size: 16px;
+        line-height: 1;
+        color: #fff;
+      }
+      .finish-btn:hover {
+        background: #0050b5;
       }
 
-      /* ---------- Footer ---------- */
-      .plan-foot {
-        margin-top: 40px;
+      /* "text Kano" footnote (shared) */
+      .plan-text-kano {
+        margin: 0;
+        width: 100%;
+        max-width: 300px;
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        font-style: italic;
+        font-size: 16px;
+        line-height: 1.4;
         text-align: center;
-        font-size: 12px;
-        color: var(--text-faint);
+        color: #0474c2;
       }
-      .plan-foot a { color: var(--accent); text-decoration: none; }
 
-      @media (max-width: 600px) {
-        body { padding: 16px 12px 56px; }
-        .plan-title { font-size: 28px; }
-        .day-card, .progression, .rpe-legend { padding: 16px; }
-        th, td { padding: 8px 6px; }
-        td.notes { display: none; }
-        th.notes-h { display: none; }
+      /* Empty / error states */
+      .plan-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 48px 0;
+      }
+      .plan-state__title {
+        margin: 0;
+        font-family: "Inter", sans-serif;
+        font-weight: 900;
+        font-style: italic;
+        font-size: 24px;
+        line-height: 1.3;
+        letter-spacing: -0.24px;
+        text-align: center;
+        color: #000;
+      }
+      .plan-state__text {
+        margin: 0;
+        max-width: 300px;
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        font-style: italic;
+        font-size: 16px;
+        line-height: 1.4;
+        text-align: center;
+        color: #0474c2;
+      }
+
+      /* White footer sheet */
+      .plan-footer {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        padding: 32px 20px;
+        background: #fff;
       }
     </style>
   </head>
   <body>
-    <main class="plan-page">
-      <header class="plan-header">
+    <main class="page plan-page">
+      <section class="plan-hero">
         <a href="/" aria-label="Kano">
-          <img src="/static/images/kano-wordmark.svg" alt="Kano" />
+          <img src="/static/images/kano-wordmark-white.svg" alt="Kano" width="88" height="20" />
         </a>
-        {% if user_name %}
-          <span class="athlete">{{ user_name }}</span>
-        {% endif %}
-      </header>
+      </section>
 
-      {% if error %}
-        <div class="error">
-          <h2>Something <span class="accent">went wrong.</span></h2>
-          <p>Ask Kano in your iMessage chat for a fresh link.</p>
-        </div>
-      {% elif not plan_data %}
-        <div class="empty">
-          <h2>No plan <span class="accent">yet.</span></h2>
-          <p>Text Kano to build your first training plan 💪</p>
-        </div>
-      {% else %}
-        <h1 class="plan-title">
-          Your <span class="accent">training plan.</span>
-        </h1>
-        <p class="plan-sub">
-          {{ plan_data.days|length }} training days per week
-          {% if generated_at %} · last updated {{ generated_at }}{% endif %}
-        </p>
-
-        {# ---------- RPE Legend ---------- #}
-        <section class="rpe-legend" aria-label="RPE explainer">
-          <p class="rpe-legend__title">What does RPE mean?</p>
-          <p class="rpe-legend__lead">
-            RPE = <strong>Rate of Perceived Exertion</strong>. It's how hard a set should feel — measured by reps you'd have left in the tank.
-          </p>
-          <div class="rpe-legend__rows">
-            <span class="pill">RPE 10</span><span class="desc">All-out. <em>0 reps left.</em></span>
-            <span class="pill">RPE 9</span><span class="desc">Very hard. <em>1 rep left.</em></span>
-            <span class="pill">RPE 8</span><span class="desc">Challenging. <em>2 reps left.</em></span>
-            <span class="pill">RPE 7</span><span class="desc">Moderate. <em>3 reps left.</em></span>
-            <span class="pill">RPE 6</span><span class="desc">Easy-ish. <em>4 reps left.</em></span>
+      <section class="plan-body">
+        {% if error %}
+          <div class="plan-state">
+            <p class="plan-state__title">Something went wrong</p>
+            <p class="plan-state__text">Ask Kano in your iMessage chat for a fresh link.</p>
           </div>
-        </section>
-
-        {# ---------- Form-check disclaimer ---------- #}
-        <aside class="form-check" aria-label="Form check tip">
-          <div class="form-check__icon" aria-hidden="true">?</div>
-          <div class="form-check__body">
-            <strong>Not sure how an exercise is performed?</strong>
-            Tap any exercise name to open a video demo and form cues on
-            <a href="https://musclewiki.com/" target="_blank" rel="noopener noreferrer">musclewiki.com</a>.
-            Form first — load second.
+        {% elif not plan_data %}
+          <div class="plan-state">
+            <p class="plan-state__title">No plan yet</p>
+            <p class="plan-state__text">Text Kano to build your first training plan 💪</p>
           </div>
-        </aside>
+        {% else %}
+          {# ---------- Overview ---------- #}
+          <div class="plan-view plan-overview" data-view="overview">
+            <div class="plan-heading">
+              <h1 class="plan-heading__title">
+                {% if user_name %}{{ user_name }}’s workout plan{% else %}Your workout plan{% endif %}
+              </h1>
+              <span class="plan-heading__pill">{{ plan_data.days | length }} training days per week</span>
+            </div>
 
-        {# ---------- Day cards ---------- #}
-        <div id="stale-banner" class="stale-banner" role="alert">
-          A newer plan was generated by Kano — your unsaved edits would overwrite it.
-          <button type="button" id="reload-btn">Reload</button>
-        </div>
+            {% for day in plan_data.days %}
+              <button type="button" class="workout-card" data-open-day="{{ loop.index0 }}">
+                <span class="workout-card__head">
+                  <span class="workout-card__day">{{ day.day }}</span>
+                  {% if day.focus %}
+                    <span class="workout-card__focus">{{ day.focus }}</span>
+                  {% endif %}
+                  <span class="workout-card__divider"></span>
+                </span>
+                <span class="workout-card__exercises">
+                  {% for ex in day.exercises %}
+                    <span class="exercise-pill" title="{{ ex.name }}">{{ ex.name }}</span>
+                  {% endfor %}
+                </span>
+              </button>
+            {% endfor %}
 
-        <div id="plan-root" data-plan-id="{{ plan_id }}" data-token="{{ token }}">
-        <nav class="day-tabs" role="tablist" aria-label="Training days">
+            <p class="plan-text-kano">Questions or need to tweak something? Just text Kano :)</p>
+          </div>
+
+          {# ---------- Per-day detailed breakdown ---------- #}
           {% for day in plan_data.days %}
-            <button type="button" class="day-tab" role="tab" data-day-target="{{ loop.index0 }}">
-              {{ day.day }}{% if day.focus %}<span class="day-tab__sub">{{ day.focus }}</span>{% endif %}
-            </button>
-          {% endfor %}
-        </nav>
-        {% for day in plan_data.days %}
-          <article class="day-card" data-day-index="{{ loop.index0 }}" data-day-name="{{ day.day }}" role="tabpanel">
-            <div class="day-head">
-              <h2 class="day-name">{{ day.day }}</h2>
-              {% if day.focus %}
-                <span class="day-focus">{{ day.focus }}</span>
-              {% endif %}
-            </div>
-            <div class="ex-list exercises-body">
+            <div class="plan-view workout-detail" data-day-index="{{ loop.index0 }}" hidden>
+              <button type="button" class="back-link" data-back>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                Workout plan
+              </button>
+              <div class="plan-heading">
+                <h1 class="plan-heading__title">
+                  {% if user_name %}{{ user_name }}’s {{ day.day }} workout{% else %}Your {{ day.day }} workout{% endif %}
+                </h1>
+                {% if day.focus %}
+                  <p class="plan-heading__subtitle">{{ day.focus }}</p>
+                {% endif %}
+              </div>
+
               {% for ex in day.exercises %}
-                <div class="ex-row exercise-row">
-                  <div class="name-cell-wrap">
-                    <button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-text="{{ ex.name }}">
-                      <svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </button>
-                    <a class="ex-name-link"
-                       href="https://musclewiki.com/exercise/{{ ex.name | lower | replace(' ', '-') | replace('/', '-') }}"
-                       target="_blank" rel="noopener noreferrer"
-                       title="View on MuscleWiki">{{ ex.name }}</a>
+                <article class="detail-card">
+                  <p class="detail-card__name">{{ ex.name }}</p>
+                  <div class="set-table" data-set-table>
+                    <span class="set-table__head">SET</span>
+                    <span class="set-table__head">PREVIOUS</span>
+                    <span class="set-table__head">KG</span>
+                    <span class="set-table__head">REPS</span>
+                    <span class="set-table__head set-table__head--check" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                    {% for i in range((ex.sets or 3) | int) %}
+                      <span class="set-table__set">{{ i + 1 }}</span>
+                      <span class="set-table__prev">—</span>
+                      <input class="set-table__input" type="text" inputmode="decimal" placeholder="0" aria-label="Weight in kg for set {{ i + 1 }}" />
+                      <input class="set-table__input" type="text" inputmode="numeric" placeholder="0" aria-label="Reps for set {{ i + 1 }}" />
+                      <button type="button" class="set-check" aria-label="Mark set {{ i + 1 }} done">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      </button>
+                    {% endfor %}
                   </div>
-                  <div class="remove-cell-wrap"><button type="button" class="remove-btn" aria-label="Remove exercise">×</button></div>
-                  <div class="numerics">
-                    <div class="field"><span class="field-label">Sets</span><input class="cell-input numeric" data-field="sets" type="number" min="1" max="20" value="{{ ex.sets }}" /></div>
-                    <div class="field"><span class="field-label">Reps</span><input class="cell-input numeric" data-field="reps" type="text" maxlength="20" value="{{ ex.reps }}" /></div>
-                    <div class="field"><span class="field-label">RPE</span><input class="cell-input numeric" data-field="rpe" type="number" min="1" max="10" step="0.5" value="{{ ex.rpe if ex.rpe is not none else '' }}" /></div>
-                    <div class="field"><span class="field-label">Rest (s)</span><input class="cell-input numeric" data-field="rest_seconds" type="number" min="0" max="900" value="{{ ex.rest_seconds if ex.rest_seconds is not none else '' }}" /></div>
-                  </div>
-                  <div class="notes-cell-wrap field"><span class="field-label">Notes</span><input class="cell-input notes" data-field="notes" type="text" maxlength="500" value="{{ ex.notes or '' }}" /></div>
-                </div>
+                  <button type="button" class="add-set-btn" data-add-set>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    add set
+                  </button>
+                </article>
               {% endfor %}
+
+              <button type="button" class="finish-btn" data-back>Finish workout</button>
+              <p class="plan-text-kano">Questions or need to tweak something? Just text Kano :)</p>
             </div>
-            <button type="button" class="add-row-btn" data-action="add-row">+ Add exercise</button>
-          </article>
-        {% endfor %}
-        </div>
+          {% endfor %}
+        {% endif %}
+      </section>
 
-        <button type="button" id="save-btn" class="save-bar">Save changes</button>
-        <div id="save-toast" class="save-toast"></div>
-
-        {% if plan_data.progression_tips %}
-          <section class="progression">
-            <h3>Progression</h3>
-            <ul>
-              {% for tip in plan_data.progression_tips %}
-                <li>{{ tip }}</li>
-              {% endfor %}
+      <section class="plan-footer">
+        <footer class="site-footer">
+          <div class="site-footer__brand">
+            <img
+              class="site-footer__logo"
+              src="/static/images/kano-wordmark.svg"
+              alt="Kano"
+              width="88"
+              height="20"
+            />
+            <p class="site-footer__copyright">© Kano Labs FZ-LLC 2026</p>
+          </div>
+          <nav class="site-footer__legal" aria-label="Legal">
+            <p class="site-footer__legal-heading">Legal</p>
+            <ul class="site-footer__links">
+              <li><a href="/terms">Terms of service</a></li>
+              <li><a href="/privacy">Privacy policy</a></li>
             </ul>
-          </section>
-        {% endif %}
-
-        {% if plan_data.motivational_note %}
-          <p class="motivation">"{{ plan_data.motivational_note }}"</p>
-        {% endif %}
-
-        <p class="plan-foot">
-          Need to tweak something? Just text <a href="sms:+19453943079">Kano</a>.
-        </p>
-        <p class="plan-foot" style="margin-top:8px;">
-          Exercise data provided by <a href="https://musclewiki.com" target="_blank" rel="noopener">MuscleWiki.com</a>
-        </p>
-      {% endif %}
+          </nav>
+        </footer>
+      </section>
     </main>
+
     <script>
       (function () {
-        // ---------- Copy button (reads data-copy-text attribute) ----------
-        document.addEventListener('click', function (e) {
-          var btn = e.target.closest('.copy-btn');
-          if (!btn) return;
-          var text = btn.dataset.copyText || '';
-          var done = function () {
-            btn.classList.add('copied');
-            setTimeout(function () { btn.classList.remove('copied'); }, 1200);
-          };
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text); done(); });
-          } else { fallbackCopy(text); done(); }
-        });
-        function fallbackCopy(text) {
-          var ta = document.createElement('textarea');
-          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-          document.body.appendChild(ta); ta.select();
-          try { document.execCommand('copy'); } catch (e) {}
-          document.body.removeChild(ta);
-        }
+        var body = document.querySelector('.plan-body');
+        if (!body) return;
+        var overview = body.querySelector('.plan-overview');
+        if (!overview) return; // error / empty state — nothing interactive
+        var details = Array.prototype.slice.call(body.querySelectorAll('.workout-detail'));
 
-        // ---------- Plan editor ----------
-        var root = document.getElementById('plan-root');
-        if (!root) return;
-        var saveBtn = document.getElementById('save-btn');
-        var toast = document.getElementById('save-toast');
-        var staleBanner = document.getElementById('stale-banner');
-        var reloadBtn = document.getElementById('reload-btn');
-        var dirty = false;
+        var CHECK_SVG =
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
-        // ---------- Day tabs ----------
-        var tabs = root.querySelectorAll('.day-tab');
-        var cards = root.querySelectorAll('.day-card');
-        function activateTab(idx) {
-          tabs.forEach(function (t, i) { t.classList.toggle('active', i === idx); });
-          cards.forEach(function (c, i) { c.classList.toggle('active', i === idx); });
-          try { history.replaceState(null, '', '#day-' + idx); } catch (e) {}
-        }
-        tabs.forEach(function (tab, i) {
-          tab.addEventListener('click', function () { activateTab(i); });
-        });
-        // Default tab: from URL hash, else today's weekday match, else first
-        var defaultIdx = 0;
-        var m = (location.hash || '').match(/^#day-(\d+)$/);
-        if (m) {
+        function dayIndexFromHash() {
+          var m = (location.hash || '').match(/^#day-(\d+)$/);
+          if (!m) return null;
           var n = parseInt(m[1], 10);
-          if (!isNaN(n) && n >= 0 && n < cards.length) defaultIdx = n;
-        } else {
-          var today = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
-          for (var i = 0; i < cards.length; i++) {
-            if ((cards[i].getAttribute('data-day-name') || '').toLowerCase() === today.toLowerCase()) {
-              defaultIdx = i; break;
-            }
+          for (var i = 0; i < details.length; i++) {
+            if (details[i].getAttribute('data-day-index') === String(n)) return n;
           }
-        }
-        activateTab(defaultIdx);
-
-        function markDirty() {
-          if (dirty) return;
-          dirty = true;
-          saveBtn.classList.add('visible');
+          return null;
         }
 
-        function showToast(msg, isError) {
-          toast.textContent = msg;
-          toast.classList.toggle('error', !!isError);
-          toast.classList.add('visible');
-          setTimeout(function () { toast.classList.remove('visible'); }, 2500);
+        function syncView() {
+          var idx = dayIndexFromHash();
+          overview.hidden = idx !== null;
+          details.forEach(function (d) {
+            d.hidden = idx === null || d.getAttribute('data-day-index') !== String(idx);
+          });
+          window.scrollTo(0, 0);
         }
 
-        // Listen for any input change → mark dirty
-        root.addEventListener('input', function (e) {
-          if (e.target.classList.contains('cell-input')) markDirty();
-        });
-
-        // Add row button
-        root.addEventListener('click', function (e) {
-          var addBtn = e.target.closest('[data-action="add-row"]');
-          if (addBtn) {
-            var card = addBtn.closest('.day-card');
-            var tbody = card.querySelector('.exercises-body');
-            var tpl = '<div class="ex-row exercise-row">' +
-              '<div class="name-cell-wrap">' +
-                '<button type="button" class="copy-btn" aria-label="Copy exercise name" data-copy-text="New exercise">' +
-                  '<svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
-                  '<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
-                '</button>' +
-                '<input class="cell-input ex-name-input" data-field="name" type="text" maxlength="120" placeholder="Exercise name" value="New exercise" />' +
-              '</div>' +
-              '<div class="remove-cell-wrap"><button type="button" class="remove-btn" aria-label="Remove exercise">\u00d7</button></div>' +
-              '<div class="numerics">' +
-                '<div class="field"><span class="field-label">Sets</span><input class="cell-input numeric" data-field="sets" type="number" min="1" max="20" value="3" /></div>' +
-                '<div class="field"><span class="field-label">Reps</span><input class="cell-input numeric" data-field="reps" type="text" maxlength="20" value="8-10" /></div>' +
-                '<div class="field"><span class="field-label">RPE</span><input class="cell-input numeric" data-field="rpe" type="number" min="1" max="10" step="0.5" value="8" /></div>' +
-                '<div class="field"><span class="field-label">Rest (s)</span><input class="cell-input numeric" data-field="rest_seconds" type="number" min="0" max="900" value="120" /></div>' +
-              '</div>' +
-              '<div class="notes-cell-wrap field"><span class="field-label">Notes</span><input class="cell-input notes" data-field="notes" type="text" maxlength="500" value="" /></div>' +
-              '</div>';
-            tbody.insertAdjacentHTML('beforeend', tpl);
-            markDirty();
+        body.addEventListener('click', function (e) {
+          var openBtn = e.target.closest('[data-open-day]');
+          if (openBtn) {
+            location.hash = 'day-' + openBtn.getAttribute('data-open-day');
             return;
           }
-          var rm = e.target.closest('.remove-btn');
-          if (rm) {
-            var row = rm.closest('.exercise-row');
-            if (row) { row.remove(); markDirty(); }
+          if (e.target.closest('[data-back]')) {
+            history.replaceState(null, '', location.pathname + location.search);
+            syncView();
+            return;
+          }
+          var chk = e.target.closest('.set-check');
+          if (chk) {
+            chk.classList.toggle('checked');
+            return;
+          }
+          var addBtn = e.target.closest('[data-add-set]');
+          if (addBtn) {
+            var table = addBtn.closest('.detail-card').querySelector('[data-set-table]');
+            var n = table.querySelectorAll('.set-check').length + 1;
+            var tpl = document.createElement('template');
+            tpl.innerHTML =
+              '<span class="set-table__set">' + n + '</span>' +
+              '<span class="set-table__prev">—</span>' +
+              '<input class="set-table__input" type="text" inputmode="decimal" placeholder="0" aria-label="Weight in kg for set ' + n + '" />' +
+              '<input class="set-table__input" type="text" inputmode="numeric" placeholder="0" aria-label="Reps for set ' + n + '" />' +
+              '<button type="button" class="set-check" aria-label="Mark set ' + n + ' done">' + CHECK_SVG + '</button>';
+            table.appendChild(tpl.content);
+            return;
           }
         });
 
-        // Serialize DOM → plan_json
-        function serialize() {
-          var existing = {{ plan_data | tojson }};
-          var days = [];
-          var cards = root.querySelectorAll('.day-card');
-          cards.forEach(function (card, idx) {
-            var src = (existing && existing.days && existing.days[idx]) || {};
-            var rows = card.querySelectorAll('.exercise-row');
-            var exercises = [];
-            rows.forEach(function (row) {
-              function val(field) {
-                var el = row.querySelector('input[data-field="' + field + '"]');
-                return el ? el.value.trim() : '';
-              }
-              function num(field) {
-                var v = val(field);
-                if (v === '') return null;
-                var n = Number(v);
-                return isNaN(n) ? null : n;
-              }
-              var nameLink = row.querySelector('.ex-name-link');
-              var nameInput = row.querySelector('input.ex-name-input');
-              var name = nameLink ? nameLink.textContent.trim() : (nameInput ? nameInput.value.trim() : '');
-              if (!name) return; // skip empty rows
-              exercises.push({
-                name: name,
-                sets: parseInt(val('sets'), 10) || 1,
-                reps: val('reps') || '1',
-                rpe: num('rpe'),
-                rest_seconds: num('rest_seconds'),
-                notes: val('notes') || ''
-              });
-            });
-            days.push({
-              day: src.day || '',
-              focus: src.focus || '',
-              exercises: exercises
-            });
-          });
-          return {
-            days: days,
-            progression_tips: existing.progression_tips || null,
-            motivational_note: existing.motivational_note || null
-          };
-        }
-
-        saveBtn.addEventListener('click', function () {
-          if (saveBtn.disabled) return;
-          var planId = root.getAttribute('data-plan-id');
-          var token = root.getAttribute('data-token');
-          var body = { plan_id: planId, plan_json: serialize() };
-          saveBtn.disabled = true;
-          saveBtn.textContent = 'Saving…';
-          fetch('/plan?token=' + encodeURIComponent(token), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-          }).then(function (r) {
-            if (r.status === 409) {
-              staleBanner.classList.add('visible');
-              throw new Error('stale');
-            }
-            if (!r.ok) throw new Error('http ' + r.status);
-            return r.json();
-          }).then(function () {
-            dirty = false;
-            saveBtn.classList.remove('visible');
-            showToast('Saved ✓');
-          }).catch(function (err) {
-            if (err.message !== 'stale') showToast('Save failed', true);
-          }).finally(function () {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Save changes';
-          });
-        });
-
-        if (reloadBtn) reloadBtn.addEventListener('click', function () { location.reload(); });
-
-        window.addEventListener('beforeunload', function (e) {
-          if (dirty) { e.preventDefault(); e.returnValue = ''; }
-        });
+        window.addEventListener('hashchange', syncView);
+        syncView();
       })();
     </script>
   </body>

@@ -6,3 +6,5 @@ dist/
 build/
 .venv/
 .DS_Store
+scripts/preview_server.py
+scripts/preview_plan.py
