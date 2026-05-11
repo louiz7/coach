@@ -291,12 +291,15 @@ async def _complete_onboarding(
     from sqlalchemy import select
     import asyncio
 
-    # Set contact card
-    name_parts = persona_name.split(" ", 1)
+    # Set contact card — use the configured Kano brand name/avatar, not the internal persona
+    from app.config import settings as _cfg
+    contact_name = _cfg.LINQ_CONTACT_NAME or persona_name
+    contact_avatar = _cfg.LINQ_CONTACT_AVATAR_URL or avatar_url
+    name_parts = contact_name.split(" ", 1)
     first_name = name_parts[0]
     last_name = name_parts[1] if len(name_parts) > 1 else ""
     try:
-        await linq.setup_contact_card(pool_number, first_name, last_name, avatar_url)
+        await linq.setup_contact_card(pool_number, first_name, last_name, contact_avatar)
     except Exception:
         pass  # non-critical
 

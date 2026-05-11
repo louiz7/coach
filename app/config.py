@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     LINQ_API_TOKEN: str = ""
     LINQ_WEBHOOK_SECRET: str = ""
     LINQ_PHONE_NUMBER: str = ""  # Kano iMessage/SMS number shown on success page (e.g. +16505551234)
+    LINQ_CONTACT_NAME: str = "Kano"  # Name shown on the shared contact card
+    LINQ_CONTACT_AVATAR_URL: str = ""  # Avatar URL for the shared contact card
     JWT_SECRET: str = "change-me"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440  # 24h

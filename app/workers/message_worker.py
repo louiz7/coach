@@ -58,6 +58,18 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             await db.refresh(user)
 
             from app.services.onboarding_chat import _send_inform_intro
+            from app.config import settings as _cfg
+            if _cfg.LINQ_PHONE_NUMBER:
+                try:
+                    name_parts = _cfg.LINQ_CONTACT_NAME.split(" ", 1)
+                    await linq.setup_contact_card(
+                        _cfg.LINQ_PHONE_NUMBER,
+                        name_parts[0],
+                        name_parts[1] if len(name_parts) > 1 else "",
+                        _cfg.LINQ_CONTACT_AVATAR_URL,
+                    )
+                except Exception:
+                    pass
             await _send_inform_intro(chat_id, user.id, db)
             await linq.share_contact_card(chat_id)
             print(f"[message_worker] new user created, intro sent chat_id={chat_id}")
