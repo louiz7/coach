@@ -126,7 +126,12 @@ async def plan_view(request: Request) -> HTMLResponse:
             )
             plan = r2.scalars().first()
             if plan:
-                ctx["plan_data"] = plan.plan_json
+                pj = plan.plan_json or {}
+                # Normalise: support both {"days": [...]} and {"weekly_schedule": [...]}
+                days = pj.get("days") or pj.get("weekly_schedule") or []
+                # Filter out rest days for the count but keep them in the data
+                training_days = [d for d in days if d.get("exercises")]
+                ctx["plan_data"] = {**pj, "days": training_days}
                 ctx["generated_at"] = plan.created_at.strftime("%b %d, %Y") if plan.created_at else None
                 ctx["plan_id"] = str(plan.id)
     except Exception as e:
