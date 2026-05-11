@@ -467,7 +467,25 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, wh
     # Assign persona if not yet set
     await assign_persona_from_style(user, db)
 
-    payment_link = settings.STRIPE_PAYMENT_LINK
+    # Build a per-user Stripe checkout session so metadata.user_id is set
+    # and the webhook can identify this user on payment.
+    try:
+        import stripe as _stripe
+        _stripe.api_key = settings.STRIPE_SECRET_KEY
+        session = _stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": settings.STRIPE_PRICE_ID, "quantity": 1}],
+            success_url=settings.PUBLIC_BASE_URL.rstrip("/") + "/success",
+            cancel_url=settings.PUBLIC_BASE_URL.rstrip("/") + "/cancel",
+            metadata={"user_id": str(user.id)},
+            subscription_data={"trial_period_days": 7},
+            phone_number_collection={"enabled": False},
+        )
+        payment_link = session.url
+    except Exception as _e:
+        print(f"[_build_plan_and_advance] Stripe session creation failed: {_e}, falling back to static link")
+        payment_link = settings.STRIPE_PAYMENT_LINK
+
     ack = "ty, got your WHOOP data" if whoop_connected else "ty, got your data"
 
     user.onboarding_state = OnboardingState.AWAITING_SUBSCRIPTION
@@ -571,7 +589,22 @@ async def _handle_awaiting_subscription(user: User, chat_id: str, text: str, db:
 
     has_sub = await check_subscription(user.id, db)
     if not has_sub:
-        payment_link = settings.STRIPE_PAYMENT_LINK
+        # Generate a fresh per-user checkout link
+        try:
+            import stripe as _stripe
+            _stripe.api_key = settings.STRIPE_SECRET_KEY
+            session = _stripe.checkout.Session.create(
+                mode="subscription",
+                line_items=[{"price": settings.STRIPE_PRICE_ID, "quantity": 1}],
+                success_url=settings.PUBLIC_BASE_URL.rstrip("/") + "/success",
+                cancel_url=settings.PUBLIC_BASE_URL.rstrip("/") + "/cancel",
+                metadata={"user_id": str(user.id)},
+                subscription_data={"trial_period_days": 7},
+                phone_number_collection={"enabled": False},
+            )
+            payment_link = session.url
+        except Exception:
+            payment_link = settings.STRIPE_PAYMENT_LINK
         await _send_multi(chat_id, user.id, [
             "you just need to start your free trial to get your plan — it only takes 30 seconds 🙌",
             f"{payment_link}",
