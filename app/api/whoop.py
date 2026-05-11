@@ -111,7 +111,7 @@ async def whoop_callback(
     if user.onboarding_state == OnboardingState.WHOOP_OR_BASICS and user.linq_chat_id:
         _log(f"User {user.name} in WHOOP_OR_BASICS — advancing to plan build")
         try:
-            await _build_plan_and_advance(user, user.linq_chat_id, db)
+            await _build_plan_and_advance(user, user.linq_chat_id, db, whoop_connected=True)
         except Exception as e:
             _log(f"_build_plan_and_advance failed: {e}")
             # Fall back to standard confirmation so user isn't left in silence

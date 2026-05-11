@@ -456,7 +456,7 @@ async def _handle_whoop_or_basics(user: User, chat_id: str, text: str, db: Async
     await _build_plan_and_advance(user, chat_id, db)
 
 
-async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) -> None:
+async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, whoop_connected: bool = False) -> None:
     """Build the training plan, send the link, and move to PLAN_REVIEW.
 
     Called from both the manual-basics handler and the WHOOP OAuth callback.
@@ -466,8 +466,9 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
     # Assign persona if not yet set
     await assign_persona_from_style(user, db)
 
+    ack = "ty, got your WHOOP data" if whoop_connected else "ty, got your data"
     await _send_multi(chat_id, user.id, [
-        "ty, got your WHOOP data",
+        ack,
         "building your plan now…",
     ], db)
 
