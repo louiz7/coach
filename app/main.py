@@ -158,14 +158,25 @@ async def plan_view(request: Request) -> HTMLResponse:
                             val += f" {entry.sets}×{entry.reps}"
                         prev_map[key] = val
 
-                # Inject into each exercise dict
+                # Inject into each exercise dict; also fall back to logged_sets
+                # stored in the plan itself (plan-page logs land in progress_entries
+                # via the PATCH endpoint, but this is a belt-and-braces fallback)
                 enriched_days = []
                 for day in training_days:
                     enriched_exs = []
                     for ex in day.get("exercises", []):
                         ex_copy = dict(ex)
                         key = ex_copy.get("name", "").strip().lower()
-                        ex_copy["previous_performance"] = prev_map.get(key)
+                        prev = prev_map.get(key)
+                        if not prev:
+                            # Fallback: derive from the exercise's own logged_sets
+                            ls = ex_copy.get("logged_sets") or []
+                            done = [s for s in ls if s.get("done") and s.get("weight")]
+                            if done:
+                                prev = f"{done[-1]['weight']}kg"
+                                if done[-1].get("reps"):
+                                    prev += f" ×{done[-1]['reps']}"
+                        ex_copy["previous_performance"] = prev
                         enriched_exs.append(ex_copy)
                     enriched_days.append({**day, "exercises": enriched_exs})
 
@@ -242,6 +253,58 @@ async def plan_update(request: Request):
         plan.raw_text = render_raw_text_from_plan(payload_in.plan_json)
         plan.updated_by_user = True
         plan.user_edited_at = datetime.utcnow()
+
+        # ── Mirror completed plan-page sets into progress_entries ─────────
+        # This ensures PREVIOUS pre-fill and PERFORMANCE_DATA intent both
+        # see weights logged on the plan page, not just chat-logged entries.
+        from app.models.progress_entry import ProgressEntry as PE
+        for day in payload_in.plan_json.days:
+            for ex in day.exercises:
+                if not ex.logged_sets:
+                    continue
+                done_sets = [s for s in ex.logged_sets if s.done and s.weight]
+                if not done_sets:
+                    continue
+                # Use the last done-set's weight as the canonical value for this session.
+                # We upsert by deleting today's existing entry for the same exercise first
+                # to avoid duplicates on multiple "Finish workout" taps in the same day.
+                from sqlalchemy import delete as sa_delete, func as sa_func
+                await db.execute(
+                    sa_delete(PE).where(
+                        PE.user_id == user.id,
+                        PE.label == ex.name,
+                        PE.category == "exercise",
+                        sa_func.date(PE.recorded_at) == datetime.utcnow().date(),
+                    )
+                )
+                # Parse weight string → float (strip trailing non-numeric chars)
+                import re as _re
+                for s in done_sets:
+                    w_str = (s.weight or "").strip()
+                    m = _re.search(r"[\d.]+", w_str)
+                    if not m:
+                        continue
+                    try:
+                        w_val = float(m.group())
+                    except ValueError:
+                        continue
+                    unit = "kg" if "lb" not in w_str.lower() else "lbs"
+                    r_val = None
+                    if s.reps:
+                        reps_m = _re.search(r"\d+", s.reps)
+                        r_val = int(reps_m.group()) if reps_m else None
+                    db.add(PE(
+                        user_id=user.id,
+                        category="exercise",
+                        label=ex.name,
+                        value=w_val,
+                        unit=unit,
+                        sets=len(done_sets),
+                        reps=r_val,
+                        notes="logged via plan page",
+                    ))
+                    break  # one representative entry per exercise per session
+
         await db.commit()
 
         return {"ok": True, "plan_id": str(plan.id)}
