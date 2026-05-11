@@ -176,6 +176,17 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
             await add_message(user.id, "assistant", chunk, db)
 
+        # If the handler context contains a Plan URL, send it as a standalone message
+        # so iMessage renders the rich link preview
+        if handler_context:
+            import re as _re
+            url_match = _re.search(r'https?://\S+/plan\?token=\S+', handler_context)
+            if url_match:
+                plan_url = url_match.group(0).rstrip('.')
+                await asyncio.sleep(0.8)
+                await linq.send_message(chat_id, plan_url)
+                await add_message(user.id, "assistant", plan_url, db)
+
 
 def _split_response(text: str) -> list[str]:
     """Split response into chunks for double-texting.

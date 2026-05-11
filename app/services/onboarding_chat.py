@@ -482,7 +482,8 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession) ->
         await db.commit()
 
         await _send_multi(chat_id, user.id, [
-            f"your plan is ready 💪\n{plan_url}",
+            "your plan is ready 💪",
+            plan_url,
             "want to change anything or does this work for you?",
         ], db)
 
@@ -557,7 +558,7 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
             token = create_plan_token(user.phone)
             base_url = settings.PUBLIC_BASE_URL.rstrip('/')
             plan_url = f"{base_url}/plan?token={token}"
-            await _send(chat_id, user.id, f"updated 💪\n{plan_url}", db)
+            await _send_multi(chat_id, user.id, ["updated 💪", plan_url], db)
         except Exception as ex:
             print(f"[_handle_plan_review] regen error: {ex}")
             await _send(

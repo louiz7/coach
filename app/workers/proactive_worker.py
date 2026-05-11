@@ -255,10 +255,9 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
                 token = create_plan_token(user.phone)
                 plan_url = f"{cfg.PUBLIC_BASE_URL.rstrip('/')}/plan?token={token}"
                 await asyncio.sleep(1.2)
-                link_msg = f"if you want to check today's exercises: {plan_url}"
-                await linq_svc.send_message(user.linq_chat_id, link_msg)
+                await linq_svc.send_message(user.linq_chat_id, plan_url)
                 try:
-                    await add_message(user.id, "assistant", link_msg, db)
+                    await add_message(user.id, "assistant", plan_url, db)
                 except Exception:
                     pass
 
@@ -375,10 +374,9 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
             token = create_plan_token(user.phone)
             plan_url = f"{cfg.PUBLIC_BASE_URL.rstrip('/')}/plan?token={token}"
             await asyncio.sleep(1.2)
-            link_msg = f"if you want to check today's exercises: {plan_url}"
-            await linq_svc.send_message(user.linq_chat_id, link_msg)
+            await linq_svc.send_message(user.linq_chat_id, plan_url)
             try:
-                await add_message(user.id, "assistant", link_msg, db)
+                await add_message(user.id, "assistant", plan_url, db)
             except Exception:
                 pass
 
