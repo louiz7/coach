@@ -8,15 +8,14 @@ from app.services.proactive import get_idle_users, send_checkin
 
 
 # Window (inclusive) in which the morning brief may be sent (local time).
-# Wide enough to survive a worker restart mid-morning.
 # Cron fires every 30 min; dedup key ensures at most ONE brief per user per day.
-_MORNING_HOUR_START = 8   # 08:00 local
-_MORNING_HOUR_END   = 10  # up to 10:59 local (catches restarts up to 2h late)
+# Lower bound = normal send time; upper bound = catch-up cap if worker was down.
+_MORNING_HOUR_START = 8    # 08:00 local
+_MORNING_HOUR_END   = 12   # catch-up allowed until 12:59 local
 
-# Window for evening check-in (local time). Cron fires every 30 min;
-# dedup key ensures only ONE message per user per day.
-_EVENING_HOUR_START = 20  # 20:00 local
-_EVENING_HOUR_END   = 21  # up to 21:59 local
+# Window for evening check-in (local time).
+_EVENING_HOUR_START = 20   # 20:00 local
+_EVENING_HOUR_END   = 23   # catch-up allowed until 23:59 local
 
 
 async def run_proactive_checkins():
@@ -64,6 +63,8 @@ async def run_morning_brief():
                 tz = ZoneInfo("Europe/Berlin")
 
             local_now = datetime.now(tz)
+            # Catch-up window: 08:00 – 12:59 local. If the worker was down during
+            # the original window we still deliver. Daily dedup key prevents dupes.
             if not (_MORNING_HOUR_START <= local_now.hour <= _MORNING_HOUR_END):
                 continue
 
@@ -460,6 +461,9 @@ async def run_evening_checkin():
                 tz = ZoneInfo("Europe/Berlin")
 
             local_now = datetime.now(tz)
+            # Catch-up window: send any time from evening start through 23:59.
+            # This way a worker restart inside the original window still delivers,
+            # and the daily dedup key ensures users get at most one message per day.
             if not (_EVENING_HOUR_START <= local_now.hour <= _EVENING_HOUR_END):
                 continue
 
