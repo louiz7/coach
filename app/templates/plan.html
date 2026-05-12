@@ -419,6 +419,74 @@
         color: #0474c2;
       }
 
+      /* Cancel subscription */
+      .cancel-sub-wrap {
+        display: flex;
+        justify-content: center;
+        padding: 8px 0 24px;
+      }
+      .cancel-sub-btn {
+        background: none;
+        border: none;
+        color: #8a8a8a;
+        font-size: 12px;
+        cursor: pointer;
+        text-decoration: underline;
+        padding: 4px 8px;
+      }
+      .cancel-sub-btn:hover { color: #555; }
+
+      /* Modal */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        padding: 24px;
+      }
+      .modal-overlay[hidden] { display: none; }
+      .modal-box {
+        background: #fff;
+        border-radius: 20px;
+        padding: 32px 24px 24px;
+        max-width: 340px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      }
+      .modal-icon { font-size: 40px; margin: 0 0 12px; }
+      .modal-title {
+        font-size: 17px;
+        font-weight: 700;
+        margin: 0 0 10px;
+        line-height: 1.35;
+      }
+      .modal-body {
+        font-size: 14px;
+        color: #666;
+        margin: 0 0 24px;
+        line-height: 1.5;
+      }
+      .modal-actions {
+        display: flex;
+        gap: 12px;
+      }
+      .modal-btn {
+        flex: 1;
+        padding: 14px 8px;
+        border-radius: 12px;
+        border: none;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .modal-btn--cancel  { background: #f0f0f0; color: #111; }
+      .modal-btn--confirm { background: #ff3b30; color: #fff; }
+      .modal-btn--confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
       /* White footer sheet */
       .plan-footer {
         display: flex;
@@ -550,8 +618,24 @@
             </ul>
           </nav>
         </footer>
+        <div class="cancel-sub-wrap">
+          <button class="cancel-sub-btn" id="cancelSubBtn">Cancel subscription</button>
+        </div>
       </section>
     </main>
+
+    <!-- Cancel subscription modal -->
+    <div class="modal-overlay" id="cancelModal" role="dialog" aria-modal="true" aria-labelledby="cancelModalTitle" hidden>
+      <div class="modal-box">
+        <p class="modal-icon">😬</p>
+        <h2 class="modal-title" id="cancelModalTitle">Do you really want to give up on your fitness goals?</h2>
+        <p class="modal-body">Your plan, progress and coaching will stop at the end of your current billing period.</p>
+        <div class="modal-actions">
+          <button class="modal-btn modal-btn--cancel" id="cancelModalClose">No, keep going</button>
+          <button class="modal-btn modal-btn--confirm" id="cancelModalConfirm">Yes, cancel</button>
+        </div>
+      </div>
+    </div>
 
     <script>
       (function () {
@@ -685,6 +769,50 @@
 
         window.addEventListener('hashchange', syncView);
         syncView();
+      })();
+
+      // Cancel subscription modal
+      (function () {
+        var btn = document.getElementById('cancelSubBtn');
+        var modal = document.getElementById('cancelModal');
+        var closeBtn = document.getElementById('cancelModalClose');
+        var confirmBtn = document.getElementById('cancelModalConfirm');
+        if (!btn) return;
+
+        btn.addEventListener('click', function () {
+          modal.hidden = false;
+        });
+        closeBtn.addEventListener('click', function () {
+          modal.hidden = true;
+        });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.hidden = true;
+        });
+        confirmBtn.addEventListener('click', async function () {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'Cancelling…';
+          try {
+            var res = await fetch('/api/v1/subscription/cancel', {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + TOKEN }
+            });
+            if (res.ok) {
+              modal.hidden = true;
+              btn.textContent = 'Subscription cancelled';
+              btn.disabled = true;
+              btn.style.textDecoration = 'none';
+            } else {
+              var d = await res.json().catch(function(){return {};});
+              alert(d.detail || 'Something went wrong. Please try again.');
+              confirmBtn.disabled = false;
+              confirmBtn.textContent = 'Yes, cancel';
+            }
+          } catch (err) {
+            alert('Network error — please try again.');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Yes, cancel';
+          }
+        });
       })();
     </script>
   </body>

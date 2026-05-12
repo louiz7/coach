@@ -78,6 +78,27 @@ async def create_portal(
     return PortalResponse(portal_url=session.url)
 
 
+@router.post("/cancel")
+async def cancel_subscription(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Subscription).where(Subscription.user_id == user.id)
+    )
+    sub = result.scalar_one_or_none()
+    if not sub or not sub.stripe_subscription_id:
+        raise HTTPException(404, "No active subscription found")
+
+    stripe.Subscription.modify(
+        sub.stripe_subscription_id,
+        cancel_at_period_end=True,
+    )
+    sub.status = "canceled"
+    await db.commit()
+    return {"ok": True}
+
+
 # Stripe webhook — separate endpoint, no JWT auth
 @router.post("/webhook")
 async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
