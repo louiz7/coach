@@ -631,18 +631,16 @@ async def _deliver_plan_after_subscription(user: User, chat_id: str, db: AsyncSe
         user.onboarding_complete = True
         await db.commit()
 
-        # Calendar link — same token, ICS served at /calendar/{token}.ics
-        cal_url = f"{base_url}/calendar/{token}.ics"
-
         await _send_multi(chat_id, user.id, [
             "your plan is ready 💪",
             plan_url,
             "want to change anything or does this work for you?",
         ], db)
         await asyncio.sleep(1.5)
+        cal_url = f"webcal://{settings.PUBLIC_BASE_URL.lstrip('https://').lstrip('http://').rstrip('/')}/calendar/{token}.ics"
         await _send_multi(chat_id, user.id, [
-            "you can also import your workouts straight into Apple Calendar 📅",
-            f"tap to subscribe 👉 {cal_url}",
+            "you can also add your workouts to Apple Calendar 📅",
+            cal_url,
         ], db)
     except Exception as ex:
         print(f"[onboarding _deliver_plan_after_subscription] ERROR: {ex}")
