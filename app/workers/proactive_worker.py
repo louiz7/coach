@@ -450,6 +450,7 @@ async def run_evening_checkin():
         )
         users = list(result.scalars().all())
 
+    print(f"[evening_checkin] checking {len(users)} users")
     for user in users:
         try:
             tz_name = user.timezone or "Europe/Berlin"
@@ -464,8 +465,10 @@ async def run_evening_checkin():
 
             today_key = f"evening_sent:{user.id}:{local_now.strftime('%Y-%m-%d')}"
             if await redis_pool.get(today_key):
+                print(f"[evening_checkin] {user.name} already sent today, skipping")
                 continue
 
+            print(f"[evening_checkin] processing {user.name} (local={local_now.strftime('%H:%M')})")
             async with async_session() as db:
                 await _send_evening_checkin(user, db, today_key, local_now)
 
@@ -489,7 +492,7 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
     today_str = local_now.strftime("%Y-%m-%d")
     weekday = local_now.strftime("%A")
 
-    # Skip if user was active in the last 2 hours (they're already chatting)
+    # Skip if user was active in the last 30 min (they're already chatting)
     recent_msg = await db.execute(
         select(func.max(Message.created_at))
         .where(Message.user_id == user.id, Message.role == "user")
@@ -497,8 +500,8 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
     last_msg_at = recent_msg.scalar_one_or_none()
     if last_msg_at:
         diff = (local_now.replace(tzinfo=None) - last_msg_at).total_seconds()
-        if diff < 7200:  # active within 2h — skip
-            await redis_pool.set(dedup_key, "1", ex=86400)
+        if diff < 1800:  # active within 30 min — skip but don't set dedup so we retry later
+            print(f"[evening_checkin] skipping {user.name} — active {int(diff//60)}m ago")
             return
 
     # Check if user already logged progress today
