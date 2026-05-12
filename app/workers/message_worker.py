@@ -34,6 +34,26 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             return
         await redis_pool.set(dedup_key, "1", ex=86400)
 
+    # --- Rate limiting (per user/phone, not per chat_id so new users are also covered) ---
+    _rl_id = phone or chat_id
+    _hour_key = f"rl:hour:{_rl_id}:{__import__('datetime').datetime.utcnow().strftime('%Y-%m-%dT%H')}"
+    _day_key  = f"rl:day:{_rl_id}:{__import__('datetime').datetime.utcnow().strftime('%Y-%m-%d')}"
+
+    _hour_count = int(await redis_pool.get(_hour_key) or 0)
+    _day_count  = int(await redis_pool.get(_day_key)  or 0)
+
+    if _hour_count >= 30:
+        print(f"[rate_limit] hourly cap hit for {_rl_id} ({_hour_count} msgs this hour)")
+        return
+    if _day_count >= 100:
+        print(f"[rate_limit] daily cap hit for {_rl_id} ({_day_count} msgs today)")
+        return
+
+    await redis_pool.incr(_hour_key)
+    await redis_pool.expire(_hour_key, 3600)
+    await redis_pool.incr(_day_key)
+    await redis_pool.expire(_day_key, 86400)
+
     async with async_session() as db:
         # Find user by chat_id
         result = await db.execute(
