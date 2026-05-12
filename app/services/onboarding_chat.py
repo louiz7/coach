@@ -567,7 +567,15 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
     # User is happy — move to DONE (already subscribed at this point)
     user.onboarding_state = OnboardingState.DONE
     await db.commit()
-    await _send(chat_id, user.id, "perfect, let's get to work 🫡 text me anytime", db)
+    from app.services.token import create_plan_token
+    base_url = settings.PUBLIC_BASE_URL.rstrip('/')
+    token = create_plan_token(user.phone)
+    cal_url = f"{base_url}/calendar/{token}"
+    await _send_multi(chat_id, user.id, [
+        "perfect, let's get to work 🫡 text me anytime",
+        "you can also add your workouts to Apple Calendar 📅",
+        cal_url,
+    ], db)
 
 
 async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
@@ -635,12 +643,6 @@ async def _deliver_plan_after_subscription(user: User, chat_id: str, db: AsyncSe
             "your plan is ready 💪",
             plan_url,
             "want to change anything or does this work for you?",
-        ], db)
-        await asyncio.sleep(1.5)
-        cal_url = f"{base_url}/calendar/{token}"
-        await _send_multi(chat_id, user.id, [
-            "you can also add your workouts to Apple Calendar 📅",
-            cal_url,
         ], db)
     except Exception as ex:
         print(f"[onboarding _deliver_plan_after_subscription] ERROR: {ex}")
