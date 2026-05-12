@@ -481,7 +481,6 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
     from sqlalchemy import select, func
     from app.models.progress_entry import ProgressEntry
     from app.models.training_plan import TrainingPlan
-    from app.models.message import Message
     from app.services.training_plan import get_workout_for_today
     from app.services import linq as linq_svc
     from app.services.memory import add_message
@@ -491,18 +490,6 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
 
     today_str = local_now.strftime("%Y-%m-%d")
     weekday = local_now.strftime("%A")
-
-    # Skip if user was active in the last 30 min (they're already chatting)
-    recent_msg = await db.execute(
-        select(func.max(Message.created_at))
-        .where(Message.user_id == user.id, Message.role == "user")
-    )
-    last_msg_at = recent_msg.scalar_one_or_none()
-    if last_msg_at:
-        diff = (local_now.replace(tzinfo=None) - last_msg_at).total_seconds()
-        if diff < 1800:  # active within 30 min — skip but don't set dedup so we retry later
-            print(f"[evening_checkin] skipping {user.name} — active {int(diff//60)}m ago")
-            return
 
     # Check if user already logged progress today
     logged_today = await db.execute(
