@@ -640,7 +640,6 @@ async def _deliver_plan_after_subscription(user: User, chat_id: str, db: AsyncSe
         await db.commit()
 
         await _send_multi(chat_id, user.id, [
-            "your plan is ready 💪",
             plan_url,
             "want to change anything or does this work for you?",
         ], db)
