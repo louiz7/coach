@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kano — Add Workouts to Calendar</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/png" href="/static/images/favicon.png" />
+
+    <!-- Open Graph — iMessage link preview -->
+    <meta property="og:title" content="Your Weekly Workout Schedule" />
+    <meta property="og:description" content="Tap to add your Kano training plan to Apple Calendar — syncs automatically." />
+    <meta property="og:image" content="{{ base_url }}/static/images/og-calendar.png" />
+    <meta property="og:url" content="{{ page_url }}" />
+    <meta property="og:type" content="website" />
+
+    <!-- Auto-redirect to webcal:// so Calendar app opens immediately -->
+    <meta http-equiv="refresh" content="0; url={{ webcal_url }}" />
+
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: -apple-system, "Inter", sans-serif;
+        background: linear-gradient(to top, #58ade5, #0374c2);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 24px;
+        padding: 36px 28px;
+        max-width: 360px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+      }
+      .icon { font-size: 48px; margin-bottom: 16px; }
+      h1 {
+        font-size: 20px;
+        font-weight: 700;
+        color: #000;
+        margin-bottom: 10px;
+      }
+      p {
+        font-size: 15px;
+        color: #555;
+        line-height: 1.5;
+        margin-bottom: 28px;
+      }
+      .btn {
+        display: inline-block;
+        background: linear-gradient(135deg, #0374c2, #58ade5);
+        color: #fff;
+        font-size: 16px;
+        font-weight: 600;
+        padding: 14px 28px;
+        border-radius: 14px;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">📅</div>
+      <h1>Add to Apple Calendar</h1>
+      <p>Your Kano training plan — one tap to subscribe. Workouts sync automatically every week.</p>
+      <a class="btn" href="{{ webcal_url }}">Subscribe to Calendar</a>
+    </div>
+  </body>
+</html>

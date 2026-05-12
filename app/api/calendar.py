@@ -11,14 +11,19 @@ GET /calendar/{token}.ics
 from datetime import date, timedelta, datetime, timezone
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 from sqlalchemy import select
+import os
 
 from app.database import async_session
 from app.models.user import User
 from app.models.training_plan import TrainingPlan
 from app.services.token import verify_onboarding_token
+from app.config import settings
 
 router = APIRouter(tags=["calendar"])
+_templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "..", "templates"))
 
 _WEEKDAY_MAP = {
     "monday":    0,
@@ -113,6 +118,25 @@ def _build_ics(user_name: str, plan_json: dict) -> str:
         "END:VCALENDAR",
     ])
     return cal
+
+
+@router.get("/calendar/{token}")
+async def calendar_landing(token: str, request: Request):
+    """HTML landing page with OG tags for iMessage preview + auto-redirect to webcal://."""
+    try:
+        verify_onboarding_token(token)
+    except Exception:
+        raise HTTPException(401, "Invalid or expired calendar link")
+
+    base_url = settings.PUBLIC_BASE_URL.rstrip("/")
+    page_url = f"{base_url}/calendar/{token}"
+    webcal_url = f"webcal://{base_url.lstrip('https://').lstrip('http://')}/calendar/{token}.ics"
+
+    return _templates.TemplateResponse(request, "calendar.html", {
+        "base_url": base_url,
+        "page_url": page_url,
+        "webcal_url": webcal_url,
+    })
 
 
 @router.get("/calendar/{token}.ics")
