@@ -31,6 +31,8 @@ app = FastAPI(title="Fitness Coach API", version="1.0.0", lifespan=lifespan)
 # Static files and templates
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+templates.env.globals["posthog_project_token"] = settings.POSTHOG_PROJECT_TOKEN
+templates.env.globals["posthog_host"] = settings.POSTHOG_HOST
 
 # CORS
 app.add_middleware(
