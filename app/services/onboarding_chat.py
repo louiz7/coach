@@ -13,6 +13,7 @@ import asyncio
 import json
 from typing import Optional
 
+import posthog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -329,6 +330,8 @@ async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSes
     user.onboarding_state = OnboardingState.STATUS_QUO
     await db.commit()
 
+    posthog.capture(str(user.id), "onboarding_goal_captured", {"has_sports_focus": bool(user.sports_focus)})
+
     await _send_multi(chat_id, user.id, [
         "got it. how does your current training look like?",
         "how many days a week, what do you do and when",
@@ -491,13 +494,14 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, wh
     user.onboarding_state = OnboardingState.AWAITING_SUBSCRIPTION
     await db.commit()
 
+    posthog.capture(str(user.id), "onboarding_awaiting_subscription", {"whoop_connected": whoop_connected})
+
     await _send_multi(chat_id, user.id, [
         ack,
         "i have everything i need to build your plan 💪",
         "first 7 days are on me — free trial, no charge upfront",
         f"start here and i'll send your plan straight here 👇\n{payment_link}",
     ], db)
-
 
 async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Accept plan feedback.
@@ -567,6 +571,7 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
     # User is happy — move to DONE (already subscribed at this point)
     user.onboarding_state = OnboardingState.DONE
     await db.commit()
+    posthog.capture(str(user.id), "onboarding_completed")
     from app.services.token import create_plan_token
     base_url = settings.PUBLIC_BASE_URL.rstrip('/')
     token = create_plan_token(user.phone)
@@ -638,6 +643,8 @@ async def _deliver_plan_after_subscription(user: User, chat_id: str, db: AsyncSe
         user.onboarding_state = OnboardingState.PLAN_REVIEW
         user.onboarding_complete = True
         await db.commit()
+
+        posthog.capture(str(user.id), "onboarding_plan_built")
 
         await _send_multi(chat_id, user.id, [
             plan_url,

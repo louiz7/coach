@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
+import posthog
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
@@ -13,10 +14,13 @@ BASE_DIR = Path(__file__).resolve().parent
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startuphow 
+    # Startup
     print("Starting up...")
+    posthog.api_key = settings.POSTHOG_PROJECT_TOKEN
+    posthog.host = settings.POSTHOG_HOST
     yield
     # Shutdown
+    posthog.flush()
     from app.redis import redis_pool
     await redis_pool.close()
     print("Shut down.")
@@ -182,6 +186,11 @@ async def plan_view(request: Request) -> HTMLResponse:
                 ctx["plan_data"] = {**pj, "days": enriched_days}
                 ctx["generated_at"] = plan.created_at.strftime("%b %d, %Y") if plan.created_at else None
                 ctx["plan_id"] = str(plan.id)
+                posthog.capture(
+                    str(user.id),
+                    "training_plan_viewed",
+                    {"plan_id": str(plan.id), "training_days": len(training_days)},
+                )
     except Exception as e:
         ctx["error"] = str(e)
     return templates.TemplateResponse(request, "plan.html", ctx)
@@ -317,6 +326,12 @@ async def plan_update(request: Request):
                     break  # one representative entry per exercise per session
 
         await db.commit()
+
+        posthog.capture(
+            str(user.id),
+            "training_plan_edited",
+            {"plan_id": str(plan.id)},
+        )
 
         return {"ok": True, "plan_id": str(plan.id)}
 

@@ -11,6 +11,7 @@ import json
 from typing import Optional
 
 import httpx
+import posthog
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -365,6 +366,16 @@ async def generate_plan(
     db.add(plan)
     await db.commit()
     await db.refresh(plan)
+
+    posthog.capture(
+        str(user.id),
+        "training_plan_generated",
+        {
+            "is_modification": is_modification,
+            "training_days": len(plan_data.get("days", [])),
+        },
+    )
+
     return plan
 
 

@@ -1,4 +1,5 @@
 import stripe
+import posthog
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -156,6 +157,8 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     user.onboarding_state = OnboardingState.DONE
                 await db.commit()
 
+                posthog.capture(str(user.id), "subscription_activated")
+
                 # If user was waiting for subscription to get their plan, deliver it now
                 if was_awaiting and user.linq_chat_id:
                     from app.services.onboarding_chat import _deliver_plan_after_subscription
@@ -243,6 +246,8 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 from datetime import datetime
                 sub.current_period_end = datetime.utcfromtimestamp(data["current_period_end"])
             await db.commit()
+            if event["type"] == "customer.subscription.deleted":
+                posthog.capture(str(sub.user_id), "subscription_cancelled")
 
     elif event["type"] == "invoice.payment_failed":
         sub_id = data.get("subscription")
@@ -256,5 +261,6 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             if sub:
                 sub.status = "past_due"
                 await db.commit()
+                posthog.capture(str(sub.user_id), "payment_failed")
 
     return {"ok": True}

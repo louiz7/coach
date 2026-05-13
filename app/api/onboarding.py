@@ -1,4 +1,5 @@
 import stripe
+import posthog
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -122,6 +123,16 @@ async def form_submit(
     await db.commit()
     await db.refresh(user)
 
+    posthog.capture(
+        str(user.id),
+        "onboarding_form_submitted",
+        {
+            "has_goal": bool(data.goal),
+            "has_coach_style": bool(data.coach_style),
+            "has_coach_intensity": bool(data.coach_intensity),
+        },
+    )
+
     return TokenFormResponse(
         status="success",
         message="Profile saved!",
@@ -184,6 +195,8 @@ async def create_checkout_session(
             "metadata": {"user_id": str(user.id), "phone": user.phone},
         },
     )
+
+    posthog.capture(str(user.id), "checkout_session_created")
 
     return {"checkout_url": session.url}
 

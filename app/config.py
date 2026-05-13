@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     BETA_MODE: bool = True
     BETA_CODE: str = "kano2026!"
     WHATSAPP_COMMUNITY_URL: str = "https://chat.whatsapp.com/LIOlg1tHtq07Vkebqazr6u?mode=hqctcli"
+    # PostHog
+    POSTHOG_PROJECT_TOKEN: str = ""
+    POSTHOG_HOST: str = "https://eu.i.posthog.com"
 
     class Config:
         env_file = ".env"

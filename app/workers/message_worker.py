@@ -1,5 +1,6 @@
 import asyncio
 import random
+import posthog
 from sqlalchemy import select
 from app.database import async_session
 from app.models.user import User
@@ -93,6 +94,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             await _send_inform_intro(chat_id, user.id, db)
             await linq.share_contact_card(chat_id)
             print(f"[message_worker] new user created, intro sent chat_id={chat_id}")
+            posthog.capture(str(user.id), "user_created", {"channel": "imessage"})
             return
 
         # --- ONBOARDING STATE MACHINE ---
@@ -147,6 +149,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
         # Save inbound message
         await add_message(user.id, "user", text, db)
+        posthog.capture(str(user.id), "message_received", {"message_length": len(text)})
 
         # Mark as read
         await linq.mark_as_read(chat_id)
