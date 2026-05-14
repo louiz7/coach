@@ -45,6 +45,137 @@ _LEGACY_STATES = {
 }
 
 
+# ─── Bilingual strings ───────────────────────────────────────────────────────
+
+_STRINGS: dict[str, dict] = {
+    "en": {
+        "inform_intro": [
+            "I'm your AI personal trainer, right here in iMessage",
+            "before we get into it: what's your name?",
+        ],
+        "inform_name_question": "what's your name?",
+        "inform_just_name": "just your first name is fine 🙂",
+        "inform_greeting": [
+            "nice to meet you {name}!",
+            "I can build your workout plan, check in daily to keep you on track, and hook up your wearables for data-driven coaching.",
+            "so you actually hit your goals",
+            "Speaking of goals, what are your fitness goals? running a 5k? building muscle? losing weight? throw everything at me",
+        ],
+        "goal_sidebar_q": "what are your fitness goals? build muscle? lose weight? run a 5k? throw everything at me 🎯",
+        "goal_reask": "could be anything — build muscle, run a 5k, lose weight, get stronger. what do you want to work towards? 🎯",
+        "status_prompt": [
+            "got it. how does your current training look like?",
+            "how many days a week, what do you do and when",
+            "give me the honest version",
+        ],
+        "status_sidebar_q": "how does your current training look? how many days a week, what do you do — give me the honest version",
+        "status_reask": "just a quick picture of your week like 'I train 3x, mostly lifting, sometimes I run'",
+        "constraints_prompt": [
+            "what should I keep in mind when coaching you and creating your plan?",
+            "injuries, busy weeks/days, exercises you hate, multiple disciplines (e.g. running + gym) – anything goes",
+        ],
+        "constraints_sidebar_q": "what should I keep in mind when coaching you? injuries, busy days, exercises you hate, anything goes",
+        "whoop_prompt": [
+            "got it. last thing before I build your plan",
+            "if you connect me with your WHOOP you can skip most of this + get data-driven coaching (more wearables coming soon)\n{whoop_url}",
+            "no WHOOP? just reply with your age, weight and gender",
+        ],
+        "basics_sidebar_q": "just send your age, weight and gender — like: 24, 78 kg, male",
+        "basics_reask": "just send your age, weight and gender — like: 24, 78 kg, male",
+        "plan_ack": "ty, got your data",
+        "plan_ack_whoop": "ty, got your WHOOP data",
+        "plan_pitch": [
+            "i have everything i need to build your plan 💪",
+            "first 7 days are on me — free trial, no charge upfront",
+            "start here and i'll send your plan straight here 👇\n{payment_link}",
+        ],
+        "sub_reminder": [
+            "you just need to start your free trial to get your plan — it only takes 30 seconds 🙌",
+            "{payment_link}",
+        ],
+        "plan_building": "building your plan now… 💪",
+        "plan_review_prompt": "want to change anything or does this work for you?",
+        "plan_regen_ack": "on it — rebuilding your plan now ⚙️",
+        "plan_regen_done": "updated 💪",
+        "plan_regen_fail": "hmm, had trouble rebuilding — you can text me changes anytime and I'll fix it 🔄",
+        "plan_fail": "had a small hiccup building your plan — just text me 'build my plan' and i'll get it sorted 🔄",
+        "done": [
+            "perfect, let's get to work 🫡 text me anytime",
+            "you can also add your workouts to Apple Calendar 📅",
+        ],
+        "sports_backfill_q": "which sports or activities are you focused on improving? (e.g. running, climbing, lifting)",
+        "sports_backfill_done": "got it 💪 just text me whenever you need anything.",
+        "sidebar_lang_instruction": "Answer in English.",
+    },
+    "de": {
+        "inform_intro": [
+            "Ich bin dein KI-Personal Trainer – direkt in iMessage",
+            "bevor wir loslegen: wie heißt du?",
+        ],
+        "inform_name_question": "wie heißt du?",
+        "inform_just_name": "einfach dein Vorname reicht 🙂",
+        "inform_greeting": [
+            "nice to meet you {name}!",
+            "ich kann dir deinen Trainingsplan erstellen, täglich einchecken und deine Wearables verbinden für datengestütztes Coaching.",
+            "damit du deine Ziele wirklich erreichst",
+            "apropos Ziele — was sind deine Fitnessziele? einen 5k laufen? Muskeln aufbauen? Gewicht verlieren? alles raus damit",
+        ],
+        "goal_sidebar_q": "was sind deine Fitnessziele? Muskeln aufbauen? abnehmen? 5k laufen? alles raus damit 🎯",
+        "goal_reask": "kann alles sein — Muskeln aufbauen, 5k laufen, abnehmen, stärker werden. was willst du erreichen? 🎯",
+        "status_prompt": [
+            "alles klar. wie sieht dein aktuelles Training aus?",
+            "wie viele Tage pro Woche, was machst du und wann",
+            "die ehrliche Version bitte",
+        ],
+        "status_sidebar_q": "wie sieht dein aktuelles Training aus? wie viele Tage pro Woche, was machst du — die ehrliche Version",
+        "status_reask": "kurz reicht — z.B. 'ich trainiere 3x, meistens Kraftsport, manchmal laufen'",
+        "constraints_prompt": [
+            "was soll ich beim Coaching und bei deinem Plan beachten?",
+            "Verletzungen, stressige Wochen/Tage, Übungen die du hasst, mehrere Sportarten (z.B. Laufen + Gym) – alles erlaubt",
+        ],
+        "constraints_sidebar_q": "was soll ich beim Coaching beachten? Verletzungen, stressige Tage, Übungen die du hasst, alles erlaubt",
+        "whoop_prompt": [
+            "alles klar. noch eine Sache bevor ich deinen Plan erstelle",
+            "wenn du deinen WHOOP verbindest kannst du das hier überspringen + bekommst datengestütztes Coaching (weitere Wearables folgen)\n{whoop_url}",
+            "kein WHOOP? schick mir einfach dein Alter, Gewicht und Geschlecht",
+        ],
+        "basics_sidebar_q": "schick mir Alter, Gewicht und Geschlecht — z.B.: 24, 78 kg, männlich",
+        "basics_reask": "schick mir Alter, Gewicht und Geschlecht — z.B.: 24, 78 kg, männlich",
+        "plan_ack": "danke, hab deine Daten",
+        "plan_ack_whoop": "danke, hab deine WHOOP-Daten",
+        "plan_pitch": [
+            "ich hab alles was ich brauche um deinen Plan zu erstellen 💪",
+            "die ersten 7 Tage sind kostenlos — keine Kosten im Voraus",
+            "starte hier und ich schick dir deinen Plan direkt hierher 👇\n{payment_link}",
+        ],
+        "sub_reminder": [
+            "du musst nur deine kostenlose Testphase starten um deinen Plan zu bekommen — dauert nur 30 Sekunden 🙌",
+            "{payment_link}",
+        ],
+        "plan_building": "ich erstelle deinen Plan… 💪",
+        "plan_review_prompt": "möchtest du etwas ändern oder passt das so für dich?",
+        "plan_regen_ack": "alles klar — ich erstelle deinen Plan neu ⚙️",
+        "plan_regen_done": "fertig 💪",
+        "plan_regen_fail": "hmm, hatte Probleme beim Neuerstellen — schreib mir einfach Änderungen und ich fixe es 🔄",
+        "plan_fail": "kleiner Fehler beim Erstellen — schreib mir einfach 'bau meinen Plan' und ich kümmer mich drum 🔄",
+        "done": [
+            "perfekt, lass uns loslegen 🫡 schreib mir jederzeit",
+            "du kannst dein Training auch zu Apple Kalender hinzufügen 📅",
+        ],
+        "sports_backfill_q": "auf welche Sportarten oder Aktivitäten möchtest du dich konzentrieren? (z.B. Laufen, Klettern, Kraftsport)",
+        "sports_backfill_done": "alles klar 💪 schreib mir jederzeit.",
+        "sidebar_lang_instruction": "Antworte auf Deutsch.",
+    },
+}
+
+
+def _t(user, key: str):
+    """Return the string(s) for the given key in the user's language."""
+    lang = (getattr(user, "language", None) or "en")
+    bucket = _STRINGS.get(lang, _STRINGS["en"])
+    return bucket.get(key, _STRINGS["en"].get(key, ""))
+
+
 # ─── LLM extraction helper ────────────────────────────────────────────────────
 
 _EXTRACT_PROMPTS: dict[str, str] = {
@@ -127,6 +258,7 @@ Return JSON:
 
 is_sidebar=true examples: questions about privacy/data storage, how the app works, pricing, what WHOOP is, etc.
 is_sidebar=false examples: actually answering the question you asked, even briefly.
+{lang_instruction}
 """
 
 
@@ -149,6 +281,7 @@ async def _sidebar_check(
         prompt = _SIDEBAR_PROMPT.format(
             pending_question=pending_question,
             user_message=text or "",
+            lang_instruction=_t(user, "sidebar_lang_instruction"),
         )
         resp = await client.chat.completions.create(
             model="gpt-4o-mini",
@@ -238,12 +371,13 @@ async def handle(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
 
 # ─── Initial intro (called by message_worker for brand-new users) ─────────────
 
-async def _send_inform_intro(chat_id: str, user_id, db: AsyncSession) -> None:
+async def _send_inform_intro(chat_id: str, user_id, db: AsyncSession, user=None) -> None:
     """Send the Kano intro and ask for the user's name."""
-    await _send_multi(chat_id, user_id, [
-        "I'm your AI personal trainer, right here in iMessage",
-        "before we get into it: what's your name?",
-    ], db, delay=1.0)
+    # user may be None for brand-new users; fall back to English
+    class _FallbackUser:
+        language = "en"
+    _u = user or _FallbackUser()
+    await _send_multi(chat_id, user_id, _t(_u, "inform_intro"), db, delay=1.0)
 
 
 # ─── State handlers ───────────────────────────────────────────────────────────
@@ -253,7 +387,7 @@ async def _restart_inform(user: User, chat_id: str, db: AsyncSession) -> None:
     user.onboarding_state = OnboardingState.INFORM
     user.name = "Unbekannt"
     await db.commit()
-    await _send_inform_intro(chat_id, user.id, db)
+    await _send_inform_intro(chat_id, user.id, db, user=user)
 
 
 async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
@@ -268,41 +402,34 @@ async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) 
 
     if not raw:
         if not name_already_set:
-            await _send_inform_intro(chat_id, user.id, db)
+            await _send_inform_intro(chat_id, user.id, db, user=user)
         else:
-            await _send(chat_id, user.id, "what's your name?", db)
+            await _send(chat_id, user.id, _t(user, "inform_name_question"), db)
         return
 
     data = await _llm_extract("name", raw)
     extracted = (data or {}).get("name") if (data or {}).get("valid") else None
 
     if not extracted:
-        # No name found — if user has never identified themselves, this is
-        # effectively a first-touch message ("whats kano?", "hi", etc.).
-        # Send the intro so they get a proper greeting.
         if not name_already_set:
-            await _send_inform_intro(chat_id, user.id, db)
+            await _send_inform_intro(chat_id, user.id, db, user=user)
         else:
-            await _send(chat_id, user.id, "just your first name is fine 🙂", db)
+            await _send(chat_id, user.id, _t(user, "inform_just_name"), db)
         return
 
     user.name = extracted.strip().capitalize()
     user.onboarding_state = OnboardingState.CAPTURE_GOAL
     await db.commit()
 
-    await _send_multi(chat_id, user.id, [
-        f"nice to meet you {user.name}!",
-        "I can build your workout plan, check in daily to keep you on track, and hook up your wearables for data-driven coaching.",
-        "so you actually hit your goals",
-        "Speaking of goals, what are your fitness goals? running a 5k? building muscle? losing weight? throw everything at me",
-    ], db)
+    msgs = [m.format(name=user.name) if "{name}" in m else m for m in _t(user, "inform_greeting")]
+    await _send_multi(chat_id, user.id, msgs, db)
 
 
 async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Extract fitness goal and sports focus from free text."""
     if await _sidebar_check(
         user, chat_id, text,
-        "what are your fitness goals? build muscle? lose weight? run a 5k? throw everything at me 🎯",
+        _t(user, "goal_sidebar_q"),
         db,
     ):
         return
@@ -312,15 +439,10 @@ async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSes
     if not data or not data.get("valid"):
         reasks = await _reask_count(user.id, OnboardingState.CAPTURE_GOAL)
         if reasks >= 1:
-            # Accept whatever was said and move on
             user.goal = (text or "").strip()[:2000] or "general fitness"
         else:
             await _inc_reask(user.id, OnboardingState.CAPTURE_GOAL)
-            await _send(
-                chat_id, user.id,
-                "could be anything — build muscle, run a 5k, lose weight, get stronger. what do you want to work towards? 🎯",
-                db,
-            )
+            await _send(chat_id, user.id, _t(user, "goal_reask"), db)
             return
     else:
         user.goal = (data.get("goal") or (text or "").strip())[:2000]
@@ -332,18 +454,14 @@ async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSes
 
     posthog.capture("onboarding_goal_captured", distinct_id=str(user.id), properties={"has_sports_focus": bool(user.sports_focus)})
 
-    await _send_multi(chat_id, user.id, [
-        "got it. how does your current training look like?",
-        "how many days a week, what do you do and when",
-        "give me the honest version"
-    ], db)
+    await _send_multi(chat_id, user.id, _t(user, "status_prompt"), db)
 
 
 async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Extract current training frequency and schedule from free text."""
     if await _sidebar_check(
         user, chat_id, text,
-        "how does your current training look? how many days a week, what do you do — give me the honest version",
+        _t(user, "status_sidebar_q"),
         db,
     ):
         return
@@ -357,11 +475,7 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
             user.current_schedule_notes = (text or "").strip()[:3000]
         else:
             await _inc_reask(user.id, OnboardingState.STATUS_QUO)
-            await _send(
-                chat_id, user.id,
-                "just a quick picture of your week like 'I train 3x, mostly lifting, sometimes I run'",
-                db,
-            )
+            await _send(chat_id, user.id, _t(user, "status_reask"), db)
             return
     else:
         user.training_frequency = int(data.get("training_frequency") or 0)
@@ -372,17 +486,14 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
     user.onboarding_state = OnboardingState.CONSTRAINTS
     await db.commit()
 
-    await _send_multi(chat_id, user.id, [
-        "what should I keep in mind when coaching you and creating your plan?",
-        "injuries, busy weeks/days, exercises you hate, multiple disciplines (e.g. running + gym) – anything goes",
-    ], db)
+    await _send_multi(chat_id, user.id, _t(user, "constraints_prompt"), db)
 
 
 async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Extract injuries, equipment and other constraints from free text."""
     if await _sidebar_check(
         user, chat_id, text,
-        "what should I keep in mind when coaching you? injuries, busy days, exercises you hate, anything goes",
+        _t(user, "constraints_sidebar_q"),
         db,
     ):
         return
@@ -418,18 +529,15 @@ async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSess
     base_url = settings.PUBLIC_BASE_URL.rstrip('/')
     whoop_url = f"{base_url}/whoop/connect?token={token}"
 
-    await _send_multi(chat_id, user.id, [
-        "got it. last thing before I build your plan",
-        f"if you connect me with your WHOOP you can skip most of this + get data-driven coaching (more wearables coming soon)\n{whoop_url}",
-        "no WHOOP? just reply with your age, weight and gender",
-    ], db)
+    whoop_msgs = [m.format(whoop_url=whoop_url) if "{whoop_url}" in m else m for m in _t(user, "whoop_prompt")]
+    await _send_multi(chat_id, user.id, whoop_msgs, db)
 
 
 async def _handle_whoop_or_basics(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Parse manual age / weight / gender basics, then build the plan."""
     if await _sidebar_check(
         user, chat_id, text,
-        "just send your age, weight and gender — like: 24, 78 kg, male",
+        _t(user, "basics_sidebar_q"),
         db,
     ):
         return
@@ -439,15 +547,10 @@ async def _handle_whoop_or_basics(user: User, chat_id: str, text: str, db: Async
     if not data or not data.get("valid"):
         reasks = await _reask_count(user.id, OnboardingState.WHOOP_OR_BASICS)
         if reasks >= 1:
-            # Accept partial / empty and move on
             pass
         else:
             await _inc_reask(user.id, OnboardingState.WHOOP_OR_BASICS)
-            await _send(
-                chat_id, user.id,
-                "just send your age, weight and gender — like: 24, 78 kg, male",
-                db,
-            )
+            await _send(chat_id, user.id, _t(user, "basics_reask"), db)
             return
     else:
         if data.get("age") is not None:
@@ -489,19 +592,15 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, wh
         print(f"[_build_plan_and_advance] Stripe session creation failed: {_e}, falling back to static link")
         payment_link = settings.STRIPE_PAYMENT_LINK
 
-    ack = "ty, got your WHOOP data" if whoop_connected else "ty, got your data"
+    ack = _t(user, "plan_ack_whoop") if whoop_connected else _t(user, "plan_ack")
 
     user.onboarding_state = OnboardingState.AWAITING_SUBSCRIPTION
     await db.commit()
 
     posthog.capture("onboarding_awaiting_subscription", distinct_id=str(user.id), properties={"whoop_connected": whoop_connected})
 
-    await _send_multi(chat_id, user.id, [
-        ack,
-        "i have everything i need to build your plan 💪",
-        "first 7 days are on me — free trial, no charge upfront",
-        f"start here and i'll send your plan straight here 👇\n{payment_link}",
-    ], db)
+    pitch_msgs = [m.format(payment_link=payment_link) if "{payment_link}" in m else m for m in _t(user, "plan_pitch")]
+    await _send_multi(chat_id, user.id, [ack] + pitch_msgs, db)
 
 async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Accept plan feedback.
@@ -549,7 +648,7 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
         wants_change = any(h in t for h in _MODIFY_HINTS)
 
     if wants_change:
-        await _send(chat_id, user.id, "on it — rebuilding your plan now ⚙️", db)
+        await _send(chat_id, user.id, _t(user, "plan_regen_ack"), db)
         try:
             from app.services.training_plan import generate_plan
             from app.services.token import create_plan_token
@@ -557,14 +656,10 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
             token = create_plan_token(user.phone)
             base_url = settings.PUBLIC_BASE_URL.rstrip('/')
             plan_url = f"{base_url}/plan?token={token}"
-            await _send_multi(chat_id, user.id, ["updated 💪", plan_url], db)
+            await _send_multi(chat_id, user.id, [_t(user, "plan_regen_done"), plan_url], db)
         except Exception as ex:
             print(f"[_handle_plan_review] regen error: {ex}")
-            await _send(
-                chat_id, user.id,
-                "hmm, had trouble rebuilding — you can text me changes anytime and I'll fix it 🔄",
-                db,
-            )
+            await _send(chat_id, user.id, _t(user, "plan_regen_fail"), db)
         # Stay in PLAN_REVIEW so user can confirm the updated plan
         return
 
@@ -576,11 +671,7 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
     base_url = settings.PUBLIC_BASE_URL.rstrip('/')
     token = create_plan_token(user.phone)
     cal_url = f"{base_url}/calendar/{token}"
-    await _send_multi(chat_id, user.id, [
-        "perfect, let's get to work 🫡 text me anytime",
-        "you can also add your workouts to Apple Calendar 📅",
-        cal_url,
-    ], db)
+    await _send_multi(chat_id, user.id, _t(user, "done") + [cal_url], db)
 
 
 async def _challenge_pitch(user: User, chat_id: str, db: AsyncSession) -> None:
@@ -618,10 +709,8 @@ async def _handle_awaiting_subscription(user: User, chat_id: str, text: str, db:
             payment_link = session.url
         except Exception:
             payment_link = settings.STRIPE_PAYMENT_LINK
-        await _send_multi(chat_id, user.id, [
-            "you just need to start your free trial to get your plan — it only takes 30 seconds 🙌",
-            f"{payment_link}",
-        ], db)
+        reminder_msgs = [m.format(payment_link=payment_link) if "{payment_link}" in m else m for m in _t(user, "sub_reminder")]
+        await _send_multi(chat_id, user.id, reminder_msgs, db)
         return
 
     # Subscribed — generate the plan now
@@ -633,7 +722,7 @@ async def _deliver_plan_after_subscription(user: User, chat_id: str, db: AsyncSe
     from app.services.training_plan import generate_plan
     from app.services.token import create_plan_token
 
-    await _send(chat_id, user.id, "building your plan now… 💪", db)
+    await _send(chat_id, user.id, _t(user, "plan_building"), db)
     try:
         await generate_plan(user, db)
         token = create_plan_token(user.phone)
@@ -648,18 +737,14 @@ async def _deliver_plan_after_subscription(user: User, chat_id: str, db: AsyncSe
 
         await _send_multi(chat_id, user.id, [
             plan_url,
-            "want to change anything or does this work for you?",
+            _t(user, "plan_review_prompt"),
         ], db)
     except Exception as ex:
         print(f"[onboarding _deliver_plan_after_subscription] ERROR: {ex}")
         user.onboarding_state = OnboardingState.DONE
         user.onboarding_complete = True
         await db.commit()
-        await _send(
-            chat_id, user.id,
-            "had a small hiccup building your plan — just text me 'build my plan' and i'll get it sorted 🔄",
-            db,
-        )
+        await _send(chat_id, user.id, _t(user, "plan_fail"), db)
 
 
 async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
@@ -670,14 +755,10 @@ async def _handle_challenge(user: User, chat_id: str, text: str, db: AsyncSessio
 async def _handle_sports_focus_backfill(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     cleaned = (text or "").strip()
     if not cleaned:
-        await _send(
-            chat_id, user.id,
-            "which sports or activities are you focused on improving? (e.g. running, climbing, lifting)",
-            db,
-        )
+        await _send(chat_id, user.id, _t(user, "sports_backfill_q"), db)
         return
     user.sports_focus = cleaned[:2000]
     user.onboarding_state = OnboardingState.DONE
     user.onboarding_complete = True
     await db.commit()
-    await _send(chat_id, user.id, "got it 💪 just text me whenever you need anything.", db)
+    await _send(chat_id, user.id, _t(user, "sports_backfill_done"), db)

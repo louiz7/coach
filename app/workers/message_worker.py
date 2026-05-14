@@ -64,6 +64,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
         # --- NEW KANO USER — any message starts the new onboarding ---
         if not user:
+            _lang = "de" if (phone or "").startswith("+49") else "en"
             user = User(
                 linq_chat_id=chat_id,
                 phone=phone or chat_id,
@@ -73,6 +74,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
                 onboarding_state=OnboardingState.INFORM,
                 onboarding_complete=False,
                 is_active=True,
+                language=_lang,
             )
             db.add(user)
             await db.commit()
@@ -80,6 +82,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
             from app.services.onboarding_chat import _send_inform_intro
             from app.config import settings as _cfg
+            await db.refresh(user)  # ensure language is loaded
             if _cfg.LINQ_PHONE_NUMBER:
                 try:
                     name_parts = _cfg.LINQ_CONTACT_NAME.split(" ", 1)
@@ -91,7 +94,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
                     )
                 except Exception:
                     pass
-            await _send_inform_intro(chat_id, user.id, db)
+            await _send_inform_intro(chat_id, user.id, db, user=user)
             await linq.share_contact_card(chat_id)
             print(f"[message_worker] new user created, intro sent chat_id={chat_id}")
             posthog.capture("user_created", distinct_id=str(user.id), properties={"channel": "imessage"})
