@@ -14,7 +14,7 @@ _MORNING_HOUR_START = 8    # 08:00 local
 _MORNING_HOUR_END   = 12   # catch-up allowed until 12:59 local
 
 # Window for evening check-in (local time).
-_EVENING_HOUR_START = 20   # 20:00 local
+_EVENING_HOUR_START = 19   # 19:00 local (widened for deploy resilience)
 _EVENING_HOUR_END   = 23   # catch-up allowed until 23:59 local
 
 
@@ -606,12 +606,19 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
         return
 
     if user.linq_chat_id:
-        await linq_svc.send_message(user.linq_chat_id, message)
+        try:
+            await linq_svc.send_message(user.linq_chat_id, message)
+            print(f"[evening_checkin] sent to {user.name} (training_day={is_training_day}, logged={has_log})")
+        except Exception as send_err:
+            print(f"[evening_checkin] SEND FAILED for {user.name}: {send_err}")
+            return  # do NOT set dedup so we retry next cron tick
         try:
             await add_message(user.id, "assistant", message, db)
         except Exception:
             pass
-        print(f"[evening_checkin] sent to {user.name} (training_day={is_training_day}, logged={has_log})")
+    else:
+        print(f"[evening_checkin] {user.name} has no linq_chat_id, skipping")
+        return
 
     await redis_pool.set(dedup_key, "1", ex=86400)
 
