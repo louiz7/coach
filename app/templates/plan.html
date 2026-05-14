@@ -231,11 +231,10 @@
       .detail-card {
         display: flex;
         flex-direction: column;
-        align-items: center;
-        gap: 16px;
+        gap: 14px;
         width: 100%;
         max-width: 350px;
-        padding: 16px;
+        padding: 18px 18px 20px;
         background: #fff;
         border-radius: 24px;
       }
@@ -246,131 +245,62 @@
         font-weight: 600;
         font-size: 18px;
         line-height: 1.4;
-        text-align: center;
+        text-align: left;
         color: #000;
       }
 
-      /* The set log table: SET | PREVIOUS | KG | REPS | done */
-      .set-table {
+      /* Stat grid: 3 columns — Sets · Reps · Rest (RPE on a second row if present) */
+      .ex-stats {
         display: grid;
-        grid-template-columns: 22px minmax(60px, 1fr) 48px 44px 22px;
-        column-gap: 8px;
-        row-gap: 14px;
-        align-items: center;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
         width: 100%;
-        font-family: "Inter", sans-serif;
-        font-size: 14px;
-        line-height: 1.4;
-        text-align: center;
       }
-      .set-table__head {
-        color: rgba(0, 0, 0, 0.5);
-        font-weight: 400;
-      }
-      .set-table__head--check {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: rgba(0, 0, 0, 0.35);
-      }
-      .set-table__head--check svg {
-        width: 15px;
-        height: 15px;
-      }
-      .set-table__set {
-        color: #000;
-        font-weight: 400;
-      }
-      .set-table__prev {
-        color: rgba(0, 0, 0, 0.5);
-        font-weight: 500;
-        white-space: nowrap;
-      }
-      .set-table__input {
-        width: 100%;
-        min-width: 0;
-        padding: 3px 2px;
-        border: none;
-        background: transparent;
-        font: inherit;
-        font-weight: 500;
-        color: #000;
-        text-align: center;
-        border-radius: 6px;
-      }
-      .set-table__input::placeholder {
-        color: rgba(0, 0, 0, 0.3);
-        font-weight: 400;
-      }
-      .set-table__input:focus {
-        outline: none;
-        background: rgba(80, 219, 255, 0.22);
-      }
-      .set-check {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 20px;
-        height: 20px;
-        padding: 0;
-        border: 1px solid rgba(0, 0, 0, 0.15);
-        border-radius: 6px;
-        background: #eef0f1;
-        cursor: pointer;
-        color: rgba(0, 0, 0, 0.25);
-      }
-      .set-check svg {
-        width: 12px;
-        height: 12px;
-      }
-      .set-check.checked {
-        background: #34c759;
-        border-color: #34c759;
-        color: #fff;
-      }
-
-      .add-set-btn {
+      .ex-stat {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 8px;
-        width: 100%;
-        height: 32px;
-        border: none;
-        border-radius: 8px;
-        background: rgba(80, 219, 255, 0.5);
-        cursor: pointer;
+        gap: 4px;
+        padding: 10px 6px;
+        background: #f5f7f8;
+        border-radius: 12px;
+      }
+      .ex-stat__label {
         font-family: "Inter", sans-serif;
         font-weight: 500;
-        font-size: 14px;
-        line-height: 1.4;
-        color: #000;
+        font-size: 11px;
+        line-height: 1;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: rgba(0, 0, 0, 0.5);
       }
-      .add-set-btn:hover {
-        background: rgba(80, 219, 255, 0.72);
-      }
-      .add-set-btn svg {
-        width: 12px;
-        height: 12px;
-      }
-
-      .finish-btn {
-        width: 280px;
-        max-width: 100%;
-        padding: 16px 20px;
-        border: 1px solid #1174cb;
-        border-radius: 10px;
-        background: #0057c3;
-        box-shadow: inset 0 0 3px 0 rgba(255, 255, 255, 0.9);
-        cursor: pointer;
+      .ex-stat__value {
         font-family: "Inter", sans-serif;
         font-weight: 600;
-        font-size: 16px;
-        line-height: 1;
-        color: #fff;
+        font-size: 17px;
+        line-height: 1.1;
+        color: #000;
       }
-      .finish-btn:hover {
-        background: #0050b5;
+      .ex-rpe {
+        align-self: flex-start;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(80, 219, 255, 0.28);
+        font-family: "Inter", sans-serif;
+        font-weight: 600;
+        font-size: 12px;
+        color: #02486a;
+      }
+      .ex-notes {
+        margin: 0;
+        font-family: "Inter", sans-serif;
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 1.45;
+        color: rgba(0, 0, 0, 0.7);
       }
 
       /* "text Kano" footnote (shared) */
@@ -565,33 +495,31 @@
               {% for ex in day.exercises %}
                 <article class="detail-card">
                   <p class="detail-card__name">{{ ex.name }}</p>
-                  <div class="set-table" data-set-table>
-                    <span class="set-table__head">SET</span>
-                    <span class="set-table__head">PREVIOUS</span>
-                    <span class="set-table__head">KG</span>
-                    <span class="set-table__head">REPS</span>
-                    <span class="set-table__head set-table__head--check" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </span>
-                    {% for i in range((ex.sets or 3) | int) %}
-                      {% set ls = ex.logged_sets[i] if ex.logged_sets and i < ex.logged_sets | length else None %}
-                      <span class="set-table__set">{{ i + 1 }}</span>
-                      <span class="set-table__prev">{{ ex.previous_performance if (i == 0 and ex.previous_performance) else '—' }}</span>
-                      <input class="set-table__input" type="text" inputmode="decimal" placeholder="0" value="{{ ls.weight or '' }}" aria-label="Weight in kg for set {{ i + 1 }}" />
-                      <input class="set-table__input" type="text" inputmode="numeric" placeholder="0" value="{{ ls.reps or '' }}" aria-label="Reps for set {{ i + 1 }}" />
-                      <button type="button" class="set-check{% if ls and ls.done %} checked{% endif %}" aria-label="Mark set {{ i + 1 }} done">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                      </button>
-                    {% endfor %}
+                  <div class="ex-stats">
+                    <div class="ex-stat">
+                      <span class="ex-stat__label">Sets</span>
+                      <span class="ex-stat__value">{{ ex.sets if ex.sets is not none else '—' }}</span>
+                    </div>
+                    <div class="ex-stat">
+                      <span class="ex-stat__label">Reps</span>
+                      <span class="ex-stat__value">{{ ex.reps if ex.reps is not none else '—' }}</span>
+                    </div>
+                    <div class="ex-stat">
+                      <span class="ex-stat__label">Rest</span>
+                      <span class="ex-stat__value">
+                        {% if ex.rest_seconds %}{{ ex.rest_seconds }}s{% else %}—{% endif %}
+                      </span>
+                    </div>
                   </div>
-                  <button type="button" class="add-set-btn" data-add-set>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    add set
-                  </button>
+                  {% if ex.rpe %}
+                    <span class="ex-rpe">RPE {{ ex.rpe }}</span>
+                  {% endif %}
+                  {% if ex.notes %}
+                    <p class="ex-notes">{{ ex.notes }}</p>
+                  {% endif %}
                 </article>
               {% endfor %}
 
-              <button type="button" class="finish-btn" data-back>Finish workout</button>
               <p class="plan-text-kano">Questions or need to tweak something? Just text Kano :)</p>
             </div>
           {% endfor %}
@@ -645,15 +573,7 @@
         if (!overview) return; // error / empty state — nothing interactive
         var details = Array.prototype.slice.call(body.querySelectorAll('.workout-detail'));
 
-        var CHECK_SVG =
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-
-        // ── Plan data (injected by Jinja) ────────────────────────────────
-        var PLAN_DATA = {{ plan_data | tojson }};
-        var PLAN_ID   = "{{ plan_id }}";
-        var TOKEN     = "{{ token }}";
-
-        // ── Helpers ──────────────────────────────────────────────────────
+        var TOKEN = "{{ token }}";
 
         function dayIndexFromHash() {
           var m = (location.hash || '').match(/^#day-(\d+)$/);
@@ -674,64 +594,6 @@
           window.scrollTo(0, 0);
         }
 
-        /** Collect per-set logged data from a detail section and update PLAN_DATA in-place. */
-        function serializeWorkout(dayIdx) {
-          var detailEl = null;
-          for (var i = 0; i < details.length; i++) {
-            if (details[i].getAttribute('data-day-index') === String(dayIdx)) {
-              detailEl = details[i];
-              break;
-            }
-          }
-          if (!detailEl) return;
-
-          var cards = Array.prototype.slice.call(detailEl.querySelectorAll('.detail-card'));
-          var day = PLAN_DATA.days[dayIdx];
-          if (!day) return;
-
-          cards.forEach(function (card, exIdx) {
-            var table = card.querySelector('[data-set-table]');
-            if (!table) return;
-
-            var weights  = Array.prototype.slice.call(table.querySelectorAll('input[inputmode="decimal"]'));
-            var repsEls  = Array.prototype.slice.call(table.querySelectorAll('input[inputmode="numeric"]'));
-            var checks   = Array.prototype.slice.call(table.querySelectorAll('.set-check'));
-
-            var loggedSets = [];
-            for (var s = 0; s < checks.length; s++) {
-              loggedSets.push({
-                weight: (weights[s] && weights[s].value.trim()) || null,
-                reps:   (repsEls[s]  && repsEls[s].value.trim())  || null,
-                done:   checks[s].classList.contains('checked'),
-              });
-            }
-
-            if (day.exercises && day.exercises[exIdx]) {
-              day.exercises[exIdx].logged_sets = loggedSets;
-            }
-          });
-        }
-
-        /** PATCH /plan with the current PLAN_DATA (silently, fire-and-forget). */
-        function saveWorkout(dayIdx) {
-          serializeWorkout(dayIdx);
-          // Strip previous_performance (backend injected, not part of schema)
-          var planCopy = JSON.parse(JSON.stringify(PLAN_DATA));
-          planCopy.days.forEach(function (d) {
-            (d.exercises || []).forEach(function (ex) {
-              delete ex.previous_performance;
-            });
-          });
-          var payload = { plan_id: PLAN_ID, plan_json: planCopy };
-          fetch('/plan?token=' + encodeURIComponent(TOKEN), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          }).catch(function () { /* silent fail */ });
-        }
-
-        // ── Event delegation ─────────────────────────────────────────────
-
         body.addEventListener('click', function (e) {
           var openBtn = e.target.closest('[data-open-day]');
           if (openBtn) {
@@ -740,29 +602,8 @@
           }
           var backBtn = e.target.closest('[data-back]');
           if (backBtn) {
-            var idx = dayIndexFromHash();
-            if (idx !== null) saveWorkout(idx);
             history.replaceState(null, '', location.pathname + location.search);
             syncView();
-            return;
-          }
-          var chk = e.target.closest('.set-check');
-          if (chk) {
-            chk.classList.toggle('checked');
-            return;
-          }
-          var addBtn = e.target.closest('[data-add-set]');
-          if (addBtn) {
-            var table = addBtn.closest('.detail-card').querySelector('[data-set-table]');
-            var n = table.querySelectorAll('.set-check').length + 1;
-            var tpl = document.createElement('template');
-            tpl.innerHTML =
-              '<span class="set-table__set">' + n + '</span>' +
-              '<span class="set-table__prev">—</span>' +
-              '<input class="set-table__input" type="text" inputmode="decimal" placeholder="0" aria-label="Weight in kg for set ' + n + '" />' +
-              '<input class="set-table__input" type="text" inputmode="numeric" placeholder="0" aria-label="Reps for set ' + n + '" />' +
-              '<button type="button" class="set-check" aria-label="Mark set ' + n + ' done">' + CHECK_SVG + '</button>';
-            table.appendChild(tpl.content);
             return;
           }
         });
