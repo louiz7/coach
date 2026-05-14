@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     # PostHog
     POSTHOG_PROJECT_TOKEN: str = ""
     POSTHOG_HOST: str = "https://eu.i.posthog.com"
+    # Comma-separated phone numbers (E.164) that have opted out of proactive texts.
+    # These users stay in the DB but receive no morning briefs or evening check-ins.
+    # Example: NO_TEXT_PHONES=+447443594446,+61404277715
+    NO_TEXT_PHONES: str = ""
+
+    @property
+    def no_text_phones_set(self) -> set[str]:
+        """Return the opted-out phone numbers as a set for fast O(1) lookup."""
+        return {p.strip() for p in self.NO_TEXT_PHONES.split(",") if p.strip()}
 
     class Config:
         env_file = ".env"
