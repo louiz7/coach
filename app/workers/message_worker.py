@@ -195,6 +195,16 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         except Exception:
             reply = "Sorry, da ist was schiefgelaufen. Versuch's nochmal! 💪"
 
+        # If handler context has a plan URL that will be sent standalone below,
+        # strip it from the LLM reply to avoid sending the URL twice
+        import re as _re
+        _plan_url_pattern = r'https?://\S+/plan\?token=\S+'
+        if handler_context and _re.search(_plan_url_pattern, handler_context):
+            reply = _re.sub(_plan_url_pattern, '', reply).strip()
+            # Clean up any orphaned punctuation left after URL removal (e.g. "here: .")
+            reply = _re.sub(r':\s*\.', '.', reply)
+            reply = _re.sub(r'\s{2,}', ' ', reply)
+
         # Split into chunks and send with delays (double-texting)
         chunks = _split_response(reply)
         for i, chunk in enumerate(chunks):
