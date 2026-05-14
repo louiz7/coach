@@ -58,8 +58,66 @@ def _fold(line: str) -> str:
     return "\r\n".join(result)
 
 
+_FOCUS_EMOJI = {
+    "push":       "🏋️",
+    "pull":       "🔙",
+    "legs":       "🦵",
+    "upper":      "💪",
+    "lower":      "🦵",
+    "full body":  "⚡",
+    "full":       "⚡",
+    "run":        "🏃",
+    "running":    "🏃",
+    "cardio":     "🏃",
+    "hiit":       "🔥",
+    "mobility":   "🧘",
+    "yoga":       "🧘",
+    "rest":       "😴",
+}
+
+def _focus_emoji(focus: str) -> str:
+    f = focus.lower()
+    for key, emoji in _FOCUS_EMOJI.items():
+        if key in f:
+            return emoji
+    return "🏋️"
+
+
+def _build_exercise_lines(exercises: list) -> list[str]:
+    lines = []
+    for ex in exercises:
+        name = ex.get("name", "").strip()
+        if not name:
+            continue
+        parts = []
+        sets = ex.get("sets")
+        reps = ex.get("reps")
+        rpe  = ex.get("rpe")
+        rest = ex.get("rest") or ex.get("rest_seconds")
+        if sets and reps:
+            parts.append(f"{sets} sets · {reps} reps")
+        elif sets:
+            parts.append(f"{sets} sets")
+        if rpe:
+            parts.append(f"RPE {rpe}")
+        if rest:
+            rest_str = str(rest)
+            if rest_str.isdigit():
+                rest_str = f"{rest_str}s rest"
+            parts.append(rest_str)
+        detail = " · ".join(parts) if parts else ""
+        lines.append(name)
+        if detail:
+            lines.append(f"  {detail}")
+        notes = (ex.get("notes") or "").strip()
+        if notes:
+            lines.append(f"  Note: {notes}")
+    return lines
+
+
 def _build_ics(user_name: str, plan_json: dict) -> str:
     days = plan_json.get("days", [])
+    plan_notes = (plan_json.get("notes") or "").strip()
     now_utc = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     events = []
@@ -67,30 +125,43 @@ def _build_ics(user_name: str, plan_json: dict) -> str:
         day_name = str(day.get("day", "")).strip().lower()
         weekday_idx = _WEEKDAY_MAP.get(day_name)
         if weekday_idx is None:
-            continue  # skip rest days or unknown names
+            continue
 
-        focus = day.get("focus", "Training")
-        exercises = day.get("exercises", [])
+        focus = (day.get("focus") or "Training").strip()
+        exercises = day.get("exercises") or []
+        day_notes = (day.get("notes") or "").strip()
 
-        # Build description: list of exercises
-        ex_lines = []
-        for ex in exercises:
-            name = ex.get("name", "")
-            sets = ex.get("sets", "?")
-            reps = ex.get("reps", "?")
-            notes = ex.get("notes", "")
-            line = f"• {name}: {sets}x{reps}"
-            if notes:
-                line += f" — {notes}"
-            ex_lines.append(line)
-        description = f"{focus}\\n\\n" + "\\n".join(ex_lines) if ex_lines else focus
+        emoji = _focus_emoji(focus)
 
-        # Start: this week's occurrence of that weekday at 07:00 local (DATE only, all-day variant)
+        # Title: emoji + focus + first 3 exercise names
+        ex_names = [e.get("name", "").strip() for e in exercises if e.get("name")]
+        if ex_names:
+            preview = ", ".join(ex_names[:3])
+            summary = f"{emoji} {focus} — {preview}"
+        else:
+            summary = f"{emoji} {focus}"
+
+        # Description: structured sections
+        desc_lines = [focus]
+        desc_lines.append("")
+
+        ex_block = _build_exercise_lines(exercises)
+        if ex_block:
+            desc_lines.extend(ex_block)
+
+        if day_notes:
+            desc_lines.append("")
+            desc_lines.append(f"Notes: {day_notes}")
+
+        if plan_notes:
+            desc_lines.append("")
+            desc_lines.append(f"Plan: {plan_notes}")
+
+        description = "\\n".join(desc_lines)
+
         start_date = _this_week_date(weekday_idx)
         dtstart = start_date.strftime("%Y%m%d")
-        # End = next day (all-day event convention)
         dtend = (start_date + timedelta(days=1)).strftime("%Y%m%d")
-
         uid = f"kano-{day_name}-{user_name.lower().replace(' ', '')}@kano.fit"
 
         event_lines = [
@@ -99,7 +170,7 @@ def _build_ics(user_name: str, plan_json: dict) -> str:
             f"DTSTAMP:{now_utc}",
             f"DTSTART;VALUE=DATE:{dtstart}",
             f"DTEND;VALUE=DATE:{dtend}",
-            f"SUMMARY:Kano — {_ics_escape(focus)} 💪",
+            f"SUMMARY:{_ics_escape(summary)}",
             f"DESCRIPTION:{_ics_escape(description)}",
             "RRULE:FREQ=WEEKLY",
             "END:VEVENT",
