@@ -496,11 +496,12 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
     weekday = local_now.strftime("%A")
 
     # Check if user already logged progress today
+    from sqlalchemy import cast, Date
     logged_today = await db.execute(
         select(func.count(ProgressEntry.id))
         .where(
             ProgressEntry.user_id == user.id,
-            func.date(ProgressEntry.recorded_at) == today_str,
+            cast(ProgressEntry.recorded_at, Date) == local_now.date(),
         )
     )
     has_log = (logged_today.scalar_one() or 0) > 0
