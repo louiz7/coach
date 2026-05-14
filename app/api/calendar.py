@@ -191,25 +191,6 @@ def _build_ics(user_name: str, plan_json: dict) -> str:
     return cal
 
 
-@router.get("/calendar/{token}")
-async def calendar_landing(token: str, request: Request):
-    """HTML landing page with OG tags for iMessage preview + auto-redirect to webcal://."""
-    try:
-        verify_onboarding_token(token)
-    except Exception:
-        raise HTTPException(401, "Invalid or expired calendar link")
-
-    base_url = settings.PUBLIC_BASE_URL.rstrip("/")
-    page_url = f"{base_url}/calendar/{token}"
-    webcal_url = f"webcal://{base_url.lstrip('https://').lstrip('http://')}/calendar/{token}.ics"
-
-    return _templates.TemplateResponse(request, "calendar.html", {
-        "base_url": base_url,
-        "page_url": page_url,
-        "webcal_url": webcal_url,
-    })
-
-
 @router.get("/calendar/{token}.ics")
 async def get_calendar(token: str):
     try:
@@ -243,3 +224,22 @@ async def get_calendar(token: str):
             "Cache-Control": "no-cache",
         },
     )
+
+
+@router.get("/calendar/{token}")
+async def calendar_landing(token: str, request: Request):
+    """HTML landing page with OG tags for iMessage preview + auto-redirect to webcal://."""
+    try:
+        verify_onboarding_token(token)
+    except Exception:
+        raise HTTPException(401, "Invalid or expired calendar link")
+
+    base_url = settings.PUBLIC_BASE_URL.rstrip("/")
+    page_url = f"{base_url}/calendar/{token}"
+    webcal_url = f"webcal://{base_url.lstrip('https://').lstrip('http://')}/calendar/{token}.ics"
+
+    return _templates.TemplateResponse(request, "calendar.html", {
+        "base_url": base_url,
+        "page_url": page_url,
+        "webcal_url": webcal_url,
+    })
