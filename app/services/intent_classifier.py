@@ -13,6 +13,7 @@ INTENTS = [
     "EXERCISE_QUESTION",  # How-to, form, technique, exercise science
     "NUTRITION_QUESTION", # Diet, macros, food, supplements
     "PERFORMANCE_DATA",   # User asks what weight/reps they used before, personal records
+    "CALENDAR_LINK",      # User wants to add their plan to their phone calendar
     "GENERAL",            # Everything else
 ]
 
@@ -55,6 +56,12 @@ PERFORMANCE_DATA — user asks about their own previous lifts, weights used, per
   YES: "what did I bench last time", "how much was I squatting", "what weight did I use", "what are my numbers",
        "what's my max", "check my history", "how have I been progressing", "what did I lift last week"
   NO: logging a new workout (PROGRESS_LOG), asking how to improve technique (EXERCISE_QUESTION)
+
+CALENDAR_LINK — user wants to add their training plan to their phone / Apple / Google calendar.
+  YES: "add to calendar", "sync to calendar", "calendar link", "put it in my calendar",
+       "subscribe to calendar", "add workouts to calendar", "calendar integration", "ics",
+       "how do I add it to my calendar", "can you send the calendar link"
+  NO: asking about their schedule or plan content (VIEW_PLAN)
 
 GENERAL — anything else: motivation, feelings, general chat, frustration not about the plan.
 

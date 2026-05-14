@@ -313,6 +313,30 @@ async def handle_performance_data(user: User, text: str, db: AsyncSession) -> Op
 # Dispatcher
 # ---------------------------------------------------------------------------
 
+async def handle_calendar_link(user: User, text: str, db: AsyncSession) -> Optional[str]:
+    """Send the webcal:// subscription link directly and signal to skip LLM reply."""
+    try:
+        from app.config import settings
+        from app.services.token import create_calendar_token
+
+        base_url = settings.PUBLIC_BASE_URL.rstrip('/')
+        host = base_url.removeprefix("https://").removeprefix("http://")
+        token = create_calendar_token(user.phone)
+        cal_url = f"webcal://{host}/calendar/{token}.ics"
+
+        if user.language == "de":
+            intro = "Hier ist dein Kalender-Link — einfach antippen und dein Trainingsplan landet direkt in deinem Kalender 📅"
+        else:
+            intro = "Here's your calendar link — tap it to add your training plan straight to your calendar 📅"
+
+        await linq.send_message(user.linq_chat_id, intro)
+        await linq.send_message(user.linq_chat_id, cal_url)
+        await add_message(user.id, "assistant", f"{intro}\n{cal_url}", db)
+        return "__SENT__"
+    except Exception as ex:
+        print(f"[handle_calendar_link ERROR] {ex}")
+        return None
+
 _HANDLER_MAP = {
     "PROGRESS_LOG": handle_progress_log,
     "MODIFY_PLAN": handle_modify_plan,
@@ -322,6 +346,7 @@ _HANDLER_MAP = {
     "WHOOP_DATA": handle_whoop_data,
     "CONNECT_WHOOP": handle_connect_whoop,
     "PERFORMANCE_DATA": handle_performance_data,
+    "CALENDAR_LINK": handle_calendar_link,
 }
 
 

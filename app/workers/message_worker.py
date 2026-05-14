@@ -175,6 +175,10 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # The LLM ALWAYS responds; handlers never bypass it
         handler_context = await run_handlers(intents, user, text, db)
 
+        # CALENDAR_LINK handler sends the message itself — no LLM reply needed
+        if "CALENDAR_LINK" in intents:
+            return
+
         # Load persona
         result = await db.execute(
             select(CoachPersona).where(CoachPersona.id == user.persona_id)
