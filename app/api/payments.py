@@ -157,7 +157,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     user.onboarding_state = OnboardingState.DONE
                 await db.commit()
 
-                posthog.capture(str(user.id), "subscription_activated")
+                posthog.capture("subscription_activated", distinct_id=str(user.id))
 
                 # If user was waiting for subscription to get their plan, deliver it now
                 if was_awaiting and user.linq_chat_id:
@@ -247,7 +247,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 sub.current_period_end = datetime.utcfromtimestamp(data["current_period_end"])
             await db.commit()
             if event["type"] == "customer.subscription.deleted":
-                posthog.capture(str(sub.user_id), "subscription_cancelled")
+                posthog.capture("subscription_cancelled", distinct_id=str(sub.user_id))
 
     elif event["type"] == "invoice.payment_failed":
         sub_id = data.get("subscription")
@@ -261,6 +261,6 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             if sub:
                 sub.status = "past_due"
                 await db.commit()
-                posthog.capture(str(sub.user_id), "payment_failed")
+                posthog.capture("payment_failed", distinct_id=str(sub.user_id))
 
     return {"ok": True}

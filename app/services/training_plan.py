@@ -368,9 +368,9 @@ async def generate_plan(
     await db.refresh(plan)
 
     posthog.capture(
-        str(user.id),
         "training_plan_generated",
-        {
+        distinct_id=str(user.id),
+        properties={
             "is_modification": is_modification,
             "training_days": len(plan_data.get("days", [])),
         },

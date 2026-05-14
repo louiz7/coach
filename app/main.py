@@ -189,9 +189,9 @@ async def plan_view(request: Request) -> HTMLResponse:
                 ctx["generated_at"] = plan.created_at.strftime("%b %d, %Y") if plan.created_at else None
                 ctx["plan_id"] = str(plan.id)
                 posthog.capture(
-                    str(user.id),
                     "training_plan_viewed",
-                    {"plan_id": str(plan.id), "training_days": len(training_days)},
+                    distinct_id=str(user.id),
+                    properties={"plan_id": str(plan.id), "training_days": len(training_days)},
                 )
     except Exception as e:
         ctx["error"] = str(e)
@@ -330,9 +330,9 @@ async def plan_update(request: Request):
         await db.commit()
 
         posthog.capture(
-            str(user.id),
             "training_plan_edited",
-            {"plan_id": str(plan.id)},
+            distinct_id=str(user.id),
+            properties={"plan_id": str(plan.id)},
         )
 
         return {"ok": True, "plan_id": str(plan.id)}

@@ -124,9 +124,9 @@ async def form_submit(
     await db.refresh(user)
 
     posthog.capture(
-        str(user.id),
         "onboarding_form_submitted",
-        {
+        distinct_id=str(user.id),
+        properties={
             "has_goal": bool(data.goal),
             "has_coach_style": bool(data.coach_style),
             "has_coach_intensity": bool(data.coach_intensity),
@@ -196,7 +196,7 @@ async def create_checkout_session(
         },
     )
 
-    posthog.capture(str(user.id), "checkout_session_created")
+    posthog.capture("checkout_session_created", distinct_id=str(user.id))
 
     return {"checkout_url": session.url}
 
