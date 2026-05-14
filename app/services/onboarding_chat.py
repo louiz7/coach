@@ -573,24 +573,11 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, wh
     # Assign persona if not yet set
     await assign_persona_from_style(user, db)
 
-    # Build a per-user Stripe checkout session so metadata.user_id is set
-    # and the webhook can identify this user on payment.
-    try:
-        import stripe as _stripe
-        _stripe.api_key = settings.STRIPE_SECRET_KEY
-        session = _stripe.checkout.Session.create(
-            mode="subscription",
-            line_items=[{"price": settings.STRIPE_PRICE_ID, "quantity": 1}],
-            success_url=settings.PUBLIC_BASE_URL.rstrip("/") + "/success",
-            cancel_url=settings.PUBLIC_BASE_URL.rstrip("/") + "/cancel",
-            metadata={"user_id": str(user.id)},
-            subscription_data={"trial_period_days": 7},
-            phone_number_collection={"enabled": False},
-        )
-        payment_link = session.url
-    except Exception as _e:
-        print(f"[_build_plan_and_advance] Stripe session creation failed: {_e}, falling back to static link")
-        payment_link = settings.STRIPE_PAYMENT_LINK
+    # Use the static Stripe Payment Link + client_reference_id so the webhook can identify the user.
+    # We previously created dynamic checkout sessions via the API, but they were unreliable in production.
+    base_link = settings.STRIPE_PAYMENT_LINK
+    sep = "&" if "?" in base_link else "?"
+    payment_link = f"{base_link}{sep}client_reference_id={user.id}"
 
     ack = _t(user, "plan_ack_whoop") if whoop_connected else _t(user, "plan_ack")
 
@@ -693,22 +680,9 @@ async def _handle_awaiting_subscription(user: User, chat_id: str, text: str, db:
 
     has_sub = await check_subscription(user.id, db)
     if not has_sub:
-        # Generate a fresh per-user checkout link
-        try:
-            import stripe as _stripe
-            _stripe.api_key = settings.STRIPE_SECRET_KEY
-            session = _stripe.checkout.Session.create(
-                mode="subscription",
-                line_items=[{"price": settings.STRIPE_PRICE_ID, "quantity": 1}],
-                success_url=settings.PUBLIC_BASE_URL.rstrip("/") + "/success",
-                cancel_url=settings.PUBLIC_BASE_URL.rstrip("/") + "/cancel",
-                metadata={"user_id": str(user.id)},
-                subscription_data={"trial_period_days": 7},
-                phone_number_collection={"enabled": False},
-            )
-            payment_link = session.url
-        except Exception:
-            payment_link = settings.STRIPE_PAYMENT_LINK
+        base_link = settings.STRIPE_PAYMENT_LINK
+        sep = "&" if "?" in base_link else "?"
+        payment_link = f"{base_link}{sep}client_reference_id={user.id}"
         reminder_msgs = [m.format(payment_link=payment_link) if "{payment_link}" in m else m for m in _t(user, "sub_reminder")]
         await _send_multi(chat_id, user.id, reminder_msgs, db)
         return

@@ -117,7 +117,8 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
     if event["type"] == "checkout.session.completed":
         # Payment confirmed — mark user as fully onboarded
-        user_id = data.get("metadata", {}).get("user_id")
+        # user_id can come from metadata (dynamic sessions) OR client_reference_id (Payment Links)
+        user_id = data.get("metadata", {}).get("user_id") or data.get("client_reference_id")
         phone = data.get("metadata", {}).get("phone")
         customer_id = data.get("customer")
 
