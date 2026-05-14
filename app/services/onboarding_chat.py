@@ -660,9 +660,9 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
     user.onboarding_state = OnboardingState.DONE
     await db.commit()
     posthog.capture("onboarding_completed", distinct_id=str(user.id))
-    from app.services.token import create_plan_token
+    from app.services.token import create_calendar_token
     base_url = settings.PUBLIC_BASE_URL.rstrip('/')
-    token = create_plan_token(user.phone)
+    token = create_calendar_token(user.phone)
     cal_url = f"{base_url}/calendar/{token}"
     await _send_multi(chat_id, user.id, _t(user, "done") + [cal_url], db)
 

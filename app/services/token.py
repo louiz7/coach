@@ -19,6 +19,13 @@ def create_plan_token(phone: str, ttl_hours: int = 720) -> str:
     return create_onboarding_token(phone, ttl_hours=ttl_hours)
 
 
+def create_calendar_token(phone: str) -> str:
+    """Very long-lived (5 year) token for webcal:// calendar subscriptions.
+    Calendar apps re-fetch the ICS every few hours indefinitely — a short TTL
+    would cause the feed to stop working after expiry."""
+    return create_onboarding_token(phone, ttl_hours=5 * 365 * 24)  # ~5 years
+
+
 def create_onboarding_token(phone: str, ttl_hours: int = 24) -> str:
     """
     Generate a signed JWT for the onboarding form URL.
