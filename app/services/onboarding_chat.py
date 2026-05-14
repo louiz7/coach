@@ -256,8 +256,14 @@ Return JSON:
   "answer": "if is_sidebar=true: your short direct answer to their question (1-3 sentences max, casual iMessage tone). null otherwise."
 }}
 
-is_sidebar=true examples: questions about privacy/data storage, how the app works, pricing, what WHOOP is, etc.
+is_sidebar=true examples: questions about privacy/data storage, how the app works, pricing, what WHOOP is, whether it's free, etc.
 is_sidebar=false examples: actually answering the question you asked, even briefly.
+
+Facts about Kano you MUST use if pricing or cost comes up:
+- 7-day free trial, no charge upfront
+- After the trial: €3.49 per week
+- Cancel anytime
+- Works entirely via iMessage, no app to download
 {lang_instruction}
 """
 
