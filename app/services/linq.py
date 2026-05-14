@@ -85,6 +85,12 @@ async def mark_as_read(chat_id: str):
 
 
 async def setup_contact_card(phone_number: str, first_name: str, last_name: str = "", image_url: str = "") -> dict:
+    """Create-or-update the Linq contact card for the given pool number.
+
+    Linq returns 409 Conflict on POST if a card already exists; in that case
+    we PATCH the existing card so a changed name/avatar actually propagates.
+    """
+    import urllib.parse
     payload = {"phone_number": phone_number, "first_name": first_name}
     if last_name:
         payload["last_name"] = last_name
@@ -92,6 +98,9 @@ async def setup_contact_card(phone_number: str, first_name: str, last_name: str 
         payload["image_url"] = image_url
     async with await _client() as c:
         r = await c.post(f"{BASE}/contact_card", json=payload)
+        if r.status_code == 409:
+            enc = urllib.parse.quote(phone_number, safe="")
+            r = await c.patch(f"{BASE}/contact_card?phone_number={enc}", json=payload)
         r.raise_for_status()
         return r.json()
 
