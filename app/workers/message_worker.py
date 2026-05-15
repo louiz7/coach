@@ -212,8 +212,10 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # Call LLM
         try:
             reply = await call_llm(system_prompt, conversation)
+            if not reply:
+                reply = "something went wrong on my end — try again 💪"
         except Exception:
-            reply = "Sorry, da ist was schiefgelaufen. Versuch's nochmal! 💪"
+            reply = "something went wrong on my end — try again 💪"
 
         # If handler context has a plan URL that will be sent standalone below,
         # strip it from the LLM reply to avoid sending the URL twice
@@ -255,12 +257,9 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
 
 def _split_response(text: str) -> list[str]:
-    """Split response into chunks for double-texting.
-
-    If the model used the `[MSG]` separator (per the persona prompt's
-    "output format" instruction), honor that split directly. Otherwise
-    fall back to a sentence-boundary heuristic.
-    """
+    """Split response into chunks for double-texting."""
+    if not text:
+        return []
     if "[MSG]" in text:
         parts = [p.strip() for p in text.split("[MSG]")]
         return [p for p in parts if p]
