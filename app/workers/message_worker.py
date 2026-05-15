@@ -190,6 +190,13 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         if "CALENDAR_LINK" in intents:
             return
 
+        # FOOD_LOG handler sends the analysis result itself when an image was
+        # processed successfully — skip the LLM so stale conversation history
+        # can't override the calorie estimate. When image_url is present and
+        # FOOD_LOG ran, the handler has already replied.
+        if "FOOD_LOG" in intents and image_url:
+            return
+
         # Load persona
         result = await db.execute(
             select(CoachPersona).where(CoachPersona.id == user.persona_id)

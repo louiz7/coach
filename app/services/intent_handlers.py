@@ -363,6 +363,7 @@ async def handle_food_log(
         )
     try:
         from app.services.food_log import analyze_food_image
+        from app.services.memory import add_message
 
         result = await analyze_food_image(
             image_url=image_url,
@@ -376,26 +377,44 @@ async def handle_food_log(
         kcal = result.get("estimated_calories", 0)
         items = result.get("items", [])
 
-        if items:
-            item_str = ", ".join(
-                f"{i['name']} ({i['calories']} kcal)" for i in items[:6]
-            )
-            context = (
-                f"FOOD PHOTO ANALYSED: {description}. "
-                f"Estimated total: {kcal} kcal. "
-                f"Breakdown: {item_str}. "
-                "Tell the user exactly what you see on the plate and the calorie estimate. "
-                "Keep it brief (2-3 sentences). Do NOT add generic nutrition advice unless they ask."
-            )
+        # If analysis failed (no calories estimated), apologise directly
+        if not kcal:
+            lang = (user.language or "en").lower()
+            if lang == "de":
+                fail = "ich konnte das essen auf dem foto nicht ganz erkennen — schick mir ein klareres bild oder beschreib was drauf ist 🙏"
+            else:
+                fail = "i couldn't quite make out the meal in that photo — send a clearer one or just tell me what's on the plate 🙏"
+            await linq.send_message(user.linq_chat_id, fail)
+            await add_message(user.id, "assistant", fail, db)
+            return "__SENT__"
+
+        # Build the reply directly and send it ourselves (bypass LLM so the
+        # conversation history can't override the result with stale "send a photo" replies)
+        lang = (user.language or "en").lower()
+        if lang == "de":
+            reply = f"das sieht aus wie {description.lower().rstrip('.')} — etwa {kcal} kcal 📸"
+            if items:
+                items_short = ", ".join(
+                    f"{i['name']} ~{i['calories']}" for i in items[:4]
+                )
+                reply += f"\n({items_short} kcal)"
+            reply += "\n\nim log gespeichert. mach so weiter 💪"
         else:
-            context = (
-                f"FOOD PHOTO ANALYSED: {description}. "
-                f"Estimated total: {kcal} kcal. "
-                "Tell the user what you see and the calorie estimate in 1-2 sentences."
-            )
-        return context
+            reply = f"that looks like {description.lower().rstrip('.')} — about {kcal} kcal 📸"
+            if items:
+                items_short = ", ".join(
+                    f"{i['name']} ~{i['calories']}" for i in items[:4]
+                )
+                reply += f"\n({items_short} kcal)"
+            reply += "\n\nlogged. keep it going 💪"
+
+        await linq.send_message(user.linq_chat_id, reply)
+        await add_message(user.id, "assistant", reply, db)
+        return "__SENT__"
     except Exception as ex:
+        import traceback
         print(f"[handle_food_log ERROR] {ex}")
+        traceback.print_exc()
         return None
 
 
