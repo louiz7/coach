@@ -14,6 +14,7 @@ INTENTS = [
     "NUTRITION_QUESTION", # Diet, macros, food, supplements
     "PERFORMANCE_DATA",   # User asks what weight/reps they used before, personal records
     "CALENDAR_LINK",      # User wants to add their plan to their phone calendar
+    "FOOD_LOG",           # User sends a food photo for calorie analysis
     "GENERAL",            # Everything else
 ]
 
@@ -62,6 +63,11 @@ CALENDAR_LINK — user wants to add their training plan to their phone / Apple /
        "subscribe to calendar", "add workouts to calendar", "calendar integration", "ics",
        "how do I add it to my calendar", "can you send the calendar link"
   NO: asking about their schedule or plan content (VIEW_PLAN)
+
+FOOD_LOG — user sends a food photo or describes a meal for calorie tracking.
+  YES: any message that is ONLY an image (no text), "what's the calorie count", "how many calories is this",
+       "log my meal", "track my food", "calorie check", message has a photo attachment with food
+  NO: general nutrition questions without a specific food to analyse (NUTRITION_QUESTION)
 
 GENERAL — anything else: motivation, feelings, general chat, frustration not about the plan.
 

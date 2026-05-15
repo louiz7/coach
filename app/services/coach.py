@@ -155,6 +155,15 @@ async def build_system_prompt(
                     prompt += "\n" + rag_str + "\n"
             except Exception as e:
                 print(f"[build_system_prompt research ERROR] {e}")
+    # Daily food log summary (only if user has logged food today)
+    try:
+        from app.services.food_log import get_today_food_summary
+        food_summary = await get_today_food_summary(user.id, db)
+        if food_summary:
+            prompt += f"\n{food_summary}\n"
+    except Exception as e:
+        print(f"[build_system_prompt food_log ERROR] {e}")
+
     # Rules
     prompt += """
 RULES:

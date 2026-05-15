@@ -57,7 +57,7 @@ _STRINGS: dict[str, dict] = {
         "inform_just_name": "just your first name is fine 🙂",
         "inform_greeting": [
             "nice to meet you {name}!",
-            "I can build your workout plan, check in daily to keep you on track, and hook up your wearables for data-driven coaching.",
+            "I can build your workout plan, check in daily to keep you on track, hook up your wearables for data-driven coaching, and track your nutrition — just send me a photo of your meal and I'll estimate the calories 📸",
             "so you actually hit your goals",
             "Speaking of goals, what are your fitness goals? running a 5k? building muscle? losing weight? throw everything at me",
         ],
@@ -116,7 +116,7 @@ _STRINGS: dict[str, dict] = {
         "inform_just_name": "einfach dein Vorname reicht 🙂",
         "inform_greeting": [
             "nice to meet you {name}!",
-            "ich kann dir deinen Trainingsplan erstellen, täglich einchecken und deine Wearables verbinden für datengestütztes Coaching.",
+            "ich kann dir deinen Trainingsplan erstellen, täglich einchecken, deine Wearables verbinden und deine Ernährung tracken — schick mir einfach ein Foto deiner Mahlzeit und ich schätze die Kalorien 📸",
             "damit du deine Ziele wirklich erreichst",
             "apropos Ziele — was sind deine Fitnessziele? einen 5k laufen? Muskeln aufbauen? Gewicht verlieren? alles raus damit",
         ],

@@ -48,26 +48,43 @@ async def linq_webhook(request: Request, bg: BackgroundTasks):
         _log("Ignoring own message")
         return {"ok": True}
 
-    # Extract text from parts
+    # Extract text and image from parts
+    # Linq v3 part types: "text" (plain text) and "media" (attachments incl. images)
     parts = msg_data.get("parts", [])
     text = ""
+    image_url: str | None = None
     for part in parts:
         if part.get("type") == "text":
             text += part.get("value", "")
+        elif part.get("type") == "media":
+            mime = part.get("mime_type", "")
+            if mime.startswith("image/") and not image_url:
+                image_url = part.get("url")
 
-    if not text or not chat_id:
-        _log(f"Missing text or chat_id: text={text!r} chat_id={chat_id!r}")
+    if not chat_id:
+        _log(f"Missing chat_id")
+        return {"ok": True}
+
+    # Require at least text OR an image — ignore empty messages
+    if not text and not image_url:
+        _log(f"No text or image, skipping: chat_id={chat_id!r}")
         return {"ok": True}
 
     event_id = data.get("event_id") or data.get("id", "")
-    _log(f"Processing: chat_id={chat_id} phone={phone} text={text!r}")
+    _log(f"Processing: chat_id={chat_id} phone={phone} text={text!r} image={bool(image_url)}")
 
     # Process async, pass phone for new user creation
-    bg.add_task(_process_inbound, chat_id, text, event_id, phone)
+    bg.add_task(_process_inbound, chat_id, text, event_id, phone, image_url)
     return {"ok": True}
 
 
-async def _process_inbound(chat_id: str, text: str, event_id: str, phone: str = None):
+async def _process_inbound(
+    chat_id: str,
+    text: str,
+    event_id: str,
+    phone: str = None,
+    image_url: str = None,
+):
     """Background: route to message worker."""
     from app.workers.message_worker import process_message
-    await process_message(chat_id, text, event_id, phone)
+    await process_message(chat_id, text, event_id, phone, image_url=image_url)

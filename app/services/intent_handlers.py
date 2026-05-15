@@ -350,19 +350,69 @@ _HANDLER_MAP = {
 }
 
 
+async def handle_food_log(
+    user: User, text: str, db: AsyncSession, image_url: str | None = None
+) -> Optional[str]:
+    """Analyse a food photo with gpt-4o-mini vision and store the result."""
+    if not image_url:
+        return None
+    try:
+        from app.services.food_log import analyze_food_image
+
+        result = await analyze_food_image(
+            image_url=image_url,
+            user_id=user.id,
+            db=db,
+            caption=text or "",
+            language=user.language or "en",
+        )
+
+        description = result.get("description", "")
+        kcal = result.get("estimated_calories", 0)
+        items = result.get("items", [])
+
+        if items:
+            item_str = ", ".join(
+                f"{i['name']} ({i['calories']} kcal)" for i in items[:6]
+            )
+            context = (
+                f"FOOD PHOTO ANALYSED: {description}. "
+                f"Estimated total: {kcal} kcal. "
+                f"Breakdown: {item_str}. "
+                "Tell the user exactly what you see on the plate and the calorie estimate. "
+                "Keep it brief (2-3 sentences). Do NOT add generic nutrition advice unless they ask."
+            )
+        else:
+            context = (
+                f"FOOD PHOTO ANALYSED: {description}. "
+                f"Estimated total: {kcal} kcal. "
+                "Tell the user what you see and the calorie estimate in 1-2 sentences."
+            )
+        return context
+    except Exception as ex:
+        print(f"[handle_food_log ERROR] {ex}")
+        return None
+
+
 async def run_handlers(
-    intents: list[str], user: User, text: str, db: AsyncSession
+    intents: list[str],
+    user: User,
+    text: str,
+    db: AsyncSession,
+    image_url: str | None = None,
 ) -> str:
     """
     Run all matched handlers in parallel and return a combined context string
     to inject into the system prompt. The LLM always gets to respond — handlers
     only perform actions and return context, never bypass the LLM.
     """
-    tasks = [
-        _HANDLER_MAP[intent](user, text, db)
-        for intent in intents
-        if intent in _HANDLER_MAP
-    ]
+    tasks = []
+    for intent in intents:
+        if intent == "FOOD_LOG":
+            tasks.append(handle_food_log(user, text, db, image_url=image_url))
+        elif intent in _HANDLER_MAP:
+            tasks.append(_HANDLER_MAP[intent](user, text, db))
+
     if not tasks:
         return ""
 

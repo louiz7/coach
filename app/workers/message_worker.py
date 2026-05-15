@@ -14,17 +14,17 @@ from app.services.billing import check_subscription
 from app.redis import redis_pool
 
 
-async def process_message(chat_id: str, text: str, event_id: str, phone: str = None):
+async def process_message(chat_id: str, text: str, event_id: str, phone: str = None, image_url: str = None):
     """Process an inbound message: classify, call LLM, reply."""
     try:
-        await _process_message_inner(chat_id, text, event_id, phone)
+        await _process_message_inner(chat_id, text, event_id, phone, image_url=image_url)
     except Exception as e:
         import traceback
         print(f"[process_message ERROR] chat_id={chat_id} text={text!r}: {e}")
         traceback.print_exc()
 
 
-async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: str = None):
+async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: str = None, image_url: str = None):
     from app.models.user import ProjectEnum, OnboardingState
 
     # Dedup
@@ -171,9 +171,13 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # Classify intents with conversational context
         intents = await classify_intents(text, context_messages=context_messages)
 
+        # If an image was attached, ensure FOOD_LOG is routed regardless of text
+        if image_url and "FOOD_LOG" not in intents:
+            intents = ["FOOD_LOG"] + intents
+
         # Run all matched handlers — they perform actions and return context for the LLM
         # The LLM ALWAYS responds; handlers never bypass it
-        handler_context = await run_handlers(intents, user, text, db)
+        handler_context = await run_handlers(intents, user, text, db, image_url=image_url)
 
         # CALENDAR_LINK handler sends the message itself — no LLM reply needed
         if "CALENDAR_LINK" in intents:
