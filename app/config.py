@@ -5,7 +5,8 @@ from typing import Optional
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://coach:coach@db:5432/fitness_coach"
     REDIS_URL: str = "redis://redis:6379"
-    OPENAI_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""        # still used for embeddings (text-embedding-3-small / pgvector 1536)
+    OPENROUTER_API_KEY: str = ""   # all chat completions (DeepSeek via OpenRouter)
     LINQ_API_TOKEN: str = ""
     LINQ_WEBHOOK_SECRET: str = ""
     LINQ_PHONE_NUMBER: str = ""  # Kano iMessage/SMS number shown on success page (e.g. +16505551234)

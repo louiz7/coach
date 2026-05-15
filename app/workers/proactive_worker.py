@@ -167,9 +167,9 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
             "Sound like a real coach texting, not a wellness app. Keep it brief and direct."
         )
         try:
-            client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+            client = AsyncOpenAI(api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
             resp = await client.chat.completions.create(
-                model="gpt-4o",
+                model="deepseek/deepseek-v4-flash",
                 messages=[{"role": "user", "content": rest_prompt}],
                 max_tokens=120,
                 temperature=0.75,
@@ -208,9 +208,9 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
             "Rules: no markdown, no bullet points, no exercise lists. Real coach texting tone."
         )
         try:
-            client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+            client = AsyncOpenAI(api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
             resp = await client.chat.completions.create(
-                model="gpt-4o",
+                model="deepseek/deepseek-v4-flash",
                 messages=[{"role": "user", "content": early_prompt}],
                 max_tokens=120,
                 temperature=0.75,
@@ -326,9 +326,9 @@ async def _send_morning_brief(user, db, dedup_key: str, local_now: datetime) -> 
     )
 
     try:
-        client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+        client = AsyncOpenAI(api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=300,
             temperature=0.75,
@@ -546,9 +546,9 @@ async def _send_evening_checkin(user, db, dedup_key: str, local_now: datetime) -
     )
 
     try:
-        client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+        client = AsyncOpenAI(api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=120,
             temperature=0.8,
@@ -667,9 +667,9 @@ async def run_whoop_followup():
             try:
                 from app.config import settings as cfg
                 from openai import AsyncOpenAI
-                client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+                client = AsyncOpenAI(api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
                 resp = await client.chat.completions.create(
-                    model="gpt-4o",
+                    model="deepseek/deepseek-v4-flash",
                     messages=[{"role": "user", "content": followup_prompt}],
                     max_tokens=120,
                     temperature=0.75,

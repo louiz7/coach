@@ -185,10 +185,10 @@ async def call_llm(system_prompt: str, conversation: list[dict], max_tokens: int
 
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
             json={
-                "model": "gpt-4o",
+                "model": "deepseek/deepseek-v4-flash",
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": 0.85,

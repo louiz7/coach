@@ -225,10 +225,10 @@ async def _llm_extract(step: str, text: str) -> dict | None:
     from openai import AsyncOpenAI
 
     prompt = _EXTRACT_PROMPTS[step].format(text=text)
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    client = AsyncOpenAI(api_key=settings.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
     try:
         resp = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=150,
             temperature=0,
@@ -282,7 +282,7 @@ async def _sidebar_check(
     False if the message is an actual answer (proceed with extraction).
     """
     from openai import AsyncOpenAI
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    client = AsyncOpenAI(api_key=settings.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
     try:
         prompt = _SIDEBAR_PROMPT.format(
             pending_question=pending_question,
@@ -290,7 +290,7 @@ async def _sidebar_check(
             lang_instruction=_t(user, "sidebar_lang_instruction"),
         )
         resp = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
             temperature=0,
@@ -608,9 +608,9 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
     # Use LLM to classify — keyword lists miss natural phrasing like
     # "yeah I'd rather have 5 days" or "actually can you make it harder"
     try:
-        client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+        client = AsyncOpenAI(api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
         clf = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="deepseek/deepseek-v4-flash",
             messages=[
                 {
                     "role": "system",

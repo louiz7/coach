@@ -92,10 +92,10 @@ async def classify_intents(
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
                 json={
-                    "model": "gpt-4o-mini",
+                    "model": "deepseek/deepseek-v4-flash",
                     "messages": messages,
                     "max_tokens": 30,
                     "temperature": 0,

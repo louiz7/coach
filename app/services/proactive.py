@@ -81,10 +81,10 @@ async def send_checkin(user: User, db: AsyncSession):
 
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
             json={
-                "model": "gpt-4o-mini",
+                "model": "deepseek/deepseek-v4-flash",
                 "messages": [
                     {"role": "system", "content": (
                         f"{persona.system_prompt}\n\n"

@@ -324,7 +324,7 @@ async def _handle_recovery(user: User, access_token: str, db) -> None:
     from openai import AsyncOpenAI
     from app.config import settings as cfg
 
-    client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+    client = AsyncOpenAI(api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
 
     # Determine status emoji
     if recovery_score >= 67:
@@ -351,7 +351,7 @@ async def _handle_recovery(user: User, access_token: str, db) -> None:
     )
 
     response = await client.chat.completions.create(
-        model="gpt-4o",
+        model="deepseek/deepseek-v4-flash",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=150,
         temperature=0.7,
@@ -408,7 +408,7 @@ async def _handle_sleep(user: User, access_token: str, sleep_id: str, db) -> Non
     from openai import AsyncOpenAI
     from app.config import settings as cfg
 
-    client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+    client = AsyncOpenAI(api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
 
     sleep_detail = f"{hours}h {mins}m sleep"
     if performance is not None:
@@ -426,7 +426,7 @@ async def _handle_sleep(user: User, access_token: str, sleep_id: str, db) -> Non
     )
 
     response = await client.chat.completions.create(
-        model="gpt-4o",
+        model="deepseek/deepseek-v4-flash",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=120,
         temperature=0.7,
@@ -468,7 +468,7 @@ async def _handle_workout(user: User, access_token: str, workout_id: str) -> Non
     from openai import AsyncOpenAI
     from app.config import settings as cfg
 
-    client = AsyncOpenAI(api_key=cfg.OPENAI_API_KEY)
+    client = AsyncOpenAI(api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
     prompt = (
         f"You are Kano, a personal fitness coach on iMessage. 1-2 sentences max.\n\n"
         f"User: {user.name} | Goal: {user.goal or 'general fitness'}\n"
@@ -477,7 +477,7 @@ async def _handle_workout(user: User, access_token: str, workout_id: str) -> Non
     )
 
     response = await client.chat.completions.create(
-        model="gpt-4o",
+        model="deepseek/deepseek-v4-flash",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=80,
         temperature=0.7,

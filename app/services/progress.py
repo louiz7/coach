@@ -10,10 +10,10 @@ async def parse_and_store_progress(user_id: UUID, text: str, db: AsyncSession) -
     """Use LLM to extract structured progress data from free text."""
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
             json={
-                "model": "gpt-4o-mini",
+                "model": "deepseek/deepseek-v4-flash",
                 "messages": [
                     {"role": "system", "content": (
                         "Extract workout/progress data from the user message. "

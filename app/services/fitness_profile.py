@@ -271,10 +271,10 @@ async def enrich_profile_with_coach_notes(
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
                 json={
-                    "model": "gpt-4o-mini",
+                    "model": "deepseek/deepseek-v4-flash",
                     "messages": [
                         {"role": "system", "content": prompt},
                         {"role": "user", "content": transcript},

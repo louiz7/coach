@@ -173,10 +173,10 @@ async def _extract_plan_preferences(request_text: str, current_freq: int) -> dic
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
                 json={
-                    "model": "gpt-4o-mini",
+                    "model": "deepseek/deepseek-v4-flash",
                     "messages": [
                         {"role": "system", "content": (
                             "Extract explicit training plan preferences from the user message. "
@@ -319,10 +319,10 @@ async def generate_plan(
 
     async with httpx.AsyncClient(timeout=45) as client:
         response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
             json={
-                "model": "gpt-4o",
+                "model": "deepseek/deepseek-v4-flash",
                 "messages": [
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": "Generate the plan now."},
