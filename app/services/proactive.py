@@ -95,7 +95,7 @@ async def send_checkin(user: User, db: AsyncSession):
                         "Write exactly 1 short sentence. No markdown."
                     )},
                 ],
-                "max_tokens": 80,
+                "max_tokens": 120,
                 "temperature": 0.9,
             },
         )
