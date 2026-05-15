@@ -64,10 +64,12 @@ CALENDAR_LINK — user wants to add their training plan to their phone / Apple /
        "how do I add it to my calendar", "can you send the calendar link"
   NO: asking about their schedule or plan content (VIEW_PLAN)
 
-FOOD_LOG — user sends a food photo or describes a meal for calorie tracking.
+FOOD_LOG — user sends a food photo, asks to track calories, or asks if calorie tracking is possible.
   YES: any message that is ONLY an image (no text), "what's the calorie count", "how many calories is this",
-       "log my meal", "track my food", "calorie check", message has a photo attachment with food
-  NO: general nutrition questions without a specific food to analyse (NUTRITION_QUESTION)
+       "log my meal", "track my food", "calorie check", message has a photo attachment with food,
+       "can I track my calories", "can you track calories", "can you track them", "track calories with you",
+       "do you track food", "can I log food", "do you track what I eat", "calorie tracking"
+  NO: general nutrition questions about macros, supplements, or diet advice without asking to track (NUTRITION_QUESTION)
 
 GENERAL — anything else: motivation, feelings, general chat, frustration not about the plan.
 
