@@ -40,3 +40,7 @@ jobs:
             sleep 8
             docker compose exec -T api alembic upgrade head
             docker compose ps
+
+            # Prune build cache after every deploy — keep max 1GB to prevent disk bloat
+            docker builder prune -f --keep-storage 1GB
+            docker image prune -f
