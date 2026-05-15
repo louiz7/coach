@@ -9,13 +9,14 @@ from app.services.proactive import get_idle_users, send_checkin
 
 # Window (inclusive) in which the morning brief may be sent (local time).
 # Cron fires every 30 min; dedup key ensures at most ONE brief per user per day.
-# Lower bound = normal send time; upper bound = catch-up cap if worker was down.
+# Tight catch-up window: 08:00–09:59 local. Wider windows risk re-sends if Redis
+# is recreated mid-deploy (lost dedup keys → next cron tick re-fires to everyone).
 _MORNING_HOUR_START = 8    # 08:00 local
-_MORNING_HOUR_END   = 12   # catch-up allowed until 12:59 local
+_MORNING_HOUR_END   = 9    # catch-up until 09:59 local
 
-# Window for evening check-in (local time).
-_EVENING_HOUR_START = 19   # 19:00 local (widened for deploy resilience)
-_EVENING_HOUR_END   = 23   # catch-up allowed until 23:59 local
+# Window for evening check-in (local time). Same rationale — keep it tight.
+_EVENING_HOUR_START = 19   # 19:00 local
+_EVENING_HOUR_END   = 20   # catch-up until 20:59 local
 
 
 async def run_proactive_checkins():
@@ -75,9 +76,13 @@ async def run_morning_brief():
             if not (_MORNING_HOUR_START <= local_now.hour <= _MORNING_HOUR_END):
                 continue
 
-            # Per-day dedup — set inside _send_morning_brief on success
+            # Per-day dedup using atomic SET NX claim. If another cron tick (or
+            # a redeploy mid-window) already claimed today, we skip. The claim is
+            # set BEFORE the send so even a slow/failed send can't be re-fired by
+            # the next 30-min cron tick. TTL=24h covers the day.
             today_key = f"whoop:morning_sent:{user.id}:{local_now.strftime('%Y-%m-%d')}"
-            if await redis_pool.get(today_key):
+            claimed = await redis_pool.set(today_key, "1", ex=86400, nx=True)
+            if not claimed:
                 continue
 
             async with async_session() as db:
@@ -447,7 +452,9 @@ async def run_evening_checkin():
                 continue
 
             today_key = f"evening_sent:{user.id}:{local_now.strftime('%Y-%m-%d')}"
-            if await redis_pool.get(today_key):
+            # Atomic claim — see morning brief for rationale.
+            claimed = await redis_pool.set(today_key, "1", ex=86400, nx=True)
+            if not claimed:
                 print(f"[evening_checkin] {user.name} already sent today, skipping")
                 continue
 
