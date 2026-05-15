@@ -11,8 +11,11 @@ services:
       - pgdata:/var/lib/postgresql/data
   redis:
     image: redis:7-alpine
+    command: redis-server --appendonly yes --appendfsync everysec
     ports:
       - "6380:6379"
+    volumes:
+      - redisdata:/data
   api:
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -35,3 +38,4 @@ services:
       - redis
 volumes:
   pgdata:
+  redisdata:
