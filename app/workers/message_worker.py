@@ -175,6 +175,12 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         if image_url and "FOOD_LOG" not in intents:
             intents = ["FOOD_LOG"] + intents
 
+        # Keyword fallback: catch calorie/food-tracking questions the LLM classifier misses
+        _food_kw = ("calorie", "calories", "track my food", "log my food", "log food",
+                    "track food", "food log", "calorie track", "track them", "can you track")
+        if "FOOD_LOG" not in intents and any(kw in text.lower() for kw in _food_kw):
+            intents = ["FOOD_LOG"] + intents
+
         # Run all matched handlers — they perform actions and return context for the LLM
         # The LLM ALWAYS responds; handlers never bypass it
         handler_context = await run_handlers(intents, user, text, db, image_url=image_url)

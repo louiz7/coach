@@ -356,10 +356,10 @@ async def handle_food_log(
     """Analyse a food photo with gpt-4o-mini vision and store the result."""
     if not image_url:
         return (
-            "CALORIE TRACKING: The user is asking about tracking calories or food. "
-            "Tell them YES you can track their calories — all they need to do is send you a photo of their meal "
-            "and you'll instantly estimate the calories and log it. "
-            "Keep it to 1-2 sentences, be enthusiastic, invite them to send their first photo now."
+            "INSTRUCTION — OVERRIDE PREVIOUS CONVERSATION: You DO support calorie tracking. "
+            "The user is asking if you can track their calories. Answer YES. "
+            "Tell them to send you a photo of their meal and you will instantly analyse it and estimate the calories. "
+            "Be warm and enthusiastic. 1-2 sentences max. Do NOT say no, do NOT refer them to another app."
         )
     try:
         from app.services.food_log import analyze_food_image
