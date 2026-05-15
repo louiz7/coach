@@ -22,6 +22,9 @@ jobs:
           script: |
             set -e
             cd /root/coach
+            # Clean up any stale git lock files left behind by a previously
+            # cancelled deploy (otherwise `git fetch` fails with "cannot lock ref").
+            find .git -name "*.lock" -type f -delete 2>/dev/null || true
             git fetch origin main
             git clean -fd          # remove untracked files/dirs (e.g. stale scripts)
             git reset --hard origin/main
