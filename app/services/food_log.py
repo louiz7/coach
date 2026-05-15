@@ -78,7 +78,23 @@ async def analyze_food_image(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        # Download the image ourselves and base64-encode it.
+        # Linq CDN URLs require authentication — OpenRouter cannot fetch them directly.
+        import base64
+        print(f"[food_log] downloading image: {image_url}", flush=True)
+        async with httpx.AsyncClient(timeout=20) as dl:
+            img_resp = dl.build_request("GET", image_url)
+            img_r = await dl.send(img_resp)
+            img_r.raise_for_status()
+            content_type = img_r.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+            b64 = base64.b64encode(img_r.content).decode()
+        data_url = f"data:{content_type};base64,{b64}"
+        print(f"[food_log] image downloaded {len(img_r.content)} bytes, type={content_type}", flush=True)
+
+        # Replace the url message with a data-url so OpenRouter can decode it without fetching
+        messages[0]["content"][0]["image_url"]["url"] = data_url
+
+        async with httpx.AsyncClient(timeout=60) as client:
             r = await client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
@@ -89,8 +105,10 @@ async def analyze_food_image(
                     "temperature": 0.2,
                 },
             )
+            print(f"[food_log] OpenRouter status={r.status_code}", flush=True)
             r.raise_for_status()
             raw = r.json()["choices"][0]["message"]["content"].strip()
+            print(f"[food_log] LLM raw response: {raw[:200]}", flush=True)
 
         # Strip markdown fences defensively
         if raw.startswith("```"):

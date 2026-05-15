@@ -174,6 +174,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # If an image was attached, ensure FOOD_LOG is routed regardless of text
         if image_url and "FOOD_LOG" not in intents:
             intents = ["FOOD_LOG"] + intents
+            print(f"[message_worker] image detected, injected FOOD_LOG intent url={image_url[:60]}", flush=True)
 
         # Keyword fallback: catch calorie/food-tracking questions the LLM classifier misses
         _food_kw = ("calorie", "calories", "track my food", "log my food", "log food",
