@@ -84,6 +84,7 @@ def _focus_emoji(focus: str) -> str:
 
 
 def _build_exercise_lines(exercises: list) -> list[str]:
+    """Return bullet lines for each exercise — one line per exercise."""
     lines = []
     for ex in exercises:
         name = ex.get("name", "").strip()
@@ -95,7 +96,7 @@ def _build_exercise_lines(exercises: list) -> list[str]:
         rpe  = ex.get("rpe")
         rest = ex.get("rest") or ex.get("rest_seconds")
         if sets and reps:
-            parts.append(f"{sets} sets · {reps} reps")
+            parts.append(f"{sets}×{reps}")
         elif sets:
             parts.append(f"{sets} sets")
         if rpe:
@@ -105,13 +106,14 @@ def _build_exercise_lines(exercises: list) -> list[str]:
             if rest_str.isdigit():
                 rest_str = f"{rest_str}s rest"
             parts.append(rest_str)
-        detail = " · ".join(parts) if parts else ""
-        lines.append(name)
-        if detail:
-            lines.append(f"  {detail}")
+        detail = "  " + "  ·  ".join(parts) if parts else ""
         notes = (ex.get("notes") or "").strip()
+        line = f"• {name}"
+        if detail:
+            line += f"\n  {detail.strip()}"
         if notes:
-            lines.append(f"  Note: {notes}")
+            line += f"\n  ↳ {notes}"
+        lines.append(line)
     return lines
 
 
@@ -119,8 +121,10 @@ def _build_ics(user_name: str, plan_json: dict) -> str:
     days = plan_json.get("days", [])
     plan_notes = (plan_json.get("notes") or "").strip()
     now_utc = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    total_days = len([d for d in days if _WEEKDAY_MAP.get(str(d.get("day", "")).strip().lower()) is not None])
 
     events = []
+    training_day_num = 0
     for day in days:
         day_name = str(day.get("day", "")).strip().lower()
         weekday_idx = _WEEKDAY_MAP.get(day_name)
@@ -130,34 +134,60 @@ def _build_ics(user_name: str, plan_json: dict) -> str:
         focus = (day.get("focus") or "Training").strip()
         exercises = day.get("exercises") or []
         day_notes = (day.get("notes") or "").strip()
+        is_rest = "rest" in focus.lower() and not exercises
+
+        if not is_rest:
+            training_day_num += 1
 
         emoji = _focus_emoji(focus)
 
-        # Title: emoji + focus + first 3 exercise names
-        ex_names = [e.get("name", "").strip() for e in exercises if e.get("name")]
-        if ex_names:
-            preview = ", ".join(ex_names[:3])
-            summary = f"{emoji} {focus} — {preview}"
+        # Title: "Day N — Focus" like the screenshot
+        summary = f"{emoji} Day {training_day_num} — {focus}" if not is_rest else f"😴 Rest — {focus}"
+
+        # ── Description ──────────────────────────────────────────────
+        lines: list[str] = []
+
+        # Header line
+        lines.append(f"Day {training_day_num} — {focus}")
+        lines.append("─" * 30)
+        lines.append("")
+
+        if is_rest:
+            lines.append("Active recovery day.")
+            lines.append("Foam roll · light walk · stretch 10 min")
         else:
-            summary = f"{emoji} {focus}"
+            # Warm-up block (generic unless plan_json has one)
+            warmup = day.get("warmup") or day.get("warm_up")
+            if warmup and isinstance(warmup, list):
+                lines.append("WARM-UP:")
+                for w in warmup:
+                    lines.append(f"- {w}")
+                lines.append("")
 
-        # Description: structured sections
-        desc_lines = [focus]
-        desc_lines.append("")
+            # Main exercises
+            ex_block = _build_exercise_lines(exercises)
+            if ex_block:
+                lines.append("EXERCISES:")
+                lines.extend(ex_block)
 
-        ex_block = _build_exercise_lines(exercises)
-        if ex_block:
-            desc_lines.extend(ex_block)
+            # Cool-down block
+            cooldown = day.get("cooldown") or day.get("cool_down")
+            if cooldown and isinstance(cooldown, list):
+                lines.append("")
+                lines.append("COOL-DOWN:")
+                for c in cooldown:
+                    lines.append(f"- {c}")
 
         if day_notes:
-            desc_lines.append("")
-            desc_lines.append(f"Notes: {day_notes}")
+            lines.append("")
+            lines.append(f"📝 {day_notes}")
 
         if plan_notes:
-            desc_lines.append("")
-            desc_lines.append(f"Plan: {plan_notes}")
+            lines.append("")
+            lines.append(f"Plan note: {plan_notes}")
 
-        description = "\\n".join(desc_lines)
+        # Join with real newlines — _ics_escape converts \n → \n (ICS spec)
+        description = "\n".join(lines)
 
         start_date = _this_week_date(weekday_idx)
         dtstart = start_date.strftime("%Y%m%d")
