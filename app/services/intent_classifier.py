@@ -24,8 +24,14 @@ A message may have multiple intents. Reply ONLY with a comma-separated list of m
 Categories and rules:
 
 PROGRESS_LOG — user is logging completed exercise, sets, reps, weight, distance, or time.
-  YES: "did 5x5 bench at 100kg", "ran 5k today", "finished my workout"
-  NO: asking about how to do an exercise, asking what to do today
+  YES: "did 5x5 bench at 100kg", "ran 5k today", "finished my workout",
+       "about 80 in 10 rep sessions", "8x10 pull ups", "managed 80 pull ups",
+       "just did legs", "completed my session", "hit the gym", "did chest today",
+       "I did X sets of Y", "X reps of Y exercise", any report of completed physical activity,
+       "just finished", "done with my workout", "trained today", "went for a run",
+       "lifted today", "smashed my session", "got my workout in", "did [exercise] today",
+       numbers + exercise name with no question mark (e.g. "80 pull ups", "100kg squat", "5k in 25min")
+  NO: asking about how to do an exercise, asking what to do today, future tense plans
 
 MODIFY_PLAN — user wants to permanently change something in their training plan.
   YES: "swap squats for leg press", "add more cardio", "I want weight and rep tracking",
@@ -65,11 +71,13 @@ CALENDAR_LINK — user wants to add their training plan to their phone / Apple /
   NO: asking about their schedule or plan content (VIEW_PLAN)
 
 FOOD_LOG — user sends a food photo, asks to track calories, or asks if calorie tracking is possible.
-  YES: any message that is ONLY an image (no text), "what's the calorie count", "how many calories is this",
-       "log my meal", "track my food", "calorie check", message has a photo attachment with food,
-       "can I track my calories", "can you track calories", "can you track them", "track calories with you",
-       "do you track food", "can I log food", "do you track what I eat", "calorie tracking"
-  NO: general nutrition questions about macros, supplements, or diet advice without asking to track (NUTRITION_QUESTION)
+  YES: message starts with [USER SENT AN IMAGE ATTACHMENT], "what's the calorie count", "how many calories is this",
+       "log my meal", "track my food", "calorie check", "can I track my calories",
+       "can you track calories", "can you track them", "track calories with you",
+       "do you track food", "can I log food", "do you track what I eat", "calorie tracking",
+       "analyze this", "what's in this", "how many calories", "is this healthy", "what did I eat",
+       any message where the user seems to be asking about the calorie content of something they just sent
+  NO: general nutrition questions about macros, supplements, or diet advice without a specific item to analyse (NUTRITION_QUESTION)
 
 GENERAL — anything else: motivation, feelings, general chat, frustration not about the plan.
 

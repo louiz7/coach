@@ -169,18 +169,13 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         ] if recent_conv else None
 
         # Classify intents with conversational context
-        intents = await classify_intents(text, context_messages=context_messages)
-
-        # If an image was attached, ensure FOOD_LOG is routed regardless of text
-        if image_url and "FOOD_LOG" not in intents:
-            intents = ["FOOD_LOG"] + intents
-            print(f"[message_worker] image detected, injected FOOD_LOG intent url={image_url[:60]}", flush=True)
-
-        # Keyword fallback: catch calorie/food-tracking questions the LLM classifier misses
-        _food_kw = ("calorie", "calories", "track my food", "log my food", "log food",
-                    "track food", "food log", "calorie track", "track them", "can you track")
-        if "FOOD_LOG" not in intents and any(kw in text.lower() for kw in _food_kw):
-            intents = ["FOOD_LOG"] + intents
+        # If an image is attached, prepend a hint so the LLM classifier knows
+        classify_text = text
+        if image_url:
+            classify_text = "[USER SENT AN IMAGE ATTACHMENT] " + (text or "")
+        intents = await classify_intents(classify_text, context_messages=context_messages)
+        if image_url:
+            print(f"[message_worker] image detected, intents={intents} url={image_url[:60]}", flush=True)
 
         # Run all matched handlers — they perform actions and return context for the LLM
         # The LLM ALWAYS responds; handlers never bypass it
