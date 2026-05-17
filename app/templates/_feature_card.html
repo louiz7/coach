@@ -1,12 +1,13 @@
 {#
   Feature card component.
   Vars:
+    card_id     — stable id used by JS to address the card (e.g. "nutrition")
     title       — heading text (string, may include explicit line breaks via <br>)
     body        — supporting copy
     image       — path under /static/images (e.g. "feature-card-data.png")
     image_alt   — alt text
 #}
-<article class="feature-card">
+<article class="feature-card"{% if card_id %} data-card="{{ card_id }}"{% endif %}>
   <div class="feature-card__heading">
     <h3 class="feature-card__title">{{ title|safe }}</h3>
     <p class="feature-card__body">{{ body }}</p>

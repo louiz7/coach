@@ -57,35 +57,31 @@
     <link rel="stylesheet" href="/static/css/style.css" />
     {% include "_analytics.html" %}
   </head>
-  <body>
+  <body class="is-locked">
     <main class="page">
       {# ---------- Above the fold ---------- #}
       <section class="above-fold">
-        <a class="logo" href="/" aria-label="Kano">
-          <img src="/static/images/kano-wordmark-white.svg" alt="Kano" width="88" height="20" />
-        </a>
-
         <div class="hero">
-          <h1 class="hero__title">Kano wants you<br />to lock in.<br /><span class="hero__accent">Do you?</span></h1>
+          <h1 class="hero__title">Kano wants you to reach your fitness goal. Do you?</h1>
           <p class="hero__subtext">
-            Daily coaching and personalized training plans based on your wearable data right in your texts
+            Your personal coach that<br />lives in iMessage
           </p>
 
           <div class="cta cta--on-dark">
             <a
               class="cta__button"
               href="sms:+19453943079?&body=whats%20kano%3F"
-              aria-label="Text Kano now on iMessage"
+              aria-label="Get started on iMessage"
             >
               <span class="cta__button__inner">
                 <img
                   class="cta__icon"
                   src="/static/images/imessage.png"
                   alt=""
-                  width="30"
-                  height="30"
+                  width="25"
+                  height="25"
                 />
-                <span class="cta__label">Text Kano now</span>
+                <span class="cta__label">Get started on iMessage</span>
               </span>
             </a>
             <p class="cta__legal">
@@ -140,83 +136,156 @@
         </div>
       </section>
 
-      {# ---------- Features ---------- #}
-      <section class="features">
-        <header class="features__heading">
-          <h2 class="features__title">Achieve your fitness goals with Kano</h2>
-          <p class="features__subtext">
-            Personalized workout plans, regular check-ins, motivation and actionable advice 24/7
+      {# ---------- Goal selector ---------- #}
+      <section class="goal" aria-labelledby="goal-title">
+        <header class="goal__heading">
+          <h2 class="goal__title" id="goal-title">What&rsquo;s your goal?</h2>
+          <p class="goal__subtext">To see Kano in action:<br />Select what fits you best</p>
+          <img class="goal__arrow" src="/static/images/arrow-handdrawn.svg" alt="" aria-hidden="true" width="34" height="44" />
+        </header>
+        <div class="goal__options-frame">
+          <p class="goal__options-label">I want to...</p>
+          <ul class="goal__options" role="radiogroup" aria-labelledby="goal-title">
+            {% for opt in [
+              ("lose-weight", "lose weight"),
+              ("build-muscle", "build muscle"),
+              ("level-up", "level up my performance"),
+            ] %}
+            <li class="goal__option">
+              <input class="goal__option-input" type="radio" name="goal" id="goal-{{ opt[0] }}" value="{{ opt[0] }}" />
+              <label class="goal__option-label" for="goal-{{ opt[0] }}">{{ opt[1] }}</label>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </section>
+
+      {# ---------- Before / after (hidden for now) ---------- #}
+      <section class="compare" aria-labelledby="compare-title" hidden>
+        <header class="compare__heading">
+          <h2 class="compare__title" id="compare-title">Lock in like <em>Alex</em></h2>
+          <p class="compare__subtext">
+            <span class="compare__subtext-lead">With Kano, Alex</span><br />
+            <span class="compare__subtext-tail">lost 9kg in 12 weeks</span>
           </p>
         </header>
 
-        {# Render four feature cards via the shared partial. #}
-        {% with title="Workout plans that adapt to you",
-                body="Kano builds your plan around your goals and adjusts when life gets in the way",
-                image="feature-card-plans.png",
+        <div class="compare__controls">
+          <div class="compare__people" role="tablist" aria-label="Choose a profile" data-compare-tabs>
+            {% for person in [
+              ("alex", "Alex", "lost 9kg in 12 weeks", true),
+              ("marcus", "Marcus", "gained 6kg of lean mass", false),
+              ("luke", "Luke", "ran his first sub-20 5K", false),
+            ] %}
+            <button
+              type="button"
+              class="compare__person{% if person[3] %} is-active{% endif %}"
+              role="tab"
+              aria-selected="{{ 'true' if person[3] else 'false' }}"
+              data-compare-tab="{{ person[0] }}"
+              data-name="{{ person[1] }}"
+              data-achievement="{{ person[2] }}"
+            >{{ person[1] }}</button>
+            {% endfor %}
+          </div>
+
+          <div
+            class="compare__slider"
+            role="slider"
+            tabindex="0"
+            aria-label="Reveal before and after"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="50"
+            data-compare
+          >
+            <div class="compare__before" aria-hidden="true"></div>
+            <div class="compare__after" aria-hidden="true"></div>
+            <span class="compare__badge compare__badge--before">BEFORE</span>
+            <span class="compare__badge compare__badge--after">AFTER</span>
+            <div class="compare__divider" aria-hidden="true">
+              <div class="compare__divider-grip"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {# ---------- Features ---------- #}
+      <section class="features">
+        <header class="features__heading">
+          <h2 class="features__title">Achieve your goals with Kano</h2>
+          <p class="features__subtext">
+            workout plans, calorie tracking, check-ins, motivation and actionable advice 24/7
+          </p>
+        </header>
+
+        {# Render four feature cards via the shared partial.
+           card_id is the stable handle JS uses to reorder + rewrite the
+           body when a goal is selected (see landing.js GOAL_CONFIG). #}
+        {% with card_id="nutrition",
+                title="Nutrition coaching not calorie counting",
+                body="Snap a photo and Kano tells you exactly how it fits your weight loss goal",
+                image="feature-card-loseweight-nutrition.png",
+                image_alt="Kano analysing a meal photo over text" %}
+          {% include "_feature_card.html" %}
+        {% endwith %}
+
+        {% with card_id="plans",
+                title="Workout plans<br />that adapt to you",
+                body="Kano builds a plan that burns fat, saves muscle and adjusts when life gets in the way",
+                image="feature-card-loseweight-plans.png",
                 image_alt="Kano adapting your training plan over text" %}
           {% include "_feature_card.html" %}
         {% endwith %}
 
-        {% with title="Kano texts you first to check in",
-                body="Kano tells you exactly how hard you can push today.",
-                image="feature-card-checkins.png",
-                image_alt="Kano sending a morning check-in" %}
-          {% include "_feature_card.html" %}
-        {% endwith %}
-
-        {% with title="Ask anything about your data",
-                body="Ask questions about your fitness data and get answers grounded in your own metrics",
-                image="feature-card-data.png",
-                image_alt="Kano answering a question grounded in your fitness data" %}
-          {% include "_feature_card.html" %}
-        {% endwith %}
-
-        {% with title="Never miss what matters",
-                body="Supplements, rest days, hydration. Kano reminds you at the right time.",
-                image="feature-card-reminders.png",
-                image_alt="Kano sending a reminder" %}
+        {% with card_id="schedule",
+                title="Always on<br />your schedule",
+                body="Kano knows when you're free and makes sure you never miss a session",
+                image="feature-card-schedule.png",
+                image_alt="Kano rescheduling your training over text" %}
           {% include "_feature_card.html" %}
         {% endwith %}
       </section>
 
-      {# ---------- Closing CTA + footer ---------- #}
+      {# ---------- Closing CTA ---------- #}
       <section class="closing-cta">
-        <div class="closing-cta__top">
-          <header class="closing-cta__heading">
-            <h2 class="closing-cta__title">Lock in this summer</h2>
-            <p class="closing-cta__subtext">
-              Become the best version of yourself. It all starts with one text.
-            </p>
-          </header>
-          <div class="cta cta--closing">
-            <a
-              class="cta__button"
-              href="sms:+19453943079?&body=whats%20kano%3F"
-              aria-label="Text Kano now on iMessage"
-            >
-              <span class="cta__button__inner">
-                <img
-                  class="cta__icon"
-                  src="/static/images/imessage.png"
-                  alt=""
-                  width="25"
-                  height="25"
-                />
-                <span class="cta__label">Text Kano now</span>
-              </span>
-            </a>
-            <p class="cta__legal">
-              By continuing, you agree to our
-              <a href="/terms">Terms</a> and <a href="/privacy">Privacy</a>
-            </p>
-          </div>
+        <header class="closing-cta__heading">
+          <h2 class="closing-cta__title">Lock in this summer</h2>
+          <p class="closing-cta__subtext">
+            <span class="closing-cta__subtext-lead">Your body transformation</span><br />starts with one text
+          </p>
+        </header>
+        <div class="cta cta--closing">
+          <a
+            class="cta__button"
+            href="sms:+19453943079?&body=whats%20kano%3F"
+            aria-label="Get started on iMessage"
+          >
+            <span class="cta__button__inner">
+              <img
+                class="cta__icon"
+                src="/static/images/imessage.png"
+                alt=""
+                width="25"
+                height="25"
+              />
+              <span class="cta__label">Get started on iMessage</span>
+            </span>
+          </a>
+          <p class="cta__legal">
+            By continuing, you agree to our
+            <a href="/terms">Terms</a> and <a href="/privacy">Privacy</a>
+          </p>
         </div>
+      </section>
 
+      {# ---------- Footer ---------- #}
+      <section class="site-footer-section">
         <footer class="site-footer">
           <div class="site-footer__brand">
             <img
               class="site-footer__logo"
-              src="/static/images/kano-wordmark.svg"
+              src="/static/images/kano-wordmark-white.svg"
               alt="Kano"
               width="88"
               height="20"
@@ -233,5 +302,6 @@
         </footer>
       </section>
     </main>
+    <script src="/static/js/landing.js" defer></script>
   </body>
 </html>
