@@ -518,6 +518,10 @@ body.is-locked .closing-cta {
   background: rgba(0, 0, 0, 0.2);
 }
 
+.compare[hidden] {
+  display: none;
+}
+
 .compare__heading {
   display: flex;
   flex-direction: column;
