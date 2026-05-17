@@ -28,14 +28,16 @@
     <style>
       /* ---------- Plan page — built from the Figma "trainingsplan" frames ---------- */
       body {
-        background: linear-gradient(to top, #58ade5, #0374c2);
+        background: #000;
         min-height: 100vh;
+        color: #fff;
       }
       .plan-page {
         min-height: 100vh;
+        background: #000;
       }
 
-      /* Logo strip over the blue gradient */
+      /* Logo strip */
       .plan-hero {
         display: flex;
         justify-content: center;
@@ -49,7 +51,7 @@
         height: 20px;
       }
 
-      /* Light-blue body sheet */
+      /* Body sheet — black with thin off-white border, rounded top corners */
       .plan-body {
         position: relative;
         display: flex;
@@ -59,9 +61,10 @@
         width: 100%;
         flex: 1;
         padding: 32px 20px;
-        background: #c0e6ff;
+        background: #000;
+        border: 0.5px solid #f5f6f1;
+        border-bottom: none;
         border-radius: 40px 40px 0 0;
-        box-shadow: inset 0 0 4px 0 #fff;
       }
 
       /* A "view" = either the day overview or one day's detailed breakdown.
@@ -96,7 +99,7 @@
         line-height: 1.3;
         letter-spacing: -0.24px;
         text-align: center;
-        color: #000;
+        color: #fff;
       }
       .plan-heading__pill {
         display: inline-flex;
@@ -124,7 +127,7 @@
         font-size: 18px;
         line-height: 1.4;
         text-align: center;
-        color: #000;
+        color: #fff;
       }
 
       /* ---------- Overview: day cards (clickable) ---------- */
@@ -137,24 +140,25 @@
         gap: 16px;
         width: 100%;
         padding: 16px;
-        background: #fff;
-        border: none;
+        background: #000;
+        border: 0.5px solid #f5f6f1;
         border-radius: 30px;
         text-align: left;
         font: inherit;
-        color: inherit;
+        color: #fff;
         cursor: pointer;
+        box-shadow: inset 0 2px 10px 0 #989892;
         transition: transform 120ms ease, box-shadow 120ms ease;
       }
       .workout-card:hover {
         transform: translateY(-1px);
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+        box-shadow: inset 0 2px 10px 0 #989892, 0 6px 18px rgba(255, 255, 255, 0.06);
       }
       .workout-card:active {
         transform: translateY(0);
       }
       .workout-card:focus-visible {
-        outline: 2px solid #0057c3;
+        outline: 2px solid #50dbff;
         outline-offset: 2px;
       }
       .workout-card__head {
@@ -172,7 +176,7 @@
         line-height: 1.2;
         letter-spacing: -0.18px;
         text-align: center;
-        color: #000;
+        color: #fff;
       }
       .workout-card__focus {
         margin: 0;
@@ -183,12 +187,12 @@
         font-size: 16px;
         line-height: 1.4;
         text-align: center;
-        color: #000;
+        color: #fff;
       }
       .workout-card__divider {
         width: 100%;
         height: 1px;
-        background: rgba(0, 0, 0, 0.12);
+        background: #20222a;
       }
       .workout-card__exercises {
         display: flex;
@@ -229,7 +233,7 @@
         font-weight: 500;
         font-size: 14px;
         line-height: 1.4;
-        color: #0474c2;
+        color: #50dbff;
       }
       .back-link:hover {
         text-decoration: underline;
@@ -242,12 +246,13 @@
       .detail-card {
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 16px;
         width: 100%;
-        max-width: 350px;
-        padding: 18px 18px 20px;
-        background: #fff;
-        border-radius: 24px;
+        padding: 16px;
+        background: #000;
+        border: 0.5px solid #f5f6f1;
+        border-radius: 30px;
+        box-shadow: inset 0 2px 10px 0 #989892;
       }
       .detail-card__name {
         margin: 0;
@@ -256,42 +261,44 @@
         font-weight: 600;
         font-size: 18px;
         line-height: 1.4;
-        text-align: left;
-        color: #000;
+        text-align: center;
+        color: #fff;
       }
 
-      /* Stat grid: 3 columns — Sets · Reps · Rest (RPE on a second row if present) */
-      .ex-stats {
+      /* Per-set table — SET · KG · REPS · ✓ (matches Figma detail card) */
+      .ex-table {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-        width: 100%;
-      }
-      .ex-stat {
-        display: flex;
-        flex-direction: column;
+        grid-template-columns: 32px 1fr 1fr 32px;
+        column-gap: 16px;
+        row-gap: 12px;
         align-items: center;
-        gap: 4px;
-        padding: 10px 6px;
-        background: #f5f7f8;
-        border-radius: 12px;
-      }
-      .ex-stat__label {
+        width: 100%;
         font-family: "Inter", sans-serif;
+        font-size: 14px;
+        line-height: 1.4;
+        text-align: center;
+      }
+      .ex-table__head {
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.5);
+      }
+      .ex-table__cell {
         font-weight: 500;
-        font-size: 11px;
-        line-height: 1;
-        letter-spacing: 0.4px;
-        text-transform: uppercase;
-        color: rgba(0, 0, 0, 0.5);
+        color: #fff;
       }
-      .ex-stat__value {
-        font-family: "Inter", sans-serif;
-        font-weight: 600;
-        font-size: 17px;
-        line-height: 1.1;
-        color: #000;
+      .ex-table__cell--muted {
+        color: rgba(255, 255, 255, 0.5);
       }
+      .ex-table__check {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        margin: 0 auto;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
       .ex-rpe {
         align-self: flex-start;
         display: inline-flex;
@@ -299,11 +306,11 @@
         gap: 6px;
         padding: 4px 10px;
         border-radius: 999px;
-        background: rgba(80, 219, 255, 0.28);
+        background: rgba(80, 219, 255, 0.18);
         font-family: "Inter", sans-serif;
         font-weight: 600;
         font-size: 12px;
-        color: #02486a;
+        color: #50dbff;
       }
       .ex-notes {
         margin: 0;
@@ -311,7 +318,33 @@
         font-weight: 400;
         font-size: 14px;
         line-height: 1.45;
-        color: rgba(0, 0, 0, 0.7);
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      /* Bottom CTA (matches Figma "Finish workout" button — used here as Back to plan) */
+      .plan-cta {
+        appearance: none;
+        -webkit-appearance: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 280px;
+        max-width: 100%;
+        padding: 16px 20px;
+        background: #0057c3;
+        border: 1px solid #1174cb;
+        border-radius: 10px;
+        box-shadow: inset 0 0 3px 0 rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        font-family: "Inter", sans-serif;
+        font-weight: 600;
+        font-size: 16px;
+        line-height: 1;
+        color: #fff;
+        text-decoration: none;
+      }
+      .plan-cta:hover {
+        filter: brightness(1.06);
       }
 
       /* "text Kano" footnote (shared) */
@@ -325,7 +358,7 @@
         font-size: 16px;
         line-height: 1.4;
         text-align: center;
-        color: #0474c2;
+        color: rgba(255, 255, 255, 0.5);
       }
 
       /* Empty / error states */
@@ -346,7 +379,7 @@
         line-height: 1.3;
         letter-spacing: -0.24px;
         text-align: center;
-        color: #000;
+        color: #fff;
       }
       .plan-state__text {
         margin: 0;
@@ -357,7 +390,7 @@
         font-size: 16px;
         line-height: 1.4;
         text-align: center;
-        color: #0474c2;
+        color: #50dbff;
       }
 
       /* Cancel subscription */
@@ -428,13 +461,23 @@
       .modal-btn--confirm { background: #ff3b30; color: #fff; }
       .modal-btn--confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 
-      /* White footer sheet */
+      /* Dark footer sheet */
       .plan-footer {
         display: flex;
-        justify-content: center;
+        flex-direction: column;
         width: 100%;
         padding: 32px 20px;
-        background: #fff;
+        background: #000;
+        border-top: 1px solid #20222a;
+      }
+      .plan-footer .site-footer__legal-heading {
+        color: rgba(255, 255, 255, 0.5);
+      }
+      .plan-footer .site-footer__copyright {
+        color: rgba(255, 255, 255, 0.5);
+      }
+      .plan-footer .site-footer__links a {
+        color: #fff;
       }
     </style>
   </head>
@@ -506,24 +549,25 @@
               {% for ex in day.exercises %}
                 <article class="detail-card">
                   <p class="detail-card__name">{{ ex.name }}</p>
-                  <div class="ex-stats">
-                    <div class="ex-stat">
-                      <span class="ex-stat__label">Sets</span>
-                      <span class="ex-stat__value">{{ ex.sets if ex.sets is not none else '—' }}</span>
-                    </div>
-                    <div class="ex-stat">
-                      <span class="ex-stat__label">Reps</span>
-                      <span class="ex-stat__value">{{ ex.reps if ex.reps is not none else '—' }}</span>
-                    </div>
-                    <div class="ex-stat">
-                      <span class="ex-stat__label">Rest</span>
-                      <span class="ex-stat__value">
-                        {% if ex.rest_seconds %}{{ ex.rest_seconds }}s{% else %}—{% endif %}
-                      </span>
-                    </div>
+                  {% set set_count = ex.sets if ex.sets and ex.sets > 0 else 1 %}
+                  <div class="ex-table" role="table" aria-label="{{ ex.name }} sets">
+                    <span class="ex-table__head" role="columnheader">SET</span>
+                    <span class="ex-table__head" role="columnheader">KG</span>
+                    <span class="ex-table__head" role="columnheader">REPS</span>
+                    <span class="ex-table__head" role="columnheader" aria-label="Done">✓</span>
+                    {% for i in range(1, set_count + 1) %}
+                      <span class="ex-table__cell" role="cell">{{ i }}</span>
+                      <span class="ex-table__cell ex-table__cell--muted" role="cell">—</span>
+                      <span class="ex-table__cell" role="cell">{{ ex.reps if ex.reps is not none else '—' }}</span>
+                      <span class="ex-table__check" role="cell" aria-hidden="true"></span>
+                    {% endfor %}
                   </div>
-                  {% if ex.rpe %}
-                    <span class="ex-rpe">RPE {{ ex.rpe }}</span>
+                  {% if ex.rest_seconds or ex.rpe %}
+                    <p class="ex-notes">
+                      {% if ex.rest_seconds %}Rest {{ ex.rest_seconds }}s{% endif %}
+                      {% if ex.rest_seconds and ex.rpe %} · {% endif %}
+                      {% if ex.rpe %}RPE {{ ex.rpe }}{% endif %}
+                    </p>
                   {% endif %}
                   {% if ex.notes %}
                     <p class="ex-notes">{{ ex.notes }}</p>
@@ -531,6 +575,7 @@
                 </article>
               {% endfor %}
 
+              <button type="button" class="plan-cta" data-back>Back to plan</button>
               <p class="plan-text-kano">Questions or need to tweak something? Just text Kano :)</p>
             </div>
           {% endfor %}
@@ -542,7 +587,7 @@
           <div class="site-footer__brand">
             <img
               class="site-footer__logo"
-              src="/static/images/kano-wordmark.svg"
+              src="/static/images/kano-wordmark-white.svg"
               alt="Kano"
               width="88"
               height="20"
