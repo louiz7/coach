@@ -84,8 +84,8 @@ async def handle_modify_plan(user: User, text: str, db: AsyncSession) -> Optiona
         return (
             f"PLAN UPDATED: You just regenerated the user's training plan based on their request: '{text}'. "
             f"Plan URL: {url}. "
-            "In your reply: confirm in 1-2 short sentences what you changed (reference their specific request), "
-            "then include the plan URL so they can view it. "
+            "In your reply: confirm in 1-2 short sentences what you changed (reference their specific request). "
+            "Do NOT include the URL in your text — it will be sent as a separate message automatically. "
             "Do NOT say you can't modify plans through text — you already did it."
         )
     except Exception as ex:
@@ -108,7 +108,8 @@ async def handle_view_plan(user: User, text: str, db: AsyncSession) -> Optional[
             intro = "here's your training plan 💪"
         await linq.send_message(user.linq_chat_id, intro)
         await linq.send_message(user.linq_chat_id, url)
-        await add_message(user.id, "assistant", f"{intro}\n{url}", db)
+        await add_message(user.id, "assistant", intro, db)
+        await add_message(user.id, "assistant", url, db)
         return "__SENT__"
     except Exception as ex:
         print(f"[handle_view_plan ERROR] {ex}")
@@ -329,7 +330,8 @@ async def handle_calendar_link(user: User, text: str, db: AsyncSession) -> Optio
 
         await linq.send_message(user.linq_chat_id, intro)
         await linq.send_message(user.linq_chat_id, cal_url)
-        await add_message(user.id, "assistant", f"{intro}\n{cal_url}", db)
+        await add_message(user.id, "assistant", intro, db)
+        await add_message(user.id, "assistant", cal_url, db)
         return "__SENT__"
     except Exception as ex:
         print(f"[handle_calendar_link ERROR] {ex}")
