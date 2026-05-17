@@ -102,10 +102,7 @@ async def handle_view_plan(user: User, text: str, db: AsyncSession) -> Optional[
             await generate_plan(user, db)
         url = _plan_url(user)
         lang = (user.language or "en").lower()
-        if lang == "de":
-            intro = "hier ist dein trainingsplan 💪"
-        else:
-            intro = "here's your training plan 💪"
+        intro = "here's your training plan 💪"
         await linq.send_message(user.linq_chat_id, intro)
         await linq.send_message(user.linq_chat_id, url)
         await add_message(user.id, "assistant", intro, db)
@@ -323,10 +320,7 @@ async def handle_calendar_link(user: User, text: str, db: AsyncSession) -> Optio
         token = create_calendar_token(user.phone)
         cal_url = f"webcal://{host}/calendar/{token}.ics"
 
-        if user.language == "de":
-            intro = "Hier ist dein Kalender-Link — einfach antippen und dein Trainingsplan landet direkt in deinem Kalender 📅"
-        else:
-            intro = "Here's your calendar link — tap it to add your training plan straight to your calendar 📅"
+        intro = "here's your calendar link — tap it to add your training plan directly to your calendar 📅"
 
         await linq.send_message(user.linq_chat_id, intro)
         await linq.send_message(user.linq_chat_id, cal_url)
