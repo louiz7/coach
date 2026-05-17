@@ -62,7 +62,10 @@
       {# ---------- Above the fold ---------- #}
       <section class="above-fold">
         <div class="hero">
-          <h1 class="hero__title">Kano wants you to reach your fitness goal. Do you?</h1>
+          <div class="testimonial-pill" aria-live="polite" data-testimonial-pill>
+            <p class="testimonial-pill__text">Alex lost over 9kg in 12 weeks with Kano</p>
+          </div>
+          <h1 class="hero__title">Kano wants you to reach your fitness goals. <em>Do you?</em></h1>
           <p class="hero__subtext">
             Your personal coach that<br />lives in iMessage
           </p>
@@ -160,8 +163,8 @@
         </div>
       </section>
 
-      {# ---------- Before / after (hidden for now) ---------- #}
-      <section class="compare" aria-labelledby="compare-title" hidden>
+      {# ---------- Before / after ---------- #}
+      <section class="compare" aria-labelledby="compare-title">
         <header class="compare__heading">
           <h2 class="compare__title" id="compare-title">Lock in like <em>Alex</em></h2>
           <p class="compare__subtext">
@@ -173,9 +176,9 @@
         <div class="compare__controls">
           <div class="compare__people" role="tablist" aria-label="Choose a profile" data-compare-tabs>
             {% for person in [
-              ("alex", "Alex", "lost 9kg in 12 weeks", true),
-              ("marcus", "Marcus", "gained 6kg of lean mass", false),
-              ("luke", "Luke", "ran his first sub-20 5K", false),
+              ("alex",   "Alex",   "lost 9kg in 12 weeks",     true,  "before-alex.png",   "after-alex.png"),
+              ("marcus", "Marcus", "gained 6kg of lean mass",  false, "before-marcus.png", "after-marcus.png"),
+              ("luke",   "Luke",   "ran his first sub-20 5K",  false, "before-luke.png",   "after-luke.png"),
             ] %}
             <button
               type="button"
@@ -185,6 +188,8 @@
               data-compare-tab="{{ person[0] }}"
               data-name="{{ person[1] }}"
               data-achievement="{{ person[2] }}"
+              data-before="{{ person[4] }}"
+              data-after="{{ person[5] }}"
             >{{ person[1] }}</button>
             {% endfor %}
           </div>

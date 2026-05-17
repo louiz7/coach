@@ -92,6 +92,23 @@
     const subtextLead = section?.querySelector(".compare__subtext-lead");
     const subtextTail = section?.querySelector(".compare__subtext-tail");
 
+    const slider = section?.querySelector(".compare__slider");
+    const beforeLayer = slider?.querySelector(".compare__before");
+    const afterLayer = slider?.querySelector(".compare__after");
+
+    const setLayerImage = (el, file) => {
+      if (!el) return;
+      if (file) {
+        el.style.backgroundImage = `url("/static/images/${file}")`;
+        el.style.backgroundSize = "cover";
+        el.style.backgroundPosition = "center";
+      } else {
+        el.style.backgroundImage = "";
+        el.style.backgroundSize = "";
+        el.style.backgroundPosition = "";
+      }
+    };
+
     const activate = (tab) => {
       tabs.forEach((t) => {
         const active = t === tab;
@@ -103,13 +120,48 @@
       if (titleName && name) titleName.textContent = name;
       if (subtextLead && name) subtextLead.textContent = `With Kano, ${name}`;
       if (subtextTail) subtextTail.textContent = achievement || "";
+      setLayerImage(beforeLayer, tab.dataset.before);
+      setLayerImage(afterLayer, tab.dataset.after);
     };
 
     tabs.forEach((tab) => tab.addEventListener("click", () => activate(tab)));
+
+    // Sync the slider images with whichever tab starts out active.
+    const initialActive = group.querySelector("[data-compare-tab].is-active");
+    if (initialActive) activate(initialActive);
   };
 
   document.querySelectorAll("[data-compare]").forEach(initCompareSlider);
   document.querySelectorAll("[data-compare-tabs]").forEach(initCompareTabs);
+
+  /* ----- Rotating testimonial pill above the hero ----- */
+  const TESTIMONIAL_PHRASES = [
+    "Alex lost over 9kg in 12 weeks with Kano",
+    "Marcus gained 6kg of lean mass with Kano",
+    "Luke ran his 10k in record time with Kano",
+    "Mary is hitting the gym regulary with Kano",
+    "Robert ran his first marathon with Kano",
+    "Elisa fixed her eating habits to live healthier",
+  ];
+
+  const initTestimonialPill = (pill) => {
+    const text = pill.querySelector(".testimonial-pill__text");
+    if (!text) return;
+    let i = TESTIMONIAL_PHRASES.indexOf(text.textContent.trim());
+    if (i < 0) i = 0;
+    setInterval(() => {
+      text.classList.add("is-fading");
+      setTimeout(() => {
+        i = (i + 1) % TESTIMONIAL_PHRASES.length;
+        text.textContent = TESTIMONIAL_PHRASES[i];
+        text.classList.remove("is-fading");
+      }, 300);
+    }, 3500);
+  };
+
+  document
+    .querySelectorAll("[data-testimonial-pill]")
+    .forEach(initTestimonialPill);
 
   /* ----- Goal selector drives features + testimonial ----- */
   const GOAL_CONFIG = {
