@@ -181,8 +181,8 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # The LLM ALWAYS responds; handlers never bypass it
         handler_context = await run_handlers(intents, user, text, db, image_url=image_url)
 
-        # CALENDAR_LINK handler sends the message itself — no LLM reply needed
-        if "CALENDAR_LINK" in intents:
+        # Handlers that send replies themselves — skip LLM
+        if "CALENDAR_LINK" in intents or "VIEW_PLAN" in intents:
             return
 
         # FOOD_LOG handler sends the analysis result itself when an image was

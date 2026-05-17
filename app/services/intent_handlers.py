@@ -94,28 +94,26 @@ async def handle_modify_plan(user: User, text: str, db: AsyncSession) -> Optiona
 
 
 async def handle_view_plan(user: User, text: str, db: AsyncSession) -> Optional[str]:
-    """User wants to see their existing plan — return the URL as context."""
+    """User wants to see their existing plan — send the URL directly."""
     try:
         from app.services.training_plan import _get_active_plan, generate_plan
         active_plan = await _get_active_plan(user, db)
         if active_plan is None:
-            # No plan yet — generate one
             await generate_plan(user, db)
-            url = _plan_url(user)
-            return (
-                f"NEW PLAN CREATED: You just built a training plan for the user. "
-                f"Plan URL: {url}. "
-                "Tell them their plan is ready and include the URL."
-            )
         url = _plan_url(user)
-        return (
-            f"PLAN URL: {url}. "
-            "Include this URL in your reply so the user can view their training plan. "
-            "Answer any specific question they asked about the plan first, then offer the link."
-        )
+        lang = (user.language or "en").lower()
+        if lang == "de":
+            intro = "hier ist dein trainingsplan 💪"
+        else:
+            intro = "here's your training plan 💪"
+        await linq.send_message(user.linq_chat_id, intro)
+        await linq.send_message(user.linq_chat_id, url)
+        await add_message(user.id, "assistant", f"{intro}\n{url}", db)
+        return "__SENT__"
     except Exception as ex:
         print(f"[handle_view_plan ERROR] {ex}")
-        return "Failed to retrieve training plan. Apologize briefly."
+        import traceback; traceback.print_exc()
+        return None
 
 
 async def handle_new_plan(user: User, text: str, db: AsyncSession) -> Optional[str]:
