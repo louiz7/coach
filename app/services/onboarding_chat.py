@@ -307,9 +307,11 @@ async def _sidebar_check(
             if pending_question
             else "This is the user's very first message — you haven't asked them anything yet."
         )
+        # Escape the user message so embedded quotes/newlines don't break the JSON the LLM returns
+        safe_text = (text or "").replace("\\", "\\\\").replace('"', "'")
         prompt = _SIDEBAR_PROMPT.format(
             asked_context=asked_context,
-            user_message=text or "",
+            user_message=safe_text,
             lang_instruction=_t(user, "sidebar_lang_instruction"),
         )
         resp = await client.chat.completions.create(
@@ -319,7 +321,18 @@ async def _sidebar_check(
             temperature=0,
             response_format={"type": "json_object"},
         )
-        data = json.loads(resp.choices[0].message.content)
+        raw = resp.choices[0].message.content
+        try:
+            data = json.loads(raw)
+        except Exception:
+            # Fallback: try to extract fields with regex if JSON is malformed
+            import re as _re
+            is_sidebar = bool(_re.search(r'"is_sidebar"\s*:\s*true', raw, _re.I))
+            answer_match = _re.search(r'"answer"\s*:\s*"(.*?)"(?:\s*[,}])', raw, _re.S)
+            data = {
+                "is_sidebar": is_sidebar,
+                "answer": answer_match.group(1).replace('\\n', '\n') if answer_match else None,
+            }
         if data.get("is_sidebar") and data.get("answer"):
             await _send(chat_id, user.id, data["answer"], db)
             await asyncio.sleep(0.8)
