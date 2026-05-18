@@ -244,26 +244,28 @@ async def _llm_extract(step: str, text: str) -> dict | None:
 
 _SIDEBAR_PROMPT = """
 You are Kano, an AI personal fitness coach onboarding a new user via iMessage.
-You just asked the user: "{pending_question}"
-They replied: "{user_message}"
+{asked_context}
+The user said: "{user_message}"
 
-Decide: is their reply a separate question or comment about how Kano works,
-or is it an attempt to answer your question?
+Decide: is their message a separate question or comment about how Kano works / fitness in general,
+or is it an attempt to answer the pending question (if any)?
 
 Return JSON:
 {{
   "is_sidebar": true or false,
-  "answer": "if is_sidebar=true: your short direct answer to their question (1-3 sentences max, casual iMessage tone). null otherwise."
+  "answer": "if is_sidebar=true: your short direct answer (1-3 sentences max, casual iMessage tone). null otherwise."
 }}
 
-is_sidebar=true examples: questions about privacy/data storage, how the app works, pricing, what WHOOP is, whether it's free, etc.
-is_sidebar=false examples: actually answering the question you asked, even briefly.
+is_sidebar=true examples: questions about privacy/data storage, how Kano works, pricing, what WHOOP is, whether it's free, fitness questions, greetings with no name, random comments.
+is_sidebar=false examples: actually answering the pending question (e.g. giving their name, stating their goal).
 
 Facts about Kano you MUST use if pricing or cost comes up:
 - 7-day free trial, no charge upfront
 - After the trial: €3.49 per week
 - Cancel anytime
 - Works entirely via iMessage, no app to download
+
+What Kano can do: build personalised workout plans, daily check-ins via iMessage, connect to WHOOP for data-driven coaching, track nutrition via food photos.
 {lang_instruction}
 """
 
@@ -284,8 +286,13 @@ async def _sidebar_check(
     from openai import AsyncOpenAI
     client = AsyncOpenAI(api_key=settings.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
     try:
+        asked_context = (
+            f'You just asked the user: "{pending_question}"'
+            if pending_question
+            else "This is the user's very first message — you haven't asked them anything yet."
+        )
         prompt = _SIDEBAR_PROMPT.format(
-            pending_question=pending_question,
+            asked_context=asked_context,
             user_message=text or "",
             lang_instruction=_t(user, "sidebar_lang_instruction"),
         )
@@ -399,9 +406,13 @@ async def _restart_inform(user: User, chat_id: str, db: AsyncSession) -> None:
 async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Capture the user's first name, then pitch and ask for their goal.
 
-    If the message doesn't contain a name (e.g. "whats kano?", "hi", etc.)
-    and the user hasn't shared their name yet, send the full intro instead of
-    a cold reask. The intro itself asks for the name.
+    If the message doesn't look like a name (e.g. "whats kano?", "can you help
+    me lose weight?", "hi"), we:
+      1. Check if it's a sidebar question/comment via _sidebar_check.
+         If yes → answer it naturally + re-ask for name. Done.
+      2. Otherwise (e.g. plain "hi", one word, no name extractable):
+         - If intro not yet shown (name=unbekannt) → send intro (which asks name).
+         - If intro already shown → politely re-ask for just the name.
     """
     raw = (text or "").strip()
     name_already_set = (user.name or "").lower() not in {"", "unbekannt"}
@@ -417,9 +428,30 @@ async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) 
     extracted = (data or {}).get("name") if (data or {}).get("valid") else None
 
     if not extracted:
+        # Try to handle it as a sidebar question/comment first.
+        # _sidebar_check will answer naturally and re-ask the pending question.
+        # After the sidebar answer we always want to get the name, so if the
+        # intro hasn't been sent yet we prepend it before the name question.
         if not name_already_set:
+            # Build a combined pending question: intro lines + name ask
+            intro_lines = _t(user, "inform_intro")
+            # Use the last intro line (the name question) as the pending question;
+            # _sidebar_check will re-ask only that line. We send the rest of the
+            # intro ourselves before the sidebar answer if not already shown.
+            name_question = _t(user, "inform_name_question")
+            handled = await _sidebar_check(user, chat_id, text, name_question, db)
+            if handled:
+                return
+            # Not a sidebar — just plain "hi" or something with no name.
+            # Send the full intro (it already ends with the name question).
             await _send_inform_intro(chat_id, user.id, db, user=user)
         else:
+            # Intro already shown — check if it's a sidebar question.
+            handled = await _sidebar_check(
+                user, chat_id, text, _t(user, "inform_name_question"), db
+            )
+            if handled:
+                return
             await _send(chat_id, user.id, _t(user, "inform_just_name"), db)
         return
 
