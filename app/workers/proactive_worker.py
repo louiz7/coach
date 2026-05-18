@@ -727,6 +727,7 @@ async def startup(ctx):
 
 class WorkerSettings:
     on_startup = startup
+    job_timeout = 25  # seconds — gives in-flight jobs time to finish before shutdown
     functions = [proactive_task, morning_whoop_task, evening_checkin_task, weekly_coach_notes_task, whoop_followup_task]
     cron_jobs = [
         # Proactive idle-user pings stay disabled for now (too chatty pre-beta).
