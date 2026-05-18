@@ -745,14 +745,27 @@ async def _handle_awaiting_subscription(user: User, chat_id: str, text: str, db:
 
 
 async def _generate_plan_post_subscription(user: User, db: AsyncSession) -> bool:
-    """Generate the plan and advance state. No SMS.
+    """Generate the plan and advance state.
 
     Used by the web paywall flow — the user is watching the /processing
-    spinner and will be redirected to /plan once this succeeds.
+    spinner and will be redirected to /plan once this succeeds. We also
+    send a short iMessage so they know they can text back for changes.
+
+    Idempotent: guarded by a Redis lock so the same user can't trigger
+    parallel plan generation from competing Stripe webhooks (e.g. a
+    checkout.session.completed + customer.subscription.updated race).
 
     Returns True on success, False on failure.
     """
     from app.services.training_plan import generate_plan
+    from app.redis import redis_pool
+
+    lock_key = f"plan_gen_lock:{user.id}"
+    # SET NX EX — only the first caller wins; others bail out fast
+    acquired = await redis_pool.set(lock_key, "1", nx=True, ex=180)
+    if not acquired:
+        print(f"[_generate_plan_post_subscription] lock held for user {user.id}, skipping")
+        return False
 
     try:
         await generate_plan(user, db)
@@ -760,12 +773,32 @@ async def _generate_plan_post_subscription(user: User, db: AsyncSession) -> bool
         user.onboarding_complete = True
         await db.commit()
         posthog.capture("onboarding_plan_built", distinct_id=str(user.id))
+
+        # Nudge via iMessage so the user knows feedback is welcome.
+        # No plan link here — they're already on /plan in the browser.
+        if user.linq_chat_id:
+            try:
+                await _send(user.linq_chat_id, user.id, "your plan is ready 💪", db)
+                await asyncio.sleep(0.8)
+                await _send(
+                    user.linq_chat_id,
+                    user.id,
+                    _t(user, "plan_review_prompt"),
+                    db,
+                )
+            except Exception as ex:
+                print(f"[_generate_plan_post_subscription] follow-up iMessage failed: {ex}")
         return True
     except Exception as ex:
         print(f"[onboarding _generate_plan_post_subscription] ERROR: {ex}")
         user.onboarding_state = OnboardingState.DONE
         user.onboarding_complete = True
         await db.commit()
+        if user.linq_chat_id:
+            try:
+                await _send(user.linq_chat_id, user.id, _t(user, "plan_fail"), db)
+            except Exception:
+                pass
         return False
 
 
