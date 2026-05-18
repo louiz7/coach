@@ -12,6 +12,20 @@ from typing import Optional
 
 import httpx
 import posthog
+import threading
+
+
+def _posthog_capture(event: str, distinct_id: str, properties: dict = None):
+    """Thread-safe posthog capture — won't conflict with running event loop."""
+    try:
+        threading.Thread(
+            target=posthog.capture,
+            kwargs={"distinct_id": distinct_id, "event": event, "properties": properties or {}},
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -367,7 +381,7 @@ async def generate_plan(
     await db.commit()
     await db.refresh(plan)
 
-    posthog.capture(
+    _posthog_capture(
         "training_plan_generated",
         distinct_id=str(user.id),
         properties={

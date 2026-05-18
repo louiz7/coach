@@ -12,8 +12,22 @@ fast-forwarded to INFORM so users who started the old flow get a clean restart.
 import asyncio
 import json
 from typing import Optional
+import threading
 
 import posthog
+
+
+def _posthog_capture(event: str, distinct_id: str, properties: dict = None):
+    """Thread-safe posthog capture — won't conflict with running event loop."""
+    try:
+        threading.Thread(
+            target=posthog.capture,
+            kwargs={"distinct_id": distinct_id, "event": event, "properties": properties or {}},
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -492,7 +506,7 @@ async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSes
     user.onboarding_state = OnboardingState.STATUS_QUO
     await db.commit()
 
-    posthog.capture("onboarding_goal_captured", distinct_id=str(user.id), properties={"has_sports_focus": bool(user.sports_focus)})
+    _posthog_capture("onboarding_goal_captured", distinct_id=str(user.id), properties={"has_sports_focus": bool(user.sports_focus)})
 
     await _send_multi(chat_id, user.id, _t(user, "status_prompt"), db)
 
@@ -617,7 +631,7 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, wh
     user.onboarding_state = OnboardingState.AWAITING_SUBSCRIPTION
     await db.commit()
 
-    posthog.capture("onboarding_awaiting_subscription", distinct_id=str(user.id), properties={"whoop_connected": whoop_connected})
+    _posthog_capture("onboarding_awaiting_subscription", distinct_id=str(user.id), properties={"whoop_connected": whoop_connected})
 
     ack = _t(user, "plan_ack_whoop") if whoop_connected else _t(user, "plan_ack")
     tease = _t(user, "plan_building_tease")
@@ -702,7 +716,7 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
     # User is happy — move to DONE (already subscribed at this point)
     user.onboarding_state = OnboardingState.DONE
     await db.commit()
-    posthog.capture("onboarding_completed", distinct_id=str(user.id))
+    _posthog_capture("onboarding_completed", distinct_id=str(user.id))
     from app.services.token import create_calendar_token
     base_url = settings.PUBLIC_BASE_URL.rstrip('/')
     # Strip scheme and build webcal:// directly — iOS opens Calendar immediately
@@ -772,7 +786,7 @@ async def _generate_plan_post_subscription(user: User, db: AsyncSession) -> bool
         user.onboarding_state = OnboardingState.PLAN_REVIEW
         user.onboarding_complete = True
         await db.commit()
-        posthog.capture("onboarding_plan_built", distinct_id=str(user.id))
+        _posthog_capture("onboarding_plan_built", distinct_id=str(user.id))
 
         # Nudge via iMessage so the user knows feedback is welcome.
         # No plan link here — they're already on /plan in the browser.

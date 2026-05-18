@@ -1,6 +1,20 @@
 import asyncio
 import random
+import threading
 import posthog
+
+
+def _posthog_capture(event: str, distinct_id: str, properties: dict = None):
+    """Thread-safe posthog capture — won't conflict with arq's running event loop."""
+    try:
+        threading.Thread(
+            target=posthog.capture,
+            kwargs={"distinct_id": distinct_id, "event": event, "properties": properties or {}},
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
+
 from sqlalchemy import select
 from app.database import async_session
 from app.models.user import User
@@ -97,7 +111,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
             await _send_inform_intro(chat_id, user.id, db, user=user)
             await linq.share_contact_card(chat_id)
             print(f"[message_worker] new user created, intro sent chat_id={chat_id}")
-            posthog.capture("user_created", distinct_id=str(user.id), properties={"channel": "imessage"})
+            _posthog_capture("user_created", distinct_id=str(user.id), properties={"channel": "imessage"})
             return
 
         # --- ONBOARDING STATE MACHINE ---
@@ -152,7 +166,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
         # Save inbound message
         await add_message(user.id, "user", text, db)
-        posthog.capture("message_received", distinct_id=str(user.id), properties={"message_length": len(text)})
+        _posthog_capture("message_received", distinct_id=str(user.id), properties={"message_length": len(text)})
 
         # Mark as read
         await linq.mark_as_read(chat_id)
