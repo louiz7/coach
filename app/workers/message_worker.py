@@ -163,9 +163,14 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
         async def _keep_typing():
             while _typing_active:
-                await linq.start_typing(chat_id)
+                try:
+                    await linq.start_typing(chat_id)
+                except Exception:
+                    pass
                 await asyncio.sleep(4)
 
+        # Fire immediately so the indicator shows before the first await below
+        await linq.start_typing(chat_id)
         _typing_task = asyncio.create_task(_keep_typing())
 
         async def _stop_typing():
