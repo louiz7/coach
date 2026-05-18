@@ -150,12 +150,12 @@
           <p class="goal__options-label">I want to...</p>
           <ul class="goal__options" role="radiogroup" aria-labelledby="goal-title">
             {% for opt in [
-              ("lose-weight", "lose weight"),
-              ("build-muscle", "build muscle"),
-              ("level-up", "level up my performance"),
+              ("build-muscle", "build muscle", true),
+              ("lose-weight", "lose weight", false),
+              ("level-up", "level up my performance", false),
             ] %}
             <li class="goal__option">
-              <input class="goal__option-input" type="radio" name="goal" id="goal-{{ opt[0] }}" value="{{ opt[0] }}" />
+              <input class="goal__option-input" type="radio" name="goal" id="goal-{{ opt[0] }}" value="{{ opt[0] }}"{% if opt[2] %} checked{% endif %} />
               <label class="goal__option-label" for="goal-{{ opt[0] }}">{{ opt[1] }}</label>
             </li>
             {% endfor %}
@@ -173,44 +173,22 @@
           </p>
         </header>
 
-        <div class="compare__controls">
-          <div class="compare__people" role="tablist" aria-label="Choose a profile" data-compare-tabs>
-            {% for person in [
-              ("alex",   "Alex",   "lost 9kg in 12 weeks",     true,  "before-alex.png",   "after-alex.png"),
-              ("marcus", "Marcus", "gained 6kg of lean mass",  false, "before-marcus.png", "after-marcus.png"),
-              ("luke",   "Luke",   "ran his first sub-20 5K",  false, "before-luke.png",   "after-luke.png"),
-            ] %}
-            <button
-              type="button"
-              class="compare__person{% if person[3] %} is-active{% endif %}"
-              role="tab"
-              aria-selected="{{ 'true' if person[3] else 'false' }}"
-              data-compare-tab="{{ person[0] }}"
-              data-name="{{ person[1] }}"
-              data-achievement="{{ person[2] }}"
-              data-before="{{ person[4] }}"
-              data-after="{{ person[5] }}"
-            >{{ person[1] }}</button>
-            {% endfor %}
-          </div>
-
-          <div
-            class="compare__slider"
-            role="slider"
-            tabindex="0"
-            aria-label="Reveal before and after"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow="50"
-            data-compare
-          >
-            <div class="compare__before" aria-hidden="true"></div>
-            <div class="compare__after" aria-hidden="true"></div>
-            <span class="compare__badge compare__badge--before">BEFORE</span>
-            <span class="compare__badge compare__badge--after">AFTER</span>
-            <div class="compare__divider" aria-hidden="true">
-              <div class="compare__divider-grip"></div>
-            </div>
+        <div
+          class="compare__slider"
+          role="slider"
+          tabindex="0"
+          aria-label="Reveal before and after"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="50"
+          data-compare
+        >
+          <div class="compare__before" aria-hidden="true"></div>
+          <div class="compare__after" aria-hidden="true"></div>
+          <span class="compare__badge compare__badge--before">BEFORE</span>
+          <span class="compare__badge compare__badge--after">AFTER</span>
+          <div class="compare__divider" aria-hidden="true">
+            <div class="compare__divider-grip"></div>
           </div>
         </div>
       </section>

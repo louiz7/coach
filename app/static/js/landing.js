@@ -83,56 +83,84 @@
     });
 
     setPos(parseFloat(slider.getAttribute("aria-valuenow") || "50"));
+
+    // Auto-tease: when the slider first scrolls into view, briefly drag
+    // it right → left → centre so the user sees it's interactive.
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    if (reducedMotion) return;
+
+    let teased = false;
+    const tease = () => {
+      if (teased) return;
+      teased = true;
+      slider.classList.add("is-teasing");
+      const timeouts = [
+        setTimeout(() => setPos(78), 250),
+        setTimeout(() => setPos(22), 1100),
+        setTimeout(() => setPos(50), 1900),
+        setTimeout(() => slider.classList.remove("is-teasing"), 2600),
+      ];
+      const cancel = () => {
+        timeouts.forEach(clearTimeout);
+        slider.classList.remove("is-teasing");
+      };
+      // Capture phase so we strip the transition class BEFORE the existing
+      // pointerdown handler sets --pos, otherwise the drag would lag.
+      slider.addEventListener("pointerdown", cancel, {
+        once: true,
+        capture: true,
+      });
+      slider.addEventListener("keydown", cancel, { once: true });
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            tease();
+            io.unobserve(slider);
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+    io.observe(slider);
   };
 
-  const initCompareTabs = (group) => {
-    const tabs = group.querySelectorAll("[data-compare-tab]");
-    const section = group.closest("section");
-    const titleName = section?.querySelector(".compare__title em");
-    const subtextLead = section?.querySelector(".compare__subtext-lead");
-    const subtextTail = section?.querySelector(".compare__subtext-tail");
+  const setCompareLayerImage = (el, file) => {
+    if (!el) return;
+    if (file) {
+      el.style.backgroundImage = `url("/static/images/${file}")`;
+      el.style.backgroundSize = "cover";
+      el.style.backgroundPosition = "center";
+    } else {
+      el.style.backgroundImage = "";
+      el.style.backgroundSize = "";
+      el.style.backgroundPosition = "";
+    }
+  };
 
-    const slider = section?.querySelector(".compare__slider");
-    const beforeLayer = slider?.querySelector(".compare__before");
-    const afterLayer = slider?.querySelector(".compare__after");
-
-    const setLayerImage = (el, file) => {
-      if (!el) return;
-      if (file) {
-        el.style.backgroundImage = `url("/static/images/${file}")`;
-        el.style.backgroundSize = "cover";
-        el.style.backgroundPosition = "center";
-      } else {
-        el.style.backgroundImage = "";
-        el.style.backgroundSize = "";
-        el.style.backgroundPosition = "";
-      }
-    };
-
-    const activate = (tab) => {
-      tabs.forEach((t) => {
-        const active = t === tab;
-        t.classList.toggle("is-active", active);
-        t.setAttribute("aria-selected", active ? "true" : "false");
-      });
-      const name = tab.dataset.name;
-      const achievement = tab.dataset.achievement;
-      if (titleName && name) titleName.textContent = name;
-      if (subtextLead && name) subtextLead.textContent = `With Kano, ${name}`;
-      if (subtextTail) subtextTail.textContent = achievement || "";
-      setLayerImage(beforeLayer, tab.dataset.before);
-      setLayerImage(afterLayer, tab.dataset.after);
-    };
-
-    tabs.forEach((tab) => tab.addEventListener("click", () => activate(tab)));
-
-    // Sync the slider images with whichever tab starts out active.
-    const initialActive = group.querySelector("[data-compare-tab].is-active");
-    if (initialActive) activate(initialActive);
+  const setCompareProfile = (person) => {
+    if (!person) return;
+    const titleEm = document.querySelector(".compare__title em");
+    const subtextLead = document.querySelector(".compare__subtext-lead");
+    const subtextTail = document.querySelector(".compare__subtext-tail");
+    if (titleEm) titleEm.textContent = person.name;
+    if (subtextLead) subtextLead.textContent = `With Kano, ${person.name}`;
+    if (subtextTail) subtextTail.textContent = person.achievement || "";
+    setCompareLayerImage(
+      document.querySelector(".compare__before"),
+      person.before
+    );
+    setCompareLayerImage(
+      document.querySelector(".compare__after"),
+      person.after
+    );
   };
 
   document.querySelectorAll("[data-compare]").forEach(initCompareSlider);
-  document.querySelectorAll("[data-compare-tabs]").forEach(initCompareTabs);
 
   /* ----- Rotating testimonial pill above the hero ----- */
   const TESTIMONIAL_PHRASES = [
@@ -166,7 +194,12 @@
   /* ----- Goal selector drives features + testimonial ----- */
   const GOAL_CONFIG = {
     "lose-weight": {
-      person: "alex",
+      person: {
+        name: "Alex",
+        achievement: "lost 9kg in 12 weeks",
+        before: "before-alex.png",
+        after: "after-alex.png",
+      },
       title: "Lose weight<br>with Kano",
       subtext:
         "Nutrition coaching, adaptive workout plans and daily accountability to get you to your goal",
@@ -190,7 +223,12 @@
       },
     },
     "build-muscle": {
-      person: "marcus",
+      person: {
+        name: "Marcus",
+        achievement: "gained 6kg of lean mass",
+        before: "before-marcus.png",
+        after: "after-marcus.png",
+      },
       title: "Build muscle<br>with Kano",
       subtext:
         "Progressive training plans, smart nutrition and the consistency that actually builds mass",
@@ -214,7 +252,12 @@
       },
     },
     "level-up": {
-      person: "luke",
+      person: {
+        name: "Luke",
+        achievement: "ran his first sub-20 5K",
+        before: "before-luke.png",
+        after: "after-luke.png",
+      },
       title: "Optimize your performance with Kano",
       subtext:
         "Data-driven coaching, optimized training and the structure to hit your next milestone",
@@ -268,12 +311,7 @@
       }
     });
 
-    const personTab = document.querySelector(
-      `[data-compare-tab="${config.person}"]`
-    );
-    if (personTab && personTab.getAttribute("aria-selected") !== "true") {
-      personTab.click();
-    }
+    if (config.person) setCompareProfile(config.person);
   };
 
   document.querySelectorAll('input[name="goal"]').forEach((input) => {
@@ -283,4 +321,12 @@
       applyGoal(input.value);
     });
   });
+
+  // Apply whichever goal radio starts out checked (build-muscle by default)
+  // so the rest of the page renders against the correct profile on first paint.
+  const initialGoal = document.querySelector('input[name="goal"]:checked');
+  if (initialGoal) {
+    document.body.classList.remove("is-locked");
+    applyGoal(initialGoal.value);
+  }
 })();
