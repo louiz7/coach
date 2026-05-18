@@ -210,7 +210,7 @@ async def call_llm(system_prompt: str, conversation: list[dict], max_tokens: int
     """Call OpenAI GPT-4o and return the response text."""
     messages = [{"role": "system", "content": system_prompt}] + conversation
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         response = await client.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},

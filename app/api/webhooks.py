@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Request, HTTPException
 from app.config import settings
 from app.utils.webhook_verify import verify_linq_signature
 import sys
@@ -11,7 +11,7 @@ def _log(msg):
 
 
 @router.post("/api/v1/webhooks/linq")
-async def linq_webhook(request: Request, bg: BackgroundTasks):
+async def linq_webhook(request: Request):
     # Verify signature
     timestamp = request.headers.get("X-Webhook-Timestamp", "")
     signature = request.headers.get("X-Webhook-Signature", "")
@@ -73,8 +73,12 @@ async def linq_webhook(request: Request, bg: BackgroundTasks):
     event_id = data.get("event_id") or data.get("id", "")
     _log(f"Processing: chat_id={chat_id} phone={phone} text={text!r} image={bool(image_url)}")
 
-    # Process async, pass phone for new user creation
-    bg.add_task(_process_inbound, chat_id, text, event_id, phone, image_url)
+    # Use create_task instead of BackgroundTasks so the job is detached from the
+    # HTTP request lifecycle — Linq has a ~30s webhook timeout and will retry if
+    # we don't return fast enough. BackgroundTasks is cancelled when the response
+    # is sent if the event loop is under pressure; create_task is not.
+    import asyncio
+    asyncio.create_task(_process_inbound(chat_id, text, event_id, phone, image_url))
     return {"ok": True}
 
 
@@ -86,5 +90,10 @@ async def _process_inbound(
     image_url: str = None,
 ):
     """Background: route to message worker."""
-    from app.workers.message_worker import process_message
-    await process_message(chat_id, text, event_id, phone, image_url=image_url)
+    try:
+        from app.workers.message_worker import process_message
+        await process_message(chat_id, text, event_id, phone, image_url=image_url)
+    except Exception as e:
+        import traceback
+        _log(f"_process_inbound ERROR chat_id={chat_id} text={text!r}: {e}")
+        traceback.print_exc(sys.stderr)
