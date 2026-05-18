@@ -253,7 +253,7 @@ or is it an attempt to answer the pending question (if any)?
 Return JSON:
 {{
   "is_sidebar": true or false,
-  "answer": "if is_sidebar=true: your short direct answer (1-3 sentences max, casual iMessage tone). null otherwise."
+  "answer": "if is_sidebar=true: your short direct answer (1-3 sentences max, casual iMessage tone). Do NOT end with a question — we will re-ask the pending question separately. null otherwise."
 }}
 
 is_sidebar=true examples: questions about privacy/data storage, how Kano works, pricing, what WHOOP is, whether it's free, fitness questions, greetings with no name, random comments.
