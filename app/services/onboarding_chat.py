@@ -84,14 +84,15 @@ _STRINGS: dict[str, dict] = {
         "basics_reask": "just send your age, weight and gender — like: 24, 78 kg, male",
         "plan_ack": "ty, got your data",
         "plan_ack_whoop": "ty, got your WHOOP data",
+        "plan_building_tease": "building your plan now… gimme a sec",
         "plan_pitch": [
             "i have everything i need to build your plan 💪",
             "first 7 days are on me — free trial, no charge upfront",
             "start here and i'll send your plan straight here 👇\n{payment_link}",
         ],
         "sub_reminder": [
-            "you just need to start your free trial to get your plan — it only takes 30 seconds 🙌",
-            "{payment_link}",
+            "your plan is ready — unlock it with your free trial 🙌",
+            "{paywall_url}",
         ],
         "plan_building": "building your plan now… 💪",
         "plan_review_prompt": "want to change anything or does this work for you?",
@@ -143,14 +144,15 @@ _STRINGS: dict[str, dict] = {
         "basics_reask": "schick mir Alter, Gewicht und Geschlecht — z.B.: 24, 78 kg, männlich",
         "plan_ack": "danke, hab deine Daten",
         "plan_ack_whoop": "danke, hab deine WHOOP-Daten",
+        "plan_building_tease": "ich erstelle deinen Plan… einen Moment 💪",
         "plan_pitch": [
             "ich hab alles was ich brauche um deinen Plan zu erstellen 💪",
             "die ersten 7 Tage sind kostenlos — keine Kosten im Voraus",
             "starte hier und ich schick dir deinen Plan direkt hierher 👇\n{payment_link}",
         ],
         "sub_reminder": [
-            "du musst nur deine kostenlose Testphase starten um deinen Plan zu bekommen — dauert nur 30 Sekunden 🙌",
-            "{payment_link}",
+            "dein Plan ist fertig — schalte ihn mit deiner kostenlosen Testphase frei 🙌",
+            "{paywall_url}",
         ],
         "plan_building": "ich erstelle deinen Plan… 💪",
         "plan_review_prompt": "möchtest du etwas ändern oder passt das so für dich?",
@@ -605,27 +607,36 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, wh
     """Gate plan delivery behind subscription.
 
     Called from both the manual-basics handler and the WHOOP OAuth callback.
-    Sends the free-trial pitch and sets state to AWAITING_SUBSCRIPTION.
-    The plan is only generated after payment is confirmed.
+    Teases the plan, fakes a 4-second "writing…" pause, then sends a paywall
+    link. The plan is only generated after the user starts their trial.
     """
-    # Assign persona if not yet set
+    from app.services.token import create_onboarding_token
+
     await assign_persona_from_style(user, db)
-
-    # Use the static Stripe Payment Link + client_reference_id so the webhook can identify the user.
-    # We previously created dynamic checkout sessions via the API, but they were unreliable in production.
-    base_link = settings.STRIPE_PAYMENT_LINK
-    sep = "&" if "?" in base_link else "?"
-    payment_link = f"{base_link}{sep}client_reference_id={user.id}"
-
-    ack = _t(user, "plan_ack_whoop") if whoop_connected else _t(user, "plan_ack")
 
     user.onboarding_state = OnboardingState.AWAITING_SUBSCRIPTION
     await db.commit()
 
     posthog.capture("onboarding_awaiting_subscription", distinct_id=str(user.id), properties={"whoop_connected": whoop_connected})
 
-    pitch_msgs = [m.format(payment_link=payment_link) if "{payment_link}" in m else m for m in _t(user, "plan_pitch")]
-    await _send_multi(chat_id, user.id, [ack] + pitch_msgs, db)
+    ack = _t(user, "plan_ack_whoop") if whoop_connected else _t(user, "plan_ack")
+    tease = _t(user, "plan_building_tease")
+
+    await _send(chat_id, user.id, ack, db)
+    await asyncio.sleep(1.2)
+    await _send(chat_id, user.id, tease, db)
+
+    # Fake a typing indicator for 4 seconds so it feels like Kano is composing the plan
+    await linq.start_typing(chat_id)
+    try:
+        await asyncio.sleep(4)
+    finally:
+        await linq.stop_typing(chat_id)
+
+    token = create_onboarding_token(user.phone)
+    base_url = settings.PUBLIC_BASE_URL.rstrip('/')
+    paywall_url = f"{base_url}/unlock?token={token}"
+    await _send(chat_id, user.id, paywall_url, db)
 
 async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSession) -> None:
     """Accept plan feedback.
@@ -718,13 +729,14 @@ async def _handle_awaiting_subscription(user: User, chat_id: str, text: str, db:
     - If not → remind them about the free trial.
     """
     from app.services.billing import check_subscription
+    from app.services.token import create_onboarding_token
 
     has_sub = await check_subscription(user.id, db)
     if not has_sub:
-        base_link = settings.STRIPE_PAYMENT_LINK
-        sep = "&" if "?" in base_link else "?"
-        payment_link = f"{base_link}{sep}client_reference_id={user.id}"
-        reminder_msgs = [m.format(payment_link=payment_link) if "{payment_link}" in m else m for m in _t(user, "sub_reminder")]
+        token = create_onboarding_token(user.phone)
+        base_url = settings.PUBLIC_BASE_URL.rstrip('/')
+        paywall_url = f"{base_url}/unlock?token={token}"
+        reminder_msgs = [m.format(paywall_url=paywall_url) if "{paywall_url}" in m else m for m in _t(user, "sub_reminder")]
         await _send_multi(chat_id, user.id, reminder_msgs, db)
         return
 
@@ -732,33 +744,47 @@ async def _handle_awaiting_subscription(user: User, chat_id: str, text: str, db:
     await _deliver_plan_after_subscription(user, chat_id, db)
 
 
-async def _deliver_plan_after_subscription(user: User, chat_id: str, db: AsyncSession) -> None:
-    """Generate and send the plan. Called when subscription is confirmed."""
-    from app.services.training_plan import generate_plan
-    from app.services.token import create_plan_token
+async def _generate_plan_post_subscription(user: User, db: AsyncSession) -> bool:
+    """Generate the plan and advance state. No SMS.
 
-    await _send(chat_id, user.id, _t(user, "plan_building"), db)
+    Used by the web paywall flow — the user is watching the /processing
+    spinner and will be redirected to /plan once this succeeds.
+
+    Returns True on success, False on failure.
+    """
+    from app.services.training_plan import generate_plan
+
     try:
         await generate_plan(user, db)
-        token = create_plan_token(user.phone)
-        base_url = settings.PUBLIC_BASE_URL.rstrip('/')
-        plan_url = f"{base_url}/plan?token={token}"
-
         user.onboarding_state = OnboardingState.PLAN_REVIEW
         user.onboarding_complete = True
         await db.commit()
-
         posthog.capture("onboarding_plan_built", distinct_id=str(user.id))
+        return True
+    except Exception as ex:
+        print(f"[onboarding _generate_plan_post_subscription] ERROR: {ex}")
+        user.onboarding_state = OnboardingState.DONE
+        user.onboarding_complete = True
+        await db.commit()
+        return False
 
+
+async def _deliver_plan_after_subscription(user: User, chat_id: str, db: AsyncSession) -> None:
+    """Generate the plan and SMS the link. Used when the user is not on the
+    web paywall flow (e.g. they texted back after the awaiting-sub reminder)."""
+    from app.services.token import create_plan_token
+
+    await _send(chat_id, user.id, _t(user, "plan_building"), db)
+    ok = await _generate_plan_post_subscription(user, db)
+    if ok:
+        token = create_plan_token(user.phone)
+        base_url = settings.PUBLIC_BASE_URL.rstrip('/')
+        plan_url = f"{base_url}/plan?token={token}"
         await _send_multi(chat_id, user.id, [
             plan_url,
             _t(user, "plan_review_prompt"),
         ], db)
-    except Exception as ex:
-        print(f"[onboarding _deliver_plan_after_subscription] ERROR: {ex}")
-        user.onboarding_state = OnboardingState.DONE
-        user.onboarding_complete = True
-        await db.commit()
+    else:
         await _send(chat_id, user.id, _t(user, "plan_fail"), db)
 
 

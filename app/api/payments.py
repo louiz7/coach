@@ -242,13 +242,42 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         )
         sub = result.scalar_one_or_none()
         if sub:
-            sub.status = data.get("status", sub.status)
+            prev_status = sub.status
+            new_status = data.get("status", sub.status)
+            sub.status = new_status
             if data.get("current_period_end"):
                 from datetime import datetime
                 sub.current_period_end = datetime.utcfromtimestamp(data["current_period_end"])
             await db.commit()
             if event["type"] == "customer.subscription.deleted":
                 posthog.capture("subscription_cancelled", distinct_id=str(sub.user_id))
+
+            # Paywall flow: subscription went from incomplete → trialing/active.
+            # Generate the plan in the background so /processing can redirect.
+            if (
+                event["type"] == "customer.subscription.updated"
+                and prev_status not in ("trialing", "active")
+                and new_status in ("trialing", "active")
+            ):
+                from app.models.user import OnboardingState
+                u_result = await db.execute(select(User).where(User.id == sub.user_id))
+                u = u_result.scalar_one_or_none()
+                if u and u.onboarding_state == OnboardingState.AWAITING_SUBSCRIPTION:
+                    from app.services.onboarding_chat import _generate_plan_post_subscription
+                    from app.database import async_session
+                    import asyncio as _asyncio
+
+                    _user_id = str(u.id)
+
+                    async def _gen_with_fresh_session():
+                        async with async_session() as fresh_db:
+                            r = await fresh_db.execute(select(User).where(User.id == _user_id))
+                            fresh_u = r.scalar_one_or_none()
+                            if fresh_u:
+                                await _generate_plan_post_subscription(fresh_u, fresh_db)
+
+                    _asyncio.create_task(_gen_with_fresh_session())
+                    posthog.capture("subscription_activated", distinct_id=_user_id)
 
     elif event["type"] == "invoice.payment_failed":
         sub_id = data.get("subscription")

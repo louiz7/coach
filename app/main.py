@@ -95,6 +95,76 @@ async def cancel(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "start.html", {"token": "", "name": ""})
 
 
+# Decoy workout plan with CTA → /trial
+@app.get("/unlock", response_class=HTMLResponse)
+async def unlock(request: Request) -> HTMLResponse:
+    token = request.query_params.get("token", "")
+    ctx = {
+        "token": token,
+        "user_name": "",
+        "already_subscribed": False,
+    }
+    if token:
+        try:
+            from app.services.token import verify_onboarding_token
+            from app.database import async_session
+            from app.models.user import User
+            from app.models.subscription import Subscription
+            from sqlalchemy import select
+            payload = verify_onboarding_token(token)
+            async with async_session() as db:
+                r = await db.execute(select(User).where(User.phone == payload["phone"]))
+                user = r.scalar_one_or_none()
+                if user:
+                    ctx["user_name"] = user.name or ""
+                    sub_r = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
+                    sub = sub_r.scalar_one_or_none()
+                    if sub and sub.status in ("trialing", "active"):
+                        ctx["already_subscribed"] = True
+        except Exception:
+            pass
+    return templates.TemplateResponse(request, "unlock.html", ctx)
+
+
+# Stripe trial paywall — inline Payment Element + Express Checkout (Apple Pay)
+@app.get("/trial", response_class=HTMLResponse)
+async def trial(request: Request) -> HTMLResponse:
+    token = request.query_params.get("token", "")
+    ctx = {
+        "token": token,
+        "user_name": "",
+        "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
+        "already_subscribed": False,
+    }
+    if token:
+        try:
+            from app.services.token import verify_onboarding_token
+            from app.database import async_session
+            from app.models.user import User
+            from app.models.subscription import Subscription
+            from sqlalchemy import select
+            payload = verify_onboarding_token(token)
+            async with async_session() as db:
+                r = await db.execute(select(User).where(User.phone == payload["phone"]))
+                user = r.scalar_one_or_none()
+                if user:
+                    ctx["user_name"] = user.name or ""
+                    sub_r = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
+                    sub = sub_r.scalar_one_or_none()
+                    if sub and sub.status in ("trialing", "active"):
+                        ctx["already_subscribed"] = True
+        except Exception:
+            pass
+    return templates.TemplateResponse(request, "trial.html", ctx)
+
+
+# Post-payment loading screen — polls plan-status, redirects to /plan
+@app.get("/processing", response_class=HTMLResponse)
+async def processing(request: Request) -> HTMLResponse:
+    token = request.query_params.get("token", "")
+    return templates.TemplateResponse(request, "processing.html", {"token": token})
+
+
 @app.get("/plan", response_class=HTMLResponse)
 async def plan_view(request: Request) -> HTMLResponse:
     """Token-gated page that displays the user's current training plan in tabular form."""

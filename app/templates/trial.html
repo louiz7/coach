@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Kano — Start your free trial</title>
+    <link rel="icon" type="image/png" href="/static/images/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500;1,900&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://js.stripe.com/v3/"></script>
+    {% include "_analytics.html" %}
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: #000; color: #fff; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+      body { min-height: 100svh; display: flex; flex-direction: column; align-items: center; }
+
+      .page { width: 100%; max-width: 430px; display: flex; flex-direction: column; align-items: center; }
+
+      .topbar {
+        width: 100%;
+        padding: 24px 0;
+        display: flex;
+        justify-content: center;
+      }
+
+      .section {
+        width: 100%;
+        border-radius: 40px 40px 0 0;
+        padding: 32px 20px 80px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 64px;
+        border: 1px solid transparent;
+        border-bottom: none;
+        background:
+          linear-gradient(#000, #000) padding-box,
+          linear-gradient(180deg, rgba(245,246,241,0.9) 0%, rgba(245,246,241,0) 12%) border-box;
+      }
+
+      /* ── Block 1: heading + feature bullets ───────────────────────────── */
+      .features-block {
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+        align-items: center;
+      }
+      .features-heading {
+        margin: 0;
+        max-width: 356px;
+        color: #fff;
+        text-align: center;
+        font-family: Inter, system-ui, sans-serif;
+        font-size: 26px;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 140%;
+      }
+      .features-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .features-list li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 500;
+        font-size: 14px;
+        line-height: 1.4;
+        color: #fff;
+      }
+      .features-list svg { flex-shrink: 0; }
+
+      /* ── Block 2: trial timeline + Stripe ─────────────────────────────── */
+      .trial-block {
+        width: 280px;
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+        align-items: center;
+      }
+      .trial-heading {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: center;
+        text-align: center;
+        color: #fff;
+      }
+      .trial-heading h2 {
+        margin: 0;
+        color: #fff;
+        text-align: center;
+        font-family: Inter, system-ui, sans-serif;
+        font-size: 26px;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 140%;
+      }
+      .trial-heading p {
+        margin: 0;
+        color: #fff;
+        text-align: center;
+        font-family: Inter, system-ui, sans-serif;
+        font-size: 14px;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 140%;
+      }
+
+      .timeline {
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+      }
+      .timeline__rail {
+        position: relative;
+        width: 32px;
+        height: 223px;
+        flex: 0 0 32px;
+      }
+      .timeline__icon {
+        position: absolute;
+        left: 0;
+        width: 32px;
+        height: 32px;
+        display: block;
+        z-index: 1;
+      }
+      .timeline__icon--unlock { top: 0; }
+      .timeline__icon--notif  { top: 81px; }
+      .timeline__icon--star   { top: 162px; }
+      .timeline__line {
+        position: absolute;
+        left: 11px;
+        width: 10px;
+      }
+      .timeline__line--solid {
+        top: 23px;
+        height: 142px;
+        background: rgba(80, 219, 255, 0.3);
+      }
+      .timeline__line--fade {
+        top: 185px;
+        height: 38px;
+        background: linear-gradient(180deg, rgba(80, 219, 255, 0.3) 62.4%, rgba(0, 0, 0, 0.3) 100%);
+      }
+      .timeline__steps {
+        width: 260px;
+        padding-top: 3px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .timeline__step {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        width: 100%;
+      }
+      .timeline__title {
+        margin: 0;
+        font-weight: 600;
+        font-size: 16px;
+        line-height: 1.4;
+        letter-spacing: -0.32px;
+        color: #fff;
+      }
+      .timeline__desc {
+        margin: 0;
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 1.4;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      /* ── Stripe slots ─────────────────────────────────────────────────── */
+      .stripe-slots {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      #express-checkout-element { min-height: 43px; }
+      #payment-element { min-height: 43px; }
+      .stripe-skeleton {
+        background: #18181a;
+        border-radius: 10px;
+        height: 43px;
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+      .pay-error {
+        color: #ff6b6b;
+        font-size: 13px;
+        text-align: center;
+        min-height: 1em;
+      }
+
+      /* ── CTA ──────────────────────────────────────────────────────────── */
+      .cta {
+        appearance: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #50dbff;
+        color: #000;
+        width: 246px;
+        height: 56px;
+        padding: 0 20px;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 16px;
+        line-height: 1.4;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .cta:hover:not(:disabled) { opacity: 0.92; }
+      .cta:disabled { opacity: 0.55; cursor: not-allowed; }
+
+      /* ── Footer ───────────────────────────────────────────────────────── */
+      .divider {
+        width: 100%;
+        height: 1px;
+        background: #20222a;
+      }
+      .footer {
+        width: 100%;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+        align-items: flex-start;
+      }
+      .footer__brand { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+      .footer__copy {
+        margin: 0;
+        font-size: 10px;
+        line-height: 1.1;
+        letter-spacing: -0.1px;
+        color: rgba(255,255,255,0.5);
+      }
+      .footer__legal { display: flex; flex-direction: column; gap: 16px; font-size: 14px; line-height: 1.4; }
+      .footer__legal-head { margin: 0; font-weight: 600; color: rgba(255,255,255,0.5); }
+      .footer__links { display: flex; flex-direction: column; gap: 8px; }
+      .footer__links a { color: #fff; text-decoration: none; font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="topbar">
+        <img src="/static/images/kano-wordmark-white.svg" alt="Kano" width="88" height="20" />
+      </div>
+
+      <section class="section">
+        {# ─── Features ───────────────────────────────────────────────── #}
+        <div class="features-block">
+          <h1 class="features-heading">Unlock your personalized workout plan and 24/7 coaching</h1>
+          <ul class="features-list">
+            <li>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M1.5 7.5L6.67 13.5L14.5 1.5" stroke="#50DBFF" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+              Daily coaching in iMessage
+            </li>
+            <li>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M1.5 7.5L6.67 13.5L14.5 1.5" stroke="#50DBFF" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+              Plan that adapts to your progress
+            </li>
+            <li>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M1.5 7.5L6.67 13.5L14.5 1.5" stroke="#50DBFF" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+              Photo-based meal tracking &amp; nutrition
+            </li>
+            <li>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M1.5 7.5L6.67 13.5L14.5 1.5" stroke="#50DBFF" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+              Apple Calendar &amp; WHOOP integration
+            </li>
+          </ul>
+        </div>
+
+        {# ─── Trial timeline + payment ───────────────────────────────── #}
+        <div class="trial-block">
+          <div class="trial-heading">
+            <h2>How your trial works</h2>
+            <p>First 7 days free, then € 3,49 / week</p>
+          </div>
+
+          <div class="timeline">
+            <div class="timeline__rail" aria-hidden="true">
+              <div class="timeline__line timeline__line--solid"></div>
+              <div class="timeline__line timeline__line--fade"></div>
+              <svg class="timeline__icon timeline__icon--unlock" viewBox="0 0 32 32" fill="none">
+                <circle cx="16" cy="16" r="16" fill="#50DBFF"/>
+                <path d="M8.34 16.68c0-2.11 1.71-3.83 3.83-3.83h7.66c2.11 0 3.83 1.71 3.83 3.83v3.83c0 2.11-1.71 3.83-3.83 3.83h-7.66c-2.11 0-3.83-1.71-3.83-3.83v-3.83z" fill="#000"/>
+                <path d="M22.7 16.68c0-1.59-1.29-2.87-2.87-2.87h-7.66c-1.59 0-2.87 1.29-2.87 2.87v3.83c0 1.59 1.29 2.87 2.87 2.87h7.66c1.59 0 2.87-1.29 2.87-2.87v-3.83zM24.62 20.51c0 2.64-2.14 4.79-4.79 4.79h-7.66c-2.64 0-4.79-2.14-4.79-4.79v-3.83c0-2.64 2.14-4.79 4.79-4.79h7.66c2.64 0 4.79 2.14 4.79 4.79v3.83z" fill="#000"/>
+                <path d="M16.96 19.56c0 .53-.43.96-.96.96-.53 0-.96-.43-.96-.96v-1.91c0-.53.43-.96.96-.96.53 0 .96.43.96.96v1.91z" fill="#50DBFF"/>
+                <path d="M11.21 10.94c0-1.18.42-2.25 1.13-3.09.78-.93 1.86-1.53 3.06-1.63.08 0 .15-.01.23-.01.07 0 .14-.01.21-.01.05 0 .11 0 .16 0v0c.54 0 1.08.09 1.6.27.94.33 1.75.95 2.32 1.77.3.43.19 1.03-.24 1.33-.43.3-1.03.19-1.34-.24-.34-.49-.83-.86-1.39-1.07-.36-.13-.74-.18-1.11-.16-.06 0-.13.01-.19.02-.11.01-.22.03-.33.05-.22.05-.43.13-.63.22-.05.02-.09.04-.14.06-.08.05-.16.1-.24.16-.07.04-.13.08-.19.13-.07.05-.13.1-.2.16-.06.07-.13.13-.18.2-.43.5-.7 1.16-.7 1.86v1.92H11.21V10.94z" fill="#000"/>
+              </svg>
+              <svg class="timeline__icon timeline__icon--notif" viewBox="0 0 32 32" fill="none">
+                <circle cx="16" cy="16" r="16" fill="#50DBFF"/>
+                <path d="M9.9 18.21l-.33.32c-.1.1-.15.15-.19.2a.86.86 0 00-.15.36c-.01.07-.01.14-.01.27 0 .32 0 .48.04.61.08.24.28.43.53.51.13.04.29.04.61.04h11.21c.32 0 .49 0 .62-.04.25-.08.45-.27.53-.51.04-.13.04-.29.04-.61 0-.14 0-.21-.01-.28a.95.95 0 00-.15-.36c-.04-.05-.09-.11-.19-.21l-.33-.32a.78.78 0 01-.22-.39V14.76c0-3.17-2.65-5.75-5.93-5.75-3.27 0-5.93 2.57-5.93 5.75v3.06c0 .14-.06.28-.17.39z" fill="#000"/>
+                <path d="M14.31 21.33c0 .91.76 1.64 1.69 1.64.94 0 1.69-.73 1.69-1.64h-3.39zM10.39 7.55c.37-.27.91-.2 1.19.16.28.36.21.88-.17 1.15-1.05.77-1.88 1.79-2.4 2.96-.19.42-.69.61-1.12.43-.43-.18-.62-.66-.44-1.08.64-1.43 1.65-2.68 2.94-3.62zm10.03.16c.28-.36.81-.43 1.19-.16 1.28.94 2.3 2.19 2.94 3.62.19.42-.01.9-.44 1.08-.43.18-.93-.01-1.12-.43-.52-1.17-1.35-2.19-2.4-2.96-.37-.27-.45-.79-.17-1.15zm-9.5 10.27c0 .36-.15.71-.4.97l-.33.32c-.05.05-.08.08-.1.11v.01c0 .02 0 .07 0 .14 0 .17 0 .27.01.34 0 0 0 0 0 .01.07.01.16.01.34.01h11.16c.17 0 .26 0 .34-.01v-.01c0-.07.01-.17.01-.34 0-.07 0-.11 0-.13v-.02c-.02-.02-.05-.05-.1-.1l-.33-.32a1.37 1.37 0 01-.4-.97V14.76c0-2.72-2.27-4.93-5.08-4.93-2.81 0-5.08 2.2-5.08 4.93v3.06zM22.78 17.71l.25.24c.08.08.19.18.28.31.12.15.2.32.25.51l.04.18.01.11c.01.11.01.21.01.31 0 .25.01.58-.09.86-.17.49-.56.87-1.06 1.03-.22.07-.47.08-.69.09h-2.4c0 1.81-1.52 3.3-3.39 3.3-1.87 0-3.39-1.49-3.39-3.3h-2.4c-.22 0-.46-.02-.68-.09a1.78 1.78 0 01-1.07-1.03c-.1-.29-.09-.62-.09-.86 0-.11 0-.26.02-.41.04-.25.14-.49.29-.69.09-.13.2-.23.28-.31l.25-.24V14.76c0-3.63 3.03-6.57 6.78-6.57 3.74 0 6.78 2.94 6.78 6.57v2.94z" fill="#000"/>
+              </svg>
+              <svg class="timeline__icon timeline__icon--star" viewBox="0 0 32 32" fill="none">
+                <circle cx="16" cy="16" r="16" fill="#50DBFF"/>
+                <path d="M16 7.38c.29 0 .56.17.68.43l2.16 4.54 5.11.59c.29.03.54.23.63.5.09.27.01.57-.2.76l-3.78 3.4 1 4.91c.06.28-.05.56-.29.73-.24.17-.55.18-.81.04l-4.49-2.44-4.49 2.44a.77.77 0 01-.81-.04c-.24-.17-.35-.45-.29-.73l1-4.91-3.78-3.4a.78.78 0 01-.2-.76c.09-.27.34-.46.63-.5l5.11-.59 2.16-4.54.05-.09c.14-.21.37-.34.62-.34zm-1.65 5.96a.76.76 0 01-.59.42l-3.91.45 2.89 2.6c.19.17.28.43.23.69l-.77 3.76 3.44-1.87.09-.04c.21-.08.45-.07.65.04l3.44 1.87-.77-3.76a.77.77 0 01.23-.69l2.89-2.6-3.91-.45a.76.76 0 01-.59-.42L16 9.86l-1.65 3.48z" fill="#000"/>
+              </svg>
+            </div>
+            <div class="timeline__steps">
+              <div class="timeline__step">
+                <p class="timeline__title">Today</p>
+                <p class="timeline__desc">Unlock your workout plan and start training with Kano towards your goals.</p>
+              </div>
+              <div class="timeline__step">
+                <p class="timeline__title">In 5 days</p>
+                <p class="timeline__desc">Kano will send you a reminder that your trial is ending soon.</p>
+              </div>
+              <div class="timeline__step">
+                <p class="timeline__title">In 7 days</p>
+                <p class="timeline__desc">You'll be charged €3,49 / week, 3x less than 1 cocktail a week 🍸.</p>
+              </div>
+            </div>
+          </div>
+
+          <form id="pay-form" class="stripe-slots">
+            <div id="express-checkout-element"><div class="stripe-skeleton"></div></div>
+            <div id="payment-element"><div class="stripe-skeleton"></div></div>
+            <div id="pay-error" class="pay-error" role="alert"></div>
+          </form>
+
+          <button id="submit-btn" form="pay-form" class="cta" type="submit" disabled>
+            <span id="btn-label">Start my free trial</span>
+          </button>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <footer class="footer">
+        <div class="footer__brand">
+          <img src="/static/images/kano-wordmark-white.svg" alt="Kano" width="88" height="20" />
+          <p class="footer__copy">© Kano Labs FZ-LLC 2026</p>
+        </div>
+        <div class="footer__legal">
+          <p class="footer__legal-head">Legal</p>
+          <div class="footer__links">
+            <a href="/terms">Terms of service</a>
+            <a href="/privacy">Privacy policy</a>
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      (function () {
+        const TOKEN = "{{ token }}";
+        const PUBLISHABLE_KEY = "{{ stripe_publishable_key }}";
+        const ALREADY_SUBSCRIBED = {{ 'true' if already_subscribed else 'false' }};
+        const form = document.getElementById('pay-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const btnLabel = document.getElementById('btn-label');
+        const errorEl = document.getElementById('pay-error');
+
+        if (ALREADY_SUBSCRIBED) {
+          window.location.href = '/plan?token=' + encodeURIComponent(TOKEN);
+          return;
+        }
+        if (!PUBLISHABLE_KEY) {
+          errorEl.textContent = "Payment is not configured. Please text Kano.";
+          return;
+        }
+        if (!TOKEN) {
+          errorEl.textContent = "This link has expired. Please ask Kano for a new one.";
+          return;
+        }
+
+        const stripe = Stripe(PUBLISHABLE_KEY);
+        let elements;
+        let intentType = 'setup';
+
+        async function init() {
+          try {
+            const res = await fetch('/api/v1/onboarding/create-trial-subscription', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: TOKEN }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              errorEl.textContent = err.detail || 'Could not start your trial. Please try again.';
+              return;
+            }
+            const data = await res.json();
+            if (data.already_subscribed) {
+              window.location.href = '/plan?token=' + encodeURIComponent(TOKEN);
+              return;
+            }
+            intentType = data.intent_type || 'setup';
+
+            elements = stripe.elements({
+              clientSecret: data.client_secret,
+              appearance: {
+                theme: 'night',
+                variables: {
+                  colorPrimary: '#50dbff',
+                  colorBackground: '#18181a',
+                  colorText: '#ffffff',
+                  colorDanger: '#ff6b6b',
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  spacingUnit: '4px',
+                  borderRadius: '10px',
+                },
+              },
+            });
+
+            const returnUrl = window.location.origin + '/processing?token=' + encodeURIComponent(TOKEN);
+
+            // Express Checkout Element: Apple Pay / Google Pay / Link
+            try {
+              const expressEl = elements.create('expressCheckout', {
+                buttonHeight: 44,
+                buttonTheme: { applePay: 'black', googlePay: 'black' },
+                paymentMethods: { link: 'auto', applePay: 'always', googlePay: 'always' },
+              });
+              const expressMount = document.getElementById('express-checkout-element');
+              expressMount.innerHTML = '';
+              expressEl.mount(expressMount);
+              expressEl.on('confirm', async () => {
+                errorEl.textContent = '';
+                const confirmFn = intentType === 'setup' ? stripe.confirmSetup : stripe.confirmPayment;
+                const { error } = await confirmFn({ elements, confirmParams: { return_url: returnUrl } });
+                if (error) errorEl.textContent = error.message || 'Could not start your trial. Please try again.';
+              });
+            } catch (_) { /* express element unsupported — silently fall back to card */ }
+
+            const paymentEl = elements.create('payment', { layout: 'tabs' });
+            const paymentMount = document.getElementById('payment-element');
+            paymentMount.innerHTML = '';
+            paymentEl.mount(paymentMount);
+            paymentEl.on('ready', () => { submitBtn.disabled = false; });
+          } catch (e) {
+            errorEl.textContent = 'Network error. Check your connection and try again.';
+          }
+        }
+
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          if (!elements) return;
+          submitBtn.disabled = true;
+          btnLabel.textContent = 'Starting your trial…';
+          errorEl.textContent = '';
+
+          const returnUrl = window.location.origin + '/processing?token=' + encodeURIComponent(TOKEN);
+          const confirmFn = intentType === 'setup' ? stripe.confirmSetup : stripe.confirmPayment;
+          const { error } = await confirmFn({ elements, confirmParams: { return_url: returnUrl } });
+          if (error) {
+            errorEl.textContent = error.message || 'Something went wrong. Please try again.';
+            submitBtn.disabled = false;
+            btnLabel.textContent = 'Start my free trial';
+          }
+        });
+
+        init();
+      })();
+    </script>
+  </body>
+</html>

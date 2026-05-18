@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Kano — Your workout plan</title>
+    <link rel="icon" type="image/png" href="/static/images/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500;1,900&display=swap"
+      rel="stylesheet"
+    />
+    {% include "_analytics.html" %}
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: #000; color: #fff; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+      body { min-height: 100svh; display: flex; flex-direction: column; align-items: center; }
+
+      .page { width: 100%; max-width: 430px; display: flex; flex-direction: column; align-items: center; }
+
+      .topbar {
+        width: 100%;
+        padding: 24px 0;
+        display: flex;
+        justify-content: center;
+      }
+
+      .section {
+        width: 100%;
+        border-radius: 40px 40px 0 0;
+        /* Extra bottom padding so the last card isn't hidden behind the fixed CTA bar */
+        padding: 32px 20px 160px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 32px;
+        border: 1px solid transparent;
+        border-bottom: none;
+        background:
+          linear-gradient(#000, #000) padding-box,
+          linear-gradient(180deg, rgba(245,246,241,0.9) 0%, rgba(245,246,241,0) 12%) border-box;
+      }
+
+      .heading {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+      .heading h1 {
+        margin: 0;
+        font-weight: 900;
+        font-style: italic;
+        font-size: 24px;
+        line-height: 1.3;
+        letter-spacing: -0.24px;
+        text-align: center;
+        color: #fff;
+      }
+      .pill-pink {
+        background: #e498ff;
+        color: #000;
+        font-weight: 500;
+        font-style: italic;
+        font-size: 14px;
+        line-height: 1.4;
+        padding: 5px 10px;
+        border-radius: 100px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .cards {
+        width: 100%;
+        max-width: 350px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .card {
+        position: relative;
+        background: #000;
+        border-radius: 30px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        box-shadow: inset 0 2px 10px 0 #989892;
+        overflow: hidden;
+      }
+      .card__head {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .card__day {
+        margin: 0;
+        font-weight: 700;
+        font-size: 18px;
+        line-height: 1.2;
+        letter-spacing: -0.18px;
+        color: #fff;
+        text-align: center;
+      }
+      .card__focus {
+        margin: 0;
+        font-weight: 500;
+        font-style: italic;
+        font-size: 16px;
+        line-height: 1.4;
+        color: #fff;
+        text-align: center;
+        filter: blur(5px);
+        user-select: none;
+      }
+      .card__divider {
+        width: 100%;
+        height: 0.5px;
+        background: #20222a;
+      }
+      .card__exs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        align-items: center;
+        filter: blur(5px);
+        opacity: 0.5;
+        user-select: none;
+      }
+      .ex-pill {
+        background: #50dbff;
+        color: #000;
+        font-weight: 500;
+        font-size: 14px;
+        line-height: 1.4;
+        padding: 5px 10px;
+        border-radius: 100px;
+        white-space: nowrap;
+      }
+
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #50dbff;
+        color: #000;
+        height: 56px;
+        padding: 0 24px;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 16px;
+        line-height: 1.4;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        pointer-events: auto;
+        position: relative;
+        z-index: 2;
+      }
+      .cta:hover { opacity: 0.92; }
+
+      /* Fixed bottom CTA bar with progressive blur */
+      .cta-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 50;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 28px 20px calc(28px + env(safe-area-inset-bottom));
+        pointer-events: none;
+      }
+      .cta-bar__blur {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      /* Stack 4 blur layers each with a different blur radius + mask, so the
+         backdrop blur strength ramps up from 0 at the top of the bar to max at the bottom */
+      .cta-bar__blur--1 {
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 25%, #000 100%);
+                mask-image: linear-gradient(180deg, transparent 0%, #000 25%, #000 100%);
+      }
+      .cta-bar__blur--2 {
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        -webkit-mask-image: linear-gradient(180deg, transparent 25%, #000 55%, #000 100%);
+                mask-image: linear-gradient(180deg, transparent 25%, #000 55%, #000 100%);
+      }
+      .cta-bar__blur--3 {
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        -webkit-mask-image: linear-gradient(180deg, transparent 50%, #000 80%, #000 100%);
+                mask-image: linear-gradient(180deg, transparent 50%, #000 80%, #000 100%);
+      }
+      .cta-bar__blur--4 {
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        -webkit-mask-image: linear-gradient(180deg, transparent 75%, #000 100%);
+                mask-image: linear-gradient(180deg, transparent 75%, #000 100%);
+      }
+      /* Soft dark scrim so the CTA pops on light decoy content */
+      .cta-bar__scrim {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.55) 100%);
+        pointer-events: none;
+      }
+
+      .divider {
+        width: 100%;
+        height: 1px;
+        background: #20222a;
+      }
+
+      .footer {
+        width: 100%;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+        align-items: flex-start;
+      }
+      .footer__brand { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+      .footer__copy {
+        margin: 0;
+        font-size: 10px;
+        line-height: 1.1;
+        letter-spacing: -0.1px;
+        color: rgba(255,255,255,0.5);
+      }
+      .footer__legal { display: flex; flex-direction: column; gap: 16px; font-size: 14px; line-height: 1.4; }
+      .footer__legal-head { margin: 0; font-weight: 600; color: rgba(255,255,255,0.5); }
+      .footer__links { display: flex; flex-direction: column; gap: 8px; }
+      .footer__links a { color: #fff; text-decoration: none; font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="topbar">
+        <img src="/static/images/kano-wordmark-white.svg" alt="Kano" width="88" height="20" />
+      </div>
+
+      <section class="section">
+        <div class="heading">
+          <h1>{% if user_name %}{{ user_name }}'s{% else %}Your{% endif %} workout plan</h1>
+          <span class="pill-pink">3x training days per week</span>
+        </div>
+
+        <div class="cards">
+          <article class="card">
+            <div class="card__head">
+              <p class="card__day">Monday</p>
+              <p class="card__focus">Strength, Chest &amp; Triceps</p>
+              <div class="card__divider"></div>
+            </div>
+            <div class="card__exs">
+              <span class="ex-pill">Bench Press</span>
+              <span class="ex-pill">Incline DB Press</span>
+              <span class="ex-pill">Cable Fly</span>
+              <span class="ex-pill">Tricep Pushdown</span>
+              <span class="ex-pill">Dips</span>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card__head">
+              <p class="card__day">Wednesday</p>
+              <p class="card__focus">Strength, Back &amp; Biceps</p>
+              <div class="card__divider"></div>
+            </div>
+            <div class="card__exs">
+              <span class="ex-pill">Pull-Ups</span>
+              <span class="ex-pill">Barbell Row</span>
+              <span class="ex-pill">Face Pulls</span>
+              <span class="ex-pill">Hammer Curls</span>
+              <span class="ex-pill">Lat Pulldown</span>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card__head">
+              <p class="card__day">Friday</p>
+              <p class="card__focus">Strength, Legs &amp; Shoulders</p>
+              <div class="card__divider"></div>
+            </div>
+            <div class="card__exs">
+              <span class="ex-pill">Squat</span>
+              <span class="ex-pill">Romanian Deadlift</span>
+              <span class="ex-pill">OHP</span>
+              <span class="ex-pill">Leg Press</span>
+              <span class="ex-pill">Arnold Press</span>
+              <span class="ex-pill">Lat Raises</span>
+            </div>
+          </article>
+        </div>
+
+      </section>
+
+      <div class="divider"></div>
+
+      <footer class="footer">
+        <div class="footer__brand">
+          <img src="/static/images/kano-wordmark-white.svg" alt="Kano" width="88" height="20" />
+          <p class="footer__copy">© Kano Labs FZ-LLC 2026</p>
+        </div>
+        <div class="footer__legal">
+          <p class="footer__legal-head">Legal</p>
+          <div class="footer__links">
+            <a href="/terms">Terms of service</a>
+            <a href="/privacy">Privacy policy</a>
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <div class="cta-bar" aria-hidden="false">
+      <div class="cta-bar__blur cta-bar__blur--1"></div>
+      <div class="cta-bar__blur cta-bar__blur--2"></div>
+      <div class="cta-bar__blur cta-bar__blur--3"></div>
+      <div class="cta-bar__blur cta-bar__blur--4"></div>
+      <div class="cta-bar__scrim"></div>
+      {% if already_subscribed %}
+        <a class="cta" href="/plan?token={{ token }}">Open my plan</a>
+      {% else %}
+        <a class="cta" href="/trial?token={{ token }}">Start free trial to unlock workout plan</a>
+      {% endif %}
+    </div>
+  </body>
+</html>

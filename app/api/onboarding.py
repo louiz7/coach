@@ -226,6 +226,141 @@ async def verify_token(token: str, db: AsyncSession = Depends(get_db)):
     }
 
 
+# ---------------------------------------------------------------------------
+# Inline paywall (Stripe Payment Element on /paywall page)
+# ---------------------------------------------------------------------------
+
+class TrialSubRequest(BaseModel):
+    token: str
+
+
+@router.post("/create-trial-subscription")
+async def create_trial_subscription(
+    data: TrialSubRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create an incomplete trial subscription and return the client secret
+    the frontend needs to confirm the Stripe Payment Element.
+
+    For a subscription with a trial and no upfront charge, Stripe attaches a
+    `pending_setup_intent`. We hand its client_secret back to the browser and
+    use `stripe.confirmSetup` there. The webhook flips the subscription to
+    `trialing` once the SetupIntent succeeds, which triggers plan generation.
+    """
+    try:
+        payload = verify_onboarding_token(data.token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    phone = payload["phone"]
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    sub_result = await db.execute(
+        select(Subscription).where(Subscription.user_id == user.id)
+    )
+    existing_sub = sub_result.scalar_one_or_none()
+
+    # If they already have a working subscription, short-circuit
+    if existing_sub and existing_sub.status in ("trialing", "active"):
+        return {"already_subscribed": True}
+
+    if existing_sub and existing_sub.stripe_customer_id:
+        customer_id = existing_sub.stripe_customer_id
+    else:
+        customer = stripe.Customer.create(
+            name=user.name,
+            phone=user.phone,
+            metadata={"user_id": str(user.id), "phone": user.phone},
+        )
+        customer_id = customer.id
+
+    sub = stripe.Subscription.create(
+        customer=customer_id,
+        items=[{"price": settings.STRIPE_PRICE_ID}],
+        trial_period_days=7,
+        payment_behavior="default_incomplete",
+        payment_settings={"save_default_payment_method": "on_subscription"},
+        expand=["pending_setup_intent", "latest_invoice.payment_intent"],
+        metadata={"user_id": str(user.id), "phone": user.phone},
+    )
+
+    pending_si = sub.get("pending_setup_intent")
+    if pending_si:
+        client_secret = pending_si["client_secret"]
+        intent_type = "setup"
+    else:
+        # Fallback (shouldn't normally hit for a trial w/ no upfront)
+        pi = (sub.get("latest_invoice") or {}).get("payment_intent") or {}
+        client_secret = pi.get("client_secret")
+        intent_type = "payment"
+
+    if not client_secret:
+        raise HTTPException(500, "Stripe did not return a client secret")
+
+    # Upsert the Subscription row so the webhook has something to update
+    if existing_sub:
+        existing_sub.stripe_customer_id = customer_id
+        existing_sub.stripe_subscription_id = sub["id"]
+        existing_sub.status = sub["status"]
+    else:
+        db.add(Subscription(
+            user_id=user.id,
+            stripe_customer_id=customer_id,
+            stripe_subscription_id=sub["id"],
+            status=sub["status"],
+        ))
+    await db.commit()
+
+    posthog.capture("paywall_subscription_initiated", distinct_id=str(user.id))
+
+    return {
+        "client_secret": client_secret,
+        "subscription_id": sub["id"],
+        "intent_type": intent_type,
+    }
+
+
+@router.get("/plan-status")
+async def plan_status(token: str, db: AsyncSession = Depends(get_db)):
+    """Polled by /processing page. Returns one of:
+      - {status: "ready", plan_token: <token>} once the plan is generated
+      - {status: "pending"} while waiting
+      - {status: "failed"} on terminal failure
+    """
+    from app.models.training_plan import TrainingPlan
+    from app.services.token import create_plan_token
+
+    try:
+        payload = verify_onboarding_token(token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    phone = payload["phone"]
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    r2 = await db.execute(
+        select(TrainingPlan)
+        .where(TrainingPlan.user_id == user.id, TrainingPlan.is_current == True)
+        .order_by(TrainingPlan.created_at.desc())
+    )
+    plan = r2.scalars().first()
+    if plan:
+        return {"status": "ready", "plan_token": create_plan_token(user.phone)}
+
+    # No plan yet — distinguish "waiting" from "gave up"
+    if user.onboarding_state == OnboardingState.DONE and user.onboarding_complete:
+        # State advanced to DONE without a plan = generation failed
+        return {"status": "failed"}
+
+    return {"status": "pending"}
+
+
 @router.post("/quiz", response_model=UserProfile)
 async def submit_quiz(
     data: OnboardingQuiz,

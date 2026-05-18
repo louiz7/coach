@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PRICE_ID: str = ""
     STRIPE_PAYMENT_LINK: str = ""  # Static Stripe Payment Link for iMessage paywall
+    STRIPE_PUBLISHABLE_KEY: str = ""  # Used by Stripe Payment Element on /unlock
     # Public base URL used in outbound links (WHOOP redirect, plan link, payment fallback,
     # sitemap, etc.). Override per-environment via env var. During the kano.fit DNS/SSL
     # cutover, set this to https://hercules.chat in the server .env, then flip to
