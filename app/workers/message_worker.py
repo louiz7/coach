@@ -249,8 +249,12 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         try:
             reply = await call_llm(system_prompt, conversation)
             if not reply:
+                print(f"[message_worker] call_llm returned empty for chat_id={chat_id}", flush=True)
                 reply = "something went wrong on my end — try again 💪"
-        except Exception:
+        except Exception as e:
+            import traceback
+            print(f"[message_worker] call_llm FAILED chat_id={chat_id} text={text!r}: {e}", flush=True)
+            traceback.print_exc()
             reply = "something went wrong on my end — try again 💪"
 
         # If handler context has a plan URL that will be sent standalone below,

@@ -221,6 +221,8 @@ async def call_llm(system_prompt: str, conversation: list[dict], max_tokens: int
                 "temperature": 0.85,
             },
         )
+        if response.status_code != 200:
+            print(f"[call_llm] OpenRouter error {response.status_code}: {response.text[:500]}", flush=True)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
 
