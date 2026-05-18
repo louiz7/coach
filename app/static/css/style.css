@@ -749,7 +749,6 @@ body.is-locked .closing-cta {
   border-radius: 23px;
   overflow: hidden;
   background: #000;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -829,6 +828,12 @@ body.is-locked .closing-cta {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  /* Only the grip is the drag target — the rest of the card stays
+     scrollable. touch-action: none disables browser pan on this handle
+     so a touch-drag actually moves the slider. */
+  pointer-events: auto;
+  cursor: ew-resize;
+  touch-action: none;
 }
 
 .compare__divider-grip::before,

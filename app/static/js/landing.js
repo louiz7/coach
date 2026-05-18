@@ -33,28 +33,35 @@
       setPos(((clientX - rect.left) / rect.width) * 100);
     };
 
+    // Drag is only initiated on the grip handle. The rest of the slider
+    // is just visual — that way page scrolling still works when the user
+    // touches anywhere outside the grip (important on mobile).
+    const grip = slider.querySelector(".compare__divider-grip");
     let dragging = false;
     let activePointer = null;
 
-    slider.addEventListener("pointerdown", (e) => {
-      dragging = true;
-      activePointer = e.pointerId;
-      slider.setPointerCapture?.(e.pointerId);
-      setFromClientX(e.clientX);
-      slider.focus({ preventScroll: true });
-    });
-    slider.addEventListener("pointermove", (e) => {
-      if (!dragging || e.pointerId !== activePointer) return;
-      setFromClientX(e.clientX);
-    });
-    const endDrag = (e) => {
-      if (e.pointerId !== activePointer) return;
-      dragging = false;
-      activePointer = null;
-      slider.releasePointerCapture?.(e.pointerId);
-    };
-    slider.addEventListener("pointerup", endDrag);
-    slider.addEventListener("pointercancel", endDrag);
+    if (grip) {
+      grip.addEventListener("pointerdown", (e) => {
+        dragging = true;
+        activePointer = e.pointerId;
+        grip.setPointerCapture?.(e.pointerId);
+        setFromClientX(e.clientX);
+        slider.focus({ preventScroll: true });
+        e.preventDefault();
+      });
+      grip.addEventListener("pointermove", (e) => {
+        if (!dragging || e.pointerId !== activePointer) return;
+        setFromClientX(e.clientX);
+      });
+      const endDrag = (e) => {
+        if (e.pointerId !== activePointer) return;
+        dragging = false;
+        activePointer = null;
+        grip.releasePointerCapture?.(e.pointerId);
+      };
+      grip.addEventListener("pointerup", endDrag);
+      grip.addEventListener("pointercancel", endDrag);
+    }
 
     slider.addEventListener("keydown", (e) => {
       const cur = parseFloat(slider.getAttribute("aria-valuenow") || "50");
@@ -106,12 +113,14 @@
         timeouts.forEach(clearTimeout);
         slider.classList.remove("is-teasing");
       };
-      // Capture phase so we strip the transition class BEFORE the existing
-      // pointerdown handler sets --pos, otherwise the drag would lag.
-      slider.addEventListener("pointerdown", cancel, {
-        once: true,
-        capture: true,
-      });
+      // Capture phase on the grip so we strip the transition class BEFORE
+      // the drag handler sets --pos, otherwise the drag would lag.
+      if (grip) {
+        grip.addEventListener("pointerdown", cancel, {
+          once: true,
+          capture: true,
+        });
+      }
       slider.addEventListener("keydown", cancel, { once: true });
     };
 
@@ -120,7 +129,9 @@
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             tease();
-            io.unobserve(slider);
+          } else {
+            // Reset so the tease replays next time the slider re-enters view.
+            teased = false;
           }
         });
       },
