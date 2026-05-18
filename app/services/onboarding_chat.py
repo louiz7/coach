@@ -76,8 +76,8 @@ _STRINGS: dict[str, dict] = {
         ],
         "constraints_sidebar_q": "what should I keep in mind when coaching you? injuries, busy days, exercises you hate, anything goes",
         "whoop_prompt": [
-            "got it. last thing before I build your plan",
-            "if you connect me with your WHOOP you can skip most of this + get data-driven coaching (more wearables coming soon)\n{whoop_url}",
+            "got it. one more thing before I build your plan",
+            "you can connect your WHOOP so I can coach you based on your actual recovery, sleep and strain data — not just guesses 📊\n{whoop_url}",
             "no WHOOP? just reply with your age, weight and gender",
         ],
         "basics_sidebar_q": "just send your age, weight and gender — like: 24, 78 kg, male",
@@ -136,7 +136,7 @@ _STRINGS: dict[str, dict] = {
         "constraints_sidebar_q": "was soll ich beim Coaching beachten? Verletzungen, stressige Tage, Übungen die du hasst, alles erlaubt",
         "whoop_prompt": [
             "alles klar. noch eine Sache bevor ich deinen Plan erstelle",
-            "wenn du deinen WHOOP verbindest kannst du das hier überspringen + bekommst datengestütztes Coaching (weitere Wearables folgen)\n{whoop_url}",
+            "du kannst deinen WHOOP verbinden, damit ich dich basierend auf deinen echten Recovery-, Schlaf- und Belastungsdaten coache — nicht nur auf Schätzungen 📊\n{whoop_url}",
             "kein WHOOP? schick mir einfach dein Alter, Gewicht und Geschlecht",
         ],
         "basics_sidebar_q": "schick mir Alter, Gewicht und Geschlecht — z.B.: 24, 78 kg, männlich",
