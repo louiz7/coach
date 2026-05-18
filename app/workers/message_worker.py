@@ -157,8 +157,22 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # Mark as read
         await linq.mark_as_read(chat_id)
 
-        # Start typing
-        await linq.start_typing(chat_id)
+        # Start typing + keep refreshing every 4s while we wait for the LLM
+        # (Linq auto-clears the indicator after ~5s if not refreshed)
+        _typing_active = True
+
+        async def _keep_typing():
+            while _typing_active:
+                await linq.start_typing(chat_id)
+                await asyncio.sleep(4)
+
+        _typing_task = asyncio.create_task(_keep_typing())
+
+        async def _stop_typing():
+            nonlocal _typing_active
+            _typing_active = False
+            _typing_task.cancel()
+            await linq.stop_typing(chat_id)
 
         # Load recent conversation for context-aware intent classification
         recent_conv = await get_conversation(user.id, db)
@@ -183,6 +197,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
 
         # Handlers that send replies themselves — skip LLM
         if "CALENDAR_LINK" in intents or "VIEW_PLAN" in intents:
+            await _stop_typing()
             return
 
         # FOOD_LOG handler sends the analysis result itself when an image was
@@ -190,6 +205,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # can't override the calorie estimate. When image_url is present and
         # FOOD_LOG ran, the handler has already replied.
         if "FOOD_LOG" in intents and image_url:
+            await _stop_typing()
             return
 
         # Load persona
@@ -198,6 +214,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         )
         persona = result.scalar_one_or_none()
         if not persona:
+            await _stop_typing()
             return
 
         # Build context
@@ -230,11 +247,15 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         # Split into chunks and send with delays (double-texting)
         chunks = _split_response(reply)
         for i, chunk in enumerate(chunks):
-            if i > 0:
-                delay = random.uniform(0.5, 3.0)
-                await asyncio.sleep(delay)
+            if i == 0:
+                # First chunk — stop the background keep-typing loop and send
+                await _stop_typing()
+            else:
+                # Between chunks — brief pause then show typing again
+                await asyncio.sleep(random.uniform(0.5, 3.0))
                 await linq.start_typing(chat_id)
                 await asyncio.sleep(random.uniform(0.5, 2.0))
+                await linq.stop_typing(chat_id)
 
             # Send with confetti for PRs
             if "PROGRESS_LOG" in intents and any(w in reply.lower() for w in ["pr", "record", "bestleistung", "persönlich"]):
