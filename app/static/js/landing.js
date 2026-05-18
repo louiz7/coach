@@ -265,7 +265,7 @@
     "level-up": {
       person: {
         name: "Luke",
-        achievement: "ran his first sub-20 5K",
+        achievement: "halved his pace (7:02 to 4:06)",
         before: "before-luke.png",
         after: "after-luke.png",
       },
