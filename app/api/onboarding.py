@@ -358,6 +358,30 @@ async def plan_status(token: str, db: AsyncSession = Depends(get_db)):
         # State advanced to DONE without a plan = generation failed
         return {"status": "failed"}
 
+    # Fallback: if the subscription is already trialing/active but plan generation
+    # was never triggered (e.g. Stripe webhook race condition set prev_status before
+    # the updated event arrived), kick it off now from the polling endpoint.
+    if user.onboarding_state == OnboardingState.AWAITING_SUBSCRIPTION:
+        sub_result = await db.execute(
+            select(Subscription).where(Subscription.user_id == user.id)
+        )
+        sub = sub_result.scalar_one_or_none()
+        if sub and sub.status in ("trialing", "active"):
+            import asyncio as _asyncio
+            from app.services.onboarding_chat import _generate_plan_post_subscription
+            from app.database import async_session as _async_session
+            _user_id = str(user.id)
+
+            async def _gen():
+                async with _async_session() as fresh_db:
+                    from sqlalchemy import select as _select
+                    r = await fresh_db.execute(_select(User).where(User.id == _user_id))
+                    u = r.scalar_one_or_none()
+                    if u:
+                        await _generate_plan_post_subscription(u, fresh_db)
+
+            _asyncio.create_task(_gen())
+
     return {"status": "pending"}
 
 
