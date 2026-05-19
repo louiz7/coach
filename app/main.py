@@ -200,6 +200,39 @@ async def plan_view(request: Request) -> HTMLResponse:
                 .order_by(TrainingPlan.created_at.desc())
             )
             plan = r2.scalars().first()
+            # ── Fallback: user paid but plan was never generated ──────────
+            # If user is still AWAITING_SUBSCRIPTION and has a trialing/active
+            # sub, kick off plan generation now and redirect to /processing.
+            if not plan:
+                from app.models.user import OnboardingState
+                from app.models.subscription import Subscription
+                from fastapi.responses import RedirectResponse
+                if user.onboarding_state == OnboardingState.AWAITING_SUBSCRIPTION:
+                    sub_r = await db.execute(
+                        select(Subscription).where(Subscription.user_id == user.id)
+                    )
+                    sub = sub_r.scalar_one_or_none()
+                    if sub and sub.status in ("trialing", "active"):
+                        print(f"[PLAN VIEW FALLBACK] triggering plan generation for user {user.id} ({user.name})", flush=True)
+                        from app.services.onboarding_chat import _generate_plan_post_subscription
+                        import asyncio as _asyncio
+
+                        _uid = str(user.id)
+
+                        async def _gen_fallback():
+                            try:
+                                async with async_session() as fresh_db:
+                                    rr = await fresh_db.execute(select(User).where(User.id == _uid))
+                                    fu = rr.scalar_one_or_none()
+                                    if fu:
+                                        await _generate_plan_post_subscription(fu, fresh_db)
+                            except Exception as ex:
+                                import traceback
+                                print(f"[PLAN VIEW FALLBACK] plan gen failed for {_uid}: {ex}", flush=True)
+                                traceback.print_exc()
+
+                        _asyncio.create_task(_gen_fallback())
+                        return RedirectResponse(url=f"/processing?token={token}", status_code=303)
             if plan:
                 pj = plan.plan_json or {}
                 # Normalise: support both {"days": [...]} and {"weekly_schedule": [...]}

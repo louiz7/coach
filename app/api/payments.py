@@ -254,20 +254,24 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 from datetime import datetime
                 sub.current_period_end = datetime.utcfromtimestamp(data["current_period_end"])
             await db.commit()
+            print(f"[STRIPE WEBHOOK] {event['type']} sub={data['id']} prev={prev_status} new={new_status} user={sub.user_id}", flush=True)
             if event["type"] == "customer.subscription.deleted":
                 posthog.capture("subscription_cancelled", distinct_id=str(sub.user_id))
 
-            # Paywall flow: subscription went from incomplete → trialing/active.
-            # Generate the plan in the background so /processing can redirect.
+            # Paywall flow: subscription is now trialing/active. Trigger plan
+            # generation if user is still awaiting it. The Redis lock inside
+            # _generate_plan_post_subscription guards against duplicate runs,
+            # so we can call this on every relevant event without worrying about
+            # which exact transition fired or in what order.
             if (
                 event["type"] == "customer.subscription.updated"
-                and prev_status not in ("trialing", "active")
                 and new_status in ("trialing", "active")
             ):
                 from app.models.user import OnboardingState
                 u_result = await db.execute(select(User).where(User.id == sub.user_id))
                 u = u_result.scalar_one_or_none()
                 if u and u.onboarding_state == OnboardingState.AWAITING_SUBSCRIPTION:
+                    print(f"[STRIPE WEBHOOK] triggering plan generation for user {u.id} ({u.name})", flush=True)
                     from app.services.onboarding_chat import _generate_plan_post_subscription
                     from app.database import async_session
                     import asyncio as _asyncio
@@ -275,14 +279,19 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     _user_id = str(u.id)
 
                     async def _gen_with_fresh_session():
-                        async with async_session() as fresh_db:
-                            r = await fresh_db.execute(select(User).where(User.id == _user_id))
-                            fresh_u = r.scalar_one_or_none()
-                            if fresh_u:
-                                await _generate_plan_post_subscription(fresh_u, fresh_db)
+                        try:
+                            async with async_session() as fresh_db:
+                                r = await fresh_db.execute(select(User).where(User.id == _user_id))
+                                fresh_u = r.scalar_one_or_none()
+                                if fresh_u:
+                                    await _generate_plan_post_subscription(fresh_u, fresh_db)
+                        except Exception as ex:
+                            import traceback
+                            print(f"[STRIPE WEBHOOK] plan generation task failed for {_user_id}: {ex}", flush=True)
+                            traceback.print_exc()
 
                     _asyncio.create_task(_gen_with_fresh_session())
-                    posthog.capture("subscription_activated", distinct_id=_user_id)
+                    posthog.capture("subscription_activated", distinct_id=str(u.id))
 
     elif event["type"] == "invoice.payment_failed":
         sub_id = data.get("subscription")
