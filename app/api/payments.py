@@ -217,11 +217,11 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             if ts:
                 period_end = datetime.utcfromtimestamp(ts)
 
-    if sub:
-                # Only update status if not already at a "better" state
-                # (avoid overwriting trialing → incomplete due to event ordering)
+            # Only update status if not already at a "better" state
+            # (avoid overwriting trialing → incomplete due to event ordering)
+            _status_rank = {"incomplete": 0, "incomplete_expired": 0, "trialing": 2, "active": 3, "past_due": 1, "canceled": -1}
+            if sub:
                 _new_status = data["status"]
-                _status_rank = {"incomplete": 0, "incomplete_expired": 0, "trialing": 2, "active": 3, "past_due": 1, "canceled": -1}
                 if _status_rank.get(_new_status, 0) >= _status_rank.get(sub.status, 0):
                     sub.status = _new_status
                 sub.stripe_customer_id = data["customer"]
