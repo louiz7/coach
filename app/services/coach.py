@@ -114,6 +114,48 @@ async def build_system_prompt(
                 # Fallback: full plan but capped at 1200 chars
                 prompt += f"\nCURRENT TRAINING PLAN (summary):\n{plan.raw_text[:1200]}\n"
 
+    # ── Recent workout history — inject whenever user asks about past performance ──
+    # Without this the LLM has no data and says "no workouts logged" even when
+    # progress_entries rows exist in the DB.
+    _HISTORY_INTENTS = {"PERFORMANCE_DATA", "PROGRESS_LOG"}
+    if intents and _HISTORY_INTENTS.intersection(intents):
+        try:
+            from datetime import datetime, timedelta
+            from collections import defaultdict
+            cutoff = datetime.utcnow() - timedelta(days=30)
+            pe_result = await db.execute(
+                select(ProgressEntry)
+                .where(
+                    ProgressEntry.user_id == user.id,
+                    ProgressEntry.category == "exercise",
+                    ProgressEntry.recorded_at >= cutoff,
+                )
+                .order_by(ProgressEntry.recorded_at.desc())
+                .limit(60)
+            )
+            entries = pe_result.scalars().all()
+            if entries:
+                # Group by date, then by exercise within each date
+                by_date: dict = defaultdict(lambda: defaultdict(list))
+                for e in entries:
+                    day = e.recorded_at.strftime("%Y-%m-%d") if e.recorded_at else "unknown"
+                    key = e.label or "?"
+                    val = str(e.value or "")
+                    if e.unit:
+                        val += e.unit
+                    if e.sets and e.reps:
+                        val += f" {e.sets}x{e.reps}"
+                    by_date[day][key].append(val)
+
+                lines = ["RECENT WORKOUT HISTORY (from logs):"]
+                for day in sorted(by_date.keys(), reverse=True)[:7]:  # last 7 distinct days
+                    lines.append(f"  {day}:")
+                    for exname, vals in by_date[day].items():
+                        lines.append(f"    {exname}: {', '.join(vals)}")
+                prompt += "\n" + "\n".join(lines) + "\n"
+        except Exception as e:
+            print(f"[build_system_prompt progress_entries ERROR] {e}")
+
     # Smart fitness profile (rule-based, ~150 tokens)
     try:
         profile = await get_or_create_profile(user.id, db)
