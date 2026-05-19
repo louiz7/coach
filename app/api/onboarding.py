@@ -277,15 +277,74 @@ async def create_trial_subscription(
         )
         customer_id = customer.id
 
-    sub = stripe.Subscription.create(
-        customer=customer_id,
-        items=[{"price": settings.STRIPE_PRICE_ID}],
-        trial_period_days=7,
-        payment_behavior="default_incomplete",
-        payment_settings={"save_default_payment_method": "on_subscription"},
-        expand=["pending_setup_intent", "latest_invoice.payment_intent"],
-        metadata={"user_id": str(user.id), "phone": user.phone},
-    )
+    # ── CRITICAL: dedupe Stripe subscriptions for this customer ────────────
+    # Bug we hit in production: every visit to /trial used to create a brand
+    # new Stripe subscription, leaving orphans on the customer record. Once
+    # the user added a payment method, ALL of those orphan subs activated
+    # and billed independently (4× charges in 24h on one customer).
+    #
+    # Strategy now:
+    #   1. List existing subs on the customer.
+    #   2. If any is already trialing/active/past_due → reuse it, return its
+    #      pending_setup_intent if still incomplete, otherwise short-circuit.
+    #   3. Cancel every orphan incomplete sub before creating a new one.
+    sub = None
+    try:
+        existing_stripe_subs = stripe.Subscription.list(
+            customer=customer_id, status="all", limit=20
+        )
+        live_statuses = {"trialing", "active", "past_due"}
+        incomplete_to_reuse = None
+        for s in existing_stripe_subs.auto_paging_iter():
+            if s.status in live_statuses:
+                # User already has a paying sub — never create another one.
+                if existing_sub:
+                    existing_sub.stripe_customer_id = customer_id
+                    existing_sub.stripe_subscription_id = s.id
+                    existing_sub.status = s.status
+                else:
+                    db.add(Subscription(
+                        user_id=user.id,
+                        stripe_customer_id=customer_id,
+                        stripe_subscription_id=s.id,
+                        status=s.status,
+                    ))
+                await db.commit()
+                print(f"[TRIAL] user {user.id} already has live Stripe sub {s.id} status={s.status}; reusing", flush=True)
+                return {"already_subscribed": True}
+            if s.status == "incomplete" and incomplete_to_reuse is None:
+                # Reuse the most recent incomplete sub instead of orphaning it.
+                incomplete_to_reuse = s.id
+            elif s.status in ("incomplete", "incomplete_expired"):
+                # Older orphan incomplete sub — cancel to stop it ever activating.
+                try:
+                    stripe.Subscription.cancel(s.id)
+                    print(f"[TRIAL] cancelled orphan incomplete sub {s.id} for user {user.id}", flush=True)
+                except Exception as cancel_err:
+                    print(f"[TRIAL] failed to cancel orphan sub {s.id}: {cancel_err}", flush=True)
+
+        if incomplete_to_reuse:
+            # Retrieve with the expansions we need to hand back to the browser.
+            sub = stripe.Subscription.retrieve(
+                incomplete_to_reuse,
+                expand=["pending_setup_intent", "latest_invoice.payment_intent"],
+            )
+            print(f"[TRIAL] reusing incomplete sub {sub.id} for user {user.id}", flush=True)
+    except Exception as list_err:
+        # If listing fails for any reason, fall through to create a new sub —
+        # better to risk one duplicate than break the entire signup flow.
+        print(f"[TRIAL] sub-dedupe pre-check failed for user {user.id}: {list_err}", flush=True)
+
+    if sub is None:
+        sub = stripe.Subscription.create(
+            customer=customer_id,
+            items=[{"price": settings.STRIPE_PRICE_ID}],
+            trial_period_days=7,
+            payment_behavior="default_incomplete",
+            payment_settings={"save_default_payment_method": "on_subscription"},
+            expand=["pending_setup_intent", "latest_invoice.payment_intent"],
+            metadata={"user_id": str(user.id), "phone": user.phone},
+        )
 
     pending_si = sub.get("pending_setup_intent")
     if pending_si:

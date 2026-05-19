@@ -1,0 +1,20 @@
+fix(critical): prevent duplicate Stripe subscriptions per customer
+
+Root cause: every visit to /trial called create-trial-subscription, which
+only short-circuited if existing sub was already trialing/active. Any other
+state (incomplete being the common case) caused a brand new Stripe
+subscription to be created on the same customer. Old subs were never
+cancelled - they stayed attached and silently activated/billed whenever the
+customer eventually added a payment method, producing repeated charges
+(4x in 24h on louiz@fluxberlin.com).
+
+Fix in app/api/onboarding.py create_trial_subscription:
+- Before creating, list ALL Stripe subs for the customer.
+- If any is trialing/active/past_due, short-circuit, never create another.
+- If any is incomplete, REUSE its pending_setup_intent instead of orphaning.
+- Cancel every other orphan incomplete sub to prevent future bills.
+
+Also: scripts/cleanup_duplicate_subs.py - one-shot remediation that scans
+every Stripe customer, keeps the oldest live sub per customer, cancels the
+duplicates, and refunds any invoice paid on a duplicate in the last 72h.
+Run with --apply to actually execute.
