@@ -631,13 +631,21 @@ async def _handle_whoop_or_basics(user: User, chat_id: str, text: str, db: Async
 
 
 async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, whoop_connected: bool = False) -> None:
-    """Gate plan delivery behind subscription.
+    """Build the plan immediately, then send the paywall link.
 
-    Called from both the manual-basics handler and the WHOOP OAuth callback.
-    Teases the plan, fakes a 4-second "writing…" pause, then sends a paywall
-    link. The plan is only generated after the user starts their trial.
+    Plan GENERATION is unconditional — we want every user who finishes
+    onboarding to get their plan written into the DB right away. Plan ACCESS
+    (the /plan page) is what we gate behind the Stripe paywall.
+
+    Why: previously we deferred generation until the Stripe webhook fired.
+    That introduced a fragile chain (race conditions, webhook ordering,
+    Redis locks) and meant if anything went wrong the user got a "had a
+    small hiccup" message instead of their plan. Doing it here removes all
+    of that — by the time the user makes it through the embedded Stripe
+    flow on /unlock, the plan is already sitting on /plan waiting for them.
     """
     from app.services.token import create_onboarding_token
+    from app.services.training_plan import generate_plan
 
     await assign_persona_from_style(user, db)
 
@@ -653,10 +661,19 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, wh
     await asyncio.sleep(1.2)
     await _send(chat_id, user.id, tease, db)
 
-    # Fake a typing indicator for 4 seconds so it feels like Kano is composing the plan
+    # Actually build the plan now. The typing indicator keeps the UI alive
+    # while the LLM runs. If generation fails we still send the paywall
+    # link — the user can text us back and we'll retry, but >95% of the
+    # time this will just work.
     await linq.start_typing(chat_id)
     try:
-        await asyncio.sleep(4)
+        try:
+            await generate_plan(user, db)
+            _posthog_capture("onboarding_plan_built", distinct_id=str(user.id))
+        except Exception as ex:
+            import traceback
+            print(f"[_build_plan_and_advance] plan gen failed for user {user.id}: {ex}", flush=True)
+            traceback.print_exc()
     finally:
         await linq.stop_typing(chat_id)
 
@@ -785,7 +802,9 @@ async def _generate_plan_post_subscription(user: User, db: AsyncSession) -> bool
     Returns True on success, False on failure.
     """
     from app.services.training_plan import generate_plan
+    from app.models.training_plan import TrainingPlan
     from app.redis import redis_pool
+    from sqlalchemy import select as _select
 
     lock_key = f"plan_gen_lock:{user.id}"
     # SET NX EX — only the first caller wins; others bail out fast
@@ -795,7 +814,24 @@ async def _generate_plan_post_subscription(user: User, db: AsyncSession) -> bool
         return False
 
     try:
-        await generate_plan(user, db)
+        # New flow: the plan is already generated during onboarding, before
+        # the user even sees the paywall. So 99% of the time this just
+        # needs to advance state + send the iMessage nudge. We only call
+        # generate_plan as a defensive fallback for users whose plan
+        # somehow didn't get written (e.g. mid-deploy, LLM outage).
+        existing = await db.execute(
+            _select(TrainingPlan)
+            .where(TrainingPlan.user_id == user.id, TrainingPlan.is_current == True)
+            .limit(1)
+        )
+        has_plan = existing.scalar_one_or_none() is not None
+        if not has_plan:
+            print(f"[_generate_plan_post_subscription] no plan found for user {user.id}, generating now", flush=True)
+            await generate_plan(user, db)
+            _posthog_capture("onboarding_plan_built", distinct_id=str(user.id))
+        else:
+            print(f"[_generate_plan_post_subscription] plan already exists for user {user.id}, advancing state only", flush=True)
+
         user.onboarding_state = OnboardingState.PLAN_REVIEW
         user.onboarding_complete = True
         await db.commit()

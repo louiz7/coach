@@ -194,6 +194,22 @@ async def plan_view(request: Request) -> HTMLResponse:
                 ctx["error"] = "User not found"
                 return templates.TemplateResponse(request, "plan.html", ctx)
             ctx["user_name"] = user.name or ""
+
+            # ── Subscription gate ──────────────────────────────────────────
+            # Plan is built during onboarding (before paywall), so a plan row
+            # may already exist for a user who hasn't paid yet. Don't let
+            # anyone view /plan without an active sub — send them to /unlock
+            # to go through the embedded Stripe flow. The /processing page
+            # will bring them back here once their sub flips to trialing.
+            from app.models.subscription import Subscription
+            from fastapi.responses import RedirectResponse
+            sub_r = await db.execute(
+                select(Subscription).where(Subscription.user_id == user.id)
+            )
+            sub = sub_r.scalar_one_or_none()
+            if not sub or sub.status not in ("trialing", "active", "past_due"):
+                return RedirectResponse(url=f"/unlock?token={token}", status_code=303)
+
             r2 = await db.execute(
                 select(TrainingPlan)
                 .where(TrainingPlan.user_id == user.id, TrainingPlan.is_current == True)
@@ -205,13 +221,7 @@ async def plan_view(request: Request) -> HTMLResponse:
             # sub, kick off plan generation now and redirect to /processing.
             if not plan:
                 from app.models.user import OnboardingState
-                from app.models.subscription import Subscription
-                from fastapi.responses import RedirectResponse
                 if user.onboarding_state == OnboardingState.AWAITING_SUBSCRIPTION:
-                    sub_r = await db.execute(
-                        select(Subscription).where(Subscription.user_id == user.id)
-                    )
-                    sub = sub_r.scalar_one_or_none()
                     if sub and sub.status in ("trialing", "active"):
                         print(f"[PLAN VIEW FALLBACK] triggering plan generation for user {user.id} ({user.name})", flush=True)
                         from app.services.onboarding_chat import _generate_plan_post_subscription
