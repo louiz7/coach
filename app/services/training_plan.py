@@ -11,20 +11,6 @@ import json
 from typing import Optional
 
 import httpx
-import posthog
-import threading
-
-
-def _posthog_capture(event: str, distinct_id: str, properties: dict = None):
-    """Thread-safe posthog capture — won't conflict with running event loop."""
-    try:
-        threading.Thread(
-            target=posthog.capture,
-            kwargs={"distinct_id": distinct_id, "event": event, "properties": properties or {}},
-            daemon=True,
-        ).start()
-    except Exception:
-        pass
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.training_plan import TrainingPlan
 from app.models.user import User
+from app.services import analytics
 from app.services.research_rag import search_research, format_research_for_prompt
 
 
@@ -381,12 +368,13 @@ async def generate_plan(
     await db.commit()
     await db.refresh(plan)
 
-    _posthog_capture(
-        "training_plan_generated",
-        distinct_id=str(user.id),
+    analytics.capture(
+        "plan_generated",
+        user,
         properties={
             "is_modification": is_modification,
             "training_days": len(plan_data.get("days", [])),
+            "had_user_request": bool(user_request),
         },
     )
 

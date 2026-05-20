@@ -17,17 +17,38 @@
     person_profiles: 'identified_only',
   });
 
-  // Track "Text Kano now" CTA clicks (any anchor pointing to sms:)
+  {% if posthog_distinct_id %}
+  // Token-gated page: identify this browser session as the same person the
+  // server-side capture path has been writing to since user_created.
+  try {
+    posthog.identify({{ posthog_distinct_id|tojson }}, {{ posthog_user_props|tojson if posthog_user_props else '{}' }});
+  } catch (e) {}
+  {% endif %}
+
   document.addEventListener('click', function (ev) {
-    var a = ev.target.closest('a[href^="sms:"]');
-    if (!a) return;
-    try {
-      posthog.capture('text_kano_cta_clicked', {
-        href: a.getAttribute('href'),
-        label: (a.getAttribute('aria-label') || a.innerText || '').trim().slice(0, 100),
-        path: window.location.pathname,
-      });
-    } catch (e) {}
+    // Text Kano CTA — sms: anchors
+    var sms = ev.target.closest('a[href^="sms:"]');
+    if (sms) {
+      try {
+        posthog.capture('text_kano_cta_clicked', {
+          href: sms.getAttribute('href'),
+          label: (sms.getAttribute('aria-label') || sms.innerText || '').trim().slice(0, 100),
+          path: window.location.pathname,
+        });
+      } catch (e) {}
+      return;
+    }
+    // Decoy plan CTA — the "Start free trial" / "Open my plan" button on /unlock
+    var cta = ev.target.closest('a.cta');
+    if (cta) {
+      try {
+        posthog.capture('decoy_plan_cta_clicked', {
+          href: cta.getAttribute('href'),
+          label: (cta.getAttribute('aria-label') || cta.innerText || '').trim().slice(0, 100),
+          source_page: window.location.pathname,
+        });
+      } catch (e) {}
+    }
   });
 </script>
 {% endif %}

@@ -34,6 +34,41 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 templates.env.globals["posthog_project_token"] = settings.POSTHOG_PROJECT_TOKEN
 templates.env.globals["posthog_host"] = settings.POSTHOG_HOST
 
+
+def _posthog_ctx(user) -> dict:
+    """Build the Jinja context fragment that lets _analytics.html call
+    posthog.identify() on the browser side — so token-gated page views
+    attach to the same PostHog person the server has been writing to."""
+    if user is None:
+        return {}
+    return {
+        "posthog_distinct_id": str(user.id),
+        "posthog_user_props": {
+            "name": user.name,
+            "phone": user.phone,
+            "language": user.language,
+            "onboarding_state": user.onboarding_state,
+            "onboarding_complete": user.onboarding_complete,
+        },
+    }
+
+
+async def _resolve_user_from_token(token: str):
+    """Decode an onboarding token and return the matching User row, or None."""
+    if not token:
+        return None
+    try:
+        from app.services.token import verify_onboarding_token
+        from app.database import async_session
+        from app.models.user import User
+        from sqlalchemy import select
+        payload = verify_onboarding_token(token)
+        async with async_session() as db:
+            r = await db.execute(select(User).where(User.phone == payload["phone"]))
+            return r.scalar_one_or_none()
+    except Exception:
+        return None
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -53,21 +88,9 @@ async def landing(request: Request) -> HTMLResponse:
 @app.get("/start", response_class=HTMLResponse)
 async def start(request: Request) -> HTMLResponse:
     token = request.query_params.get("token", "")
-    name = ""
-    if token:
-        try:
-            from app.services.token import verify_onboarding_token
-            payload = verify_onboarding_token(token)
-            # Quick DB lookup to get the real name
-            from app.database import async_session
-            from app.models.user import User
-            from sqlalchemy import select
-            async with async_session() as db:
-                result = await db.execute(select(User.name).where(User.phone == payload["phone"]))
-                name = result.scalar_one_or_none() or ""
-        except Exception:
-            pass  # Invalid/expired token — template will fall back to default
-    return templates.TemplateResponse(request, "start.html", {"token": token, "name": name})
+    user = await _resolve_user_from_token(token)
+    ctx = {"token": token, "name": user.name if user else "", **_posthog_ctx(user)}
+    return templates.TemplateResponse(request, "start.html", ctx)
 
 # Routes
 from app.api import health, auth, users, onboarding, training_plans, webhooks, payments, whoop, calendar
@@ -84,10 +107,13 @@ app.include_router(calendar.router)
 @app.get("/success", response_class=HTMLResponse)
 async def success(request: Request) -> HTMLResponse:
     token = request.query_params.get("token", "")
-    return templates.TemplateResponse(request, "success.html", {
+    user = await _resolve_user_from_token(token)
+    ctx = {
         "token": token,
         "sms_number": settings.LINQ_PHONE_NUMBER,
-    })
+        **_posthog_ctx(user),
+    }
+    return templates.TemplateResponse(request, "success.html", ctx)
 
 
 @app.get("/cancel", response_class=HTMLResponse)
@@ -104,25 +130,21 @@ async def unlock(request: Request) -> HTMLResponse:
         "user_name": "",
         "already_subscribed": False,
     }
-    if token:
+    user = await _resolve_user_from_token(token)
+    if user:
+        ctx["user_name"] = user.name or ""
         try:
-            from app.services.token import verify_onboarding_token
             from app.database import async_session
-            from app.models.user import User
             from app.models.subscription import Subscription
             from sqlalchemy import select
-            payload = verify_onboarding_token(token)
             async with async_session() as db:
-                r = await db.execute(select(User).where(User.phone == payload["phone"]))
-                user = r.scalar_one_or_none()
-                if user:
-                    ctx["user_name"] = user.name or ""
-                    sub_r = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
-                    sub = sub_r.scalar_one_or_none()
-                    if sub and sub.status in ("trialing", "active"):
-                        ctx["already_subscribed"] = True
+                sub_r = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
+                sub = sub_r.scalar_one_or_none()
+                if sub and sub.status in ("trialing", "active"):
+                    ctx["already_subscribed"] = True
         except Exception:
             pass
+        ctx.update(_posthog_ctx(user))
     return templates.TemplateResponse(request, "unlock.html", ctx)
 
 
@@ -136,25 +158,21 @@ async def trial(request: Request) -> HTMLResponse:
         "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
         "already_subscribed": False,
     }
-    if token:
+    user = await _resolve_user_from_token(token)
+    if user:
+        ctx["user_name"] = user.name or ""
         try:
-            from app.services.token import verify_onboarding_token
             from app.database import async_session
-            from app.models.user import User
             from app.models.subscription import Subscription
             from sqlalchemy import select
-            payload = verify_onboarding_token(token)
             async with async_session() as db:
-                r = await db.execute(select(User).where(User.phone == payload["phone"]))
-                user = r.scalar_one_or_none()
-                if user:
-                    ctx["user_name"] = user.name or ""
-                    sub_r = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
-                    sub = sub_r.scalar_one_or_none()
-                    if sub and sub.status in ("trialing", "active"):
-                        ctx["already_subscribed"] = True
+                sub_r = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
+                sub = sub_r.scalar_one_or_none()
+                if sub and sub.status in ("trialing", "active"):
+                    ctx["already_subscribed"] = True
         except Exception:
             pass
+        ctx.update(_posthog_ctx(user))
     return templates.TemplateResponse(request, "trial.html", ctx)
 
 
@@ -162,7 +180,9 @@ async def trial(request: Request) -> HTMLResponse:
 @app.get("/processing", response_class=HTMLResponse)
 async def processing(request: Request) -> HTMLResponse:
     token = request.query_params.get("token", "")
-    return templates.TemplateResponse(request, "processing.html", {"token": token})
+    user = await _resolve_user_from_token(token)
+    ctx = {"token": token, **_posthog_ctx(user)}
+    return templates.TemplateResponse(request, "processing.html", ctx)
 
 
 @app.get("/plan", response_class=HTMLResponse)
@@ -194,6 +214,7 @@ async def plan_view(request: Request) -> HTMLResponse:
                 ctx["error"] = "User not found"
                 return templates.TemplateResponse(request, "plan.html", ctx)
             ctx["user_name"] = user.name or ""
+            ctx.update(_posthog_ctx(user))
 
             # ── Subscription gate ──────────────────────────────────────────
             # Plan is built during onboarding (before paywall), so a plan row
@@ -301,9 +322,10 @@ async def plan_view(request: Request) -> HTMLResponse:
                 ctx["plan_data"] = {**pj, "days": enriched_days}
                 ctx["generated_at"] = plan.created_at.strftime("%b %d, %Y") if plan.created_at else None
                 ctx["plan_id"] = str(plan.id)
-                posthog.capture(
+                from app.services import analytics
+                analytics.capture(
                     "training_plan_viewed",
-                    distinct_id=str(user.id),
+                    user,
                     properties={"plan_id": str(plan.id), "training_days": len(training_days)},
                 )
     except Exception as e:
@@ -442,9 +464,10 @@ async def plan_update(request: Request):
 
         await db.commit()
 
-        posthog.capture(
+        from app.services import analytics
+        analytics.capture(
             "training_plan_edited",
-            distinct_id=str(user.id),
+            user,
             properties={"plan_id": str(plan.id)},
         )
 

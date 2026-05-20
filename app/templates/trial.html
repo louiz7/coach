@@ -13,6 +13,11 @@
     />
     <script src="https://js.stripe.com/v3/"></script>
     {% include "_analytics.html" %}
+    {% if posthog_distinct_id %}
+    <script>
+      try { posthog.capture('trial_page_viewed'); } catch (e) {}
+    </script>
+    {% endif %}
     <style>
       :root { color-scheme: dark; }
       * { box-sizing: border-box; }

@@ -1,5 +1,4 @@
 import stripe
-import posthog
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -8,6 +7,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.subscription import Subscription
 from app.schemas.subscription import SubscriptionStatus, CheckoutResponse, PortalResponse
+from app.services import analytics
 from app.utils.auth import get_current_user
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -189,6 +189,9 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     select(Subscription).where(Subscription.user_id == user_id)
                 )
                 existing_sub = result2.scalar_one_or_none()
+                was_already_active = bool(
+                    existing_sub and existing_sub.status in ("active", "trialing")
+                )
                 if existing_sub:
                     existing_sub.stripe_customer_id = customer_id
                     if sub_id:
@@ -213,7 +216,17 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     user.onboarding_state = OnboardingState.DONE
                 await db.commit()
 
-                posthog.capture("subscription_activated", distinct_id=str(user.id))
+                if not was_already_active:
+                    analytics.capture(
+                        "subscription_activated",
+                        user,
+                        properties={
+                            "trial": True,
+                            "source": "checkout.session.completed",
+                            "stripe_customer_id": customer_id,
+                            "stripe_subscription_id": sub_id,
+                        },
+                    )
 
                 # If user was waiting for subscription to get their plan, deliver it now
                 if was_awaiting and user.linq_chat_id:
@@ -310,9 +323,41 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 sub.current_period_end = datetime.utcfromtimestamp(data["current_period_end"])
             await db.commit()
             print(f"[STRIPE WEBHOOK] {event['type']} sub={data['id']} prev={prev_status} new={new_status} user={sub.user_id}", flush=True)
-            if event["type"] == "customer.subscription.deleted":
-                posthog.capture("subscription_cancelled", distinct_id=str(sub.user_id))
 
+            # Fire analytics events for real status transitions (not no-op updates).
+            # The "activated" event is gated on prev not already being trialing/active,
+            # so we don't double-fire with checkout.session.completed.
+            became_active = (
+                event["type"] == "customer.subscription.updated"
+                and new_status in ("trialing", "active")
+                and prev_status not in ("trialing", "active")
+            )
+            became_cancelled = event["type"] == "customer.subscription.deleted"
+            if became_active or became_cancelled:
+                u_result = await db.execute(select(User).where(User.id == sub.user_id))
+                webhook_user = u_result.scalar_one_or_none()
+                if webhook_user:
+                    if became_active:
+                        analytics.capture(
+                            "subscription_activated",
+                            webhook_user,
+                            properties={
+                                "trial": new_status == "trialing",
+                                "source": "customer.subscription.updated",
+                                "prev_status": prev_status,
+                                "stripe_customer_id": data.get("customer"),
+                                "stripe_subscription_id": data.get("id"),
+                            },
+                        )
+                    else:
+                        analytics.capture(
+                            "subscription_cancelled",
+                            webhook_user,
+                            properties={
+                                "prev_status": prev_status,
+                                "stripe_subscription_id": data.get("id"),
+                            },
+                        )
             # Paywall flow: subscription is now trialing/active. Trigger plan
             # generation if user is still awaiting it. The Redis lock inside
             # _generate_plan_post_subscription guards against duplicate runs,
@@ -346,7 +391,6 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                             traceback.print_exc()
 
                     _asyncio.create_task(_gen_with_fresh_session())
-                    posthog.capture("subscription_activated", distinct_id=str(u.id))
 
     elif event["type"] == "invoice.payment_failed":
         sub_id = data.get("subscription")
@@ -360,6 +404,17 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             if sub:
                 sub.status = "past_due"
                 await db.commit()
-                posthog.capture("payment_failed", distinct_id=str(sub.user_id))
+                u_result = await db.execute(select(User).where(User.id == sub.user_id))
+                failed_user = u_result.scalar_one_or_none()
+                if failed_user:
+                    analytics.capture(
+                        "payment_failed",
+                        failed_user,
+                        properties={
+                            "stripe_subscription_id": sub_id,
+                            "amount_due": data.get("amount_due"),
+                            "currency": data.get("currency"),
+                        },
+                    )
 
     return {"ok": True}

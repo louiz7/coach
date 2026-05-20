@@ -12,27 +12,12 @@ fast-forwarded to INFORM so users who started the old flow get a clean restart.
 import asyncio
 import json
 from typing import Optional
-import threading
-
-import posthog
-
-
-def _posthog_capture(event: str, distinct_id: str, properties: dict = None):
-    """Thread-safe posthog capture — won't conflict with running event loop."""
-    try:
-        threading.Thread(
-            target=posthog.capture,
-            kwargs={"distinct_id": distinct_id, "event": event, "properties": properties or {}},
-            daemon=True,
-        ).start()
-    except Exception:
-        pass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.user import OnboardingState, User
-from app.services import linq
+from app.services import analytics, linq
 from app.services.memory import add_message
 from app.services.persona import assign_persona_from_style
 
@@ -494,6 +479,8 @@ async def _handle_inform(user: User, chat_id: str, text: str, db: AsyncSession) 
     user.onboarding_state = OnboardingState.CAPTURE_GOAL
     await db.commit()
 
+    analytics.capture("onboarding_step_completed", user, properties={"step": "inform"})
+
     msgs = [m.format(name=user.name) if "{name}" in m else m for m in _t(user, "inform_greeting")]
     await _send_multi(chat_id, user.id, msgs, db)
 
@@ -525,7 +512,16 @@ async def _handle_capture_goal(user: User, chat_id: str, text: str, db: AsyncSes
     user.onboarding_state = OnboardingState.STATUS_QUO
     await db.commit()
 
-    _posthog_capture("onboarding_goal_captured", distinct_id=str(user.id), properties={"has_sports_focus": bool(user.sports_focus)})
+    reasks = await _reask_count(user.id, OnboardingState.CAPTURE_GOAL)
+    analytics.capture(
+        "onboarding_step_completed",
+        user,
+        properties={
+            "step": "capture_goal",
+            "reasks": reasks,
+            "has_sports_focus": bool(user.sports_focus),
+        },
+    )
 
     await _send_multi(chat_id, user.id, _t(user, "status_prompt"), db)
 
@@ -558,6 +554,17 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
 
     user.onboarding_state = OnboardingState.CONSTRAINTS
     await db.commit()
+
+    reasks = await _reask_count(user.id, OnboardingState.STATUS_QUO)
+    analytics.capture(
+        "onboarding_step_completed",
+        user,
+        properties={
+            "step": "status_quo",
+            "reasks": reasks,
+            "training_frequency": user.training_frequency,
+        },
+    )
 
     await _send_multi(chat_id, user.id, _t(user, "constraints_prompt"), db)
 
@@ -595,6 +602,16 @@ async def _handle_constraints(user: User, chat_id: str, text: str, db: AsyncSess
 
     user.onboarding_state = OnboardingState.WHOOP_OR_BASICS
     await db.commit()
+
+    analytics.capture(
+        "onboarding_step_completed",
+        user,
+        properties={
+            "step": "constraints",
+            "has_injuries": bool(user.injuries),
+            "has_equipment_constraints": bool(user.equipment_access),
+        },
+    )
 
     # Build WHOOP link
     from app.services.token import create_onboarding_token
@@ -660,7 +677,17 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, wh
     user.onboarding_state = OnboardingState.AWAITING_SUBSCRIPTION
     await db.commit()
 
-    _posthog_capture("onboarding_awaiting_subscription", distinct_id=str(user.id), properties={"whoop_connected": whoop_connected})
+    analytics.capture(
+        "onboarding_step_completed",
+        user,
+        properties={
+            "step": "whoop_or_basics",
+            "whoop_connected": whoop_connected,
+            "has_age": user.age is not None,
+            "has_weight": user.weight_kg is not None,
+            "has_gender": user.gender is not None,
+        },
+    )
 
     ack = _t(user, "plan_ack_whoop") if whoop_connected else _t(user, "plan_ack")
     tease = _t(user, "plan_building_tease")
@@ -677,7 +704,6 @@ async def _build_plan_and_advance(user: User, chat_id: str, db: AsyncSession, wh
     try:
         try:
             await generate_plan(user, db)
-            _posthog_capture("onboarding_plan_built", distinct_id=str(user.id))
         except Exception as ex:
             import traceback
             print(f"[_build_plan_and_advance] plan gen failed for user {user.id}: {ex}", flush=True)
@@ -741,6 +767,7 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
             from app.services.training_plan import generate_plan
             from app.services.token import create_plan_token
             await generate_plan(user, db, user_request=text)
+            analytics.capture("plan_regenerated", user, properties={"trigger": "user_request"})
             token = create_plan_token(user.phone)
             base_url = settings.PUBLIC_BASE_URL.rstrip('/')
             plan_url = f"{base_url}/plan?token={token}"
@@ -754,7 +781,8 @@ async def _handle_plan_review(user: User, chat_id: str, text: str, db: AsyncSess
     # User is happy — move to DONE (already subscribed at this point)
     user.onboarding_state = OnboardingState.DONE
     await db.commit()
-    _posthog_capture("onboarding_completed", distinct_id=str(user.id))
+    analytics.capture("onboarding_step_completed", user, properties={"step": "plan_review"})
+    analytics.capture("onboarding_completed", user)
     from app.services.token import create_calendar_token
     base_url = settings.PUBLIC_BASE_URL.rstrip('/')
     # Strip scheme and build webcal:// directly — iOS opens Calendar immediately
@@ -836,14 +864,12 @@ async def _generate_plan_post_subscription(user: User, db: AsyncSession) -> bool
         if not has_plan:
             print(f"[_generate_plan_post_subscription] no plan found for user {user.id}, generating now", flush=True)
             await generate_plan(user, db)
-            _posthog_capture("onboarding_plan_built", distinct_id=str(user.id))
         else:
             print(f"[_generate_plan_post_subscription] plan already exists for user {user.id}, advancing state only", flush=True)
 
         user.onboarding_state = OnboardingState.PLAN_REVIEW
         user.onboarding_complete = True
         await db.commit()
-        _posthog_capture("onboarding_plan_built", distinct_id=str(user.id))
 
         # Nudge via iMessage so the user knows feedback is welcome.
         # No plan link here — they're already on /plan in the browser.
