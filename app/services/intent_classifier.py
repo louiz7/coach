@@ -81,10 +81,12 @@ FOOD_LOG — user sends a food photo, asks to track calories, or asks if calorie
   NO: general nutrition questions about macros, supplements, or diet advice without a specific item to analyse (NUTRITION_QUESTION)
 
 CANCEL_SUBSCRIPTION — user wants to cancel their subscription, stop receiving messages, unsubscribe, or opt out.
-  YES: "cancel my subscription", "stop messaging me", "unsubscribe", "cancel", "I want to cancel",
-       "how do I cancel", "stop texts", "remove me", "I don't want this anymore", "delete my account",
-       "stop", "opt out", "leave me alone", "don't message me anymore"
+  YES: "cancel my subscription", "cancel my plan", "can I cancel", "how do I cancel", "stop messaging me",
+       "unsubscribe", "cancel", "I want to cancel", "stop texts", "remove me", "I don't want this anymore",
+       "delete my account", "stop", "opt out", "leave me alone", "don't message me anymore",
+       "Abo kündigen", "kündigen", "abbestellen", "wie kann ich kündigen"
   NO: asking to pause or take a break (GENERAL), general frustration not about cancelling
+  IMPORTANT: "cancel my plan" = CANCEL_SUBSCRIPTION even if recent messages discussed plan changes.
 
 GENERAL — anything else: motivation, feelings, general chat, frustration not about the plan.
 
