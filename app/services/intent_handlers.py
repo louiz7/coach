@@ -350,7 +350,9 @@ async def handle_cancel_subscription(user: User, text: str, db: AsyncSession) ->
             await add_message(user.id, 'assistant', msg, db)
         return "__SENT__"
     except Exception as ex:
+        import traceback
         print(f"[handle_cancel_subscription ERROR] {ex}")
+        traceback.print_exc()
         return None
 
 
