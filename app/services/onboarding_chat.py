@@ -182,9 +182,14 @@ def _t(user, key: str):
 
 _EXTRACT_PROMPTS: dict[str, str] = {
     "name": (
-        'Extract the person\'s first name from this message: "{text}"\n'
-        'Return JSON: {{"name": "FirstName or null", "valid": true or false}}\n'
-        "valid=false if no real name is present (e.g. it's a question, random words, or a greeting with no name)."
+        'Extract what the person wants to be called from this message (any language): "{text}"\n'
+        'Return JSON: {{"name": "WhatToCallThem or null", "valid": true or false}}\n'
+        "Be generous: accept first names, nicknames, or whatever they say to call them — "
+        "'just call me Boss', 'I\\'m Mike', 'Boss', 'Tigerlily', 'name\\'s Jay' all valid. "
+        "Strip filler like 'just call me', 'I\\'m', 'my name is', 'name\\'s'. "
+        "Capitalize the result. "
+        "valid=false ONLY if the message is purely a question, greeting, or has no name-like token at all "
+        "(e.g. 'hi', 'what is this?', 'how does it work')."
     ),
     "goal": (
         'Extract fitness goals from this message (may be in any language): "{text}"\n'
