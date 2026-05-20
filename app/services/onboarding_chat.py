@@ -11,6 +11,7 @@ fast-forwarded to INFORM so users who started the old flow get a clean restart.
 
 import asyncio
 import json
+import re
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -222,6 +223,21 @@ _EXTRACT_PROMPTS: dict[str, str] = {
         "accepted=true for yes/sure/let's go/in/absolutely/etc. false for no/nope/pass/later/not now/etc."
     ),
 }
+
+
+_FREQ_DIGIT_RE = re.compile(r"\b([1-7])\b")
+
+
+def _digit_fallback_freq(text: str | None) -> int:
+    """Extract a small standalone integer (1-7) as days/week.
+
+    Fallback for when the LLM can't parse a terse answer like "3" or "3x".
+    Returns 0 if nothing usable is found.
+    """
+    if not text:
+        return 0
+    m = _FREQ_DIGIT_RE.search(text)
+    return int(m.group(1)) if m else 0
 
 
 async def _llm_extract(step: str, text: str) -> dict | None:
@@ -540,14 +556,17 @@ async def _handle_status_quo(user: User, chat_id: str, text: str, db: AsyncSessi
     if not data or not data.get("valid"):
         reasks = await _reask_count(user.id, OnboardingState.STATUS_QUO)
         if reasks >= 1:
-            user.training_frequency = 0
+            user.training_frequency = _digit_fallback_freq(text)
             user.current_schedule_notes = (text or "").strip()[:3000]
         else:
             await _inc_reask(user.id, OnboardingState.STATUS_QUO)
             await _send(chat_id, user.id, _t(user, "status_reask"), db)
             return
     else:
-        user.training_frequency = int(data.get("training_frequency") or 0)
+        freq = int(data.get("training_frequency") or 0)
+        if freq == 0:
+            freq = _digit_fallback_freq(text)
+        user.training_frequency = freq
         user.current_schedule_notes = (
             data.get("schedule_summary") or (text or "").strip()
         )[:3000]
