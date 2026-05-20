@@ -201,22 +201,22 @@ _EXTRACT_PROMPTS: dict[str, str] = {
         "valid=false if no real name is present (e.g. it's a question, random words, or a greeting with no name)."
     ),
     "goal": (
-        'Extract fitness goals from this message: "{text}"\n'
-        'Return JSON: {{"goal": "concise goal description", "sports_focus": "sports/activities mentioned or null", "valid": true or false}}\n'
-        "valid=false only if zero fitness intent was expressed."
+        'Extract fitness goals from this message (may be in any language): "{text}"\n'
+        'Return JSON: {{"goal": "concise goal description in English", "sports_focus": "sports/activities mentioned or null", "valid": true or false}}\n'
+        "Be generous: valid=true for anything expressing a fitness desire, sport, or body goal. valid=false ONLY for complete gibberish with zero fitness relevance."
     ),
     "status": (
-        'Extract training info from: "{text}"\n'
-        'Return JSON: {{"training_frequency": <int days per week, 0 if none>, "schedule_summary": "brief description", "valid": true or false}}\n'
-        "valid=false only if completely off-topic (e.g. random noise)."
+        'Extract training info from this message (may be in any language): "{text}"\n'
+        'Return JSON: {{"training_frequency": <int days per week, 0 if none>, "schedule_summary": "brief description in English", "valid": true or false}}\n'
+        "Be generous: valid=true for anything describing training, sport, frequency, activity level, or even 'I don't train'. valid=false ONLY for complete gibberish with zero fitness relevance."
     ),
     "constraints": (
-        'Extract training constraints from: "{text}"\n'
+        'Extract training constraints from this message (may be in any language): "{text}"\n'
         'Return JSON: {{"injuries": "description or null", "equipment": "gym/home/both/outdoor or null", "notes": "other constraints", "valid": true}}\n'
         "Always valid=true. injuries=null if none mentioned."
     ),
     "basics": (
-        'Extract body metrics from this message — fields can appear in ANY order and with ANY units.\n'
+        'Extract body metrics from this message (may be in any language) — fields can appear in ANY order and with ANY units.\n'
         'Message: "{text}"\n'
         'Return JSON: {{"age": <int or null>, "weight_kg": <float or null>, "gender": "male/female/other or null", "height_cm": <float or null>, "valid": true or false}}\n'
         "Rules:\n"
@@ -227,12 +227,12 @@ _EXTRACT_PROMPTS: dict[str, str] = {
         "- valid=false ONLY if none of age/weight/gender could be extracted at all."
     ),
     "constraints_intent": (
-        'Does this message indicate the person has NO constraints, injuries, or special requirements? Message: "{text}"\n'
+        'Does this message (may be in any language) indicate the person has NO constraints, injuries, or special requirements? Message: "{text}"\n'
         'Return JSON: {{"no_constraints": true or false}}\n'
         "no_constraints=true if they said something like none, nothing, all good, nope, no injuries, etc. false if they mentioned anything specific."
     ),
     "challenge": (
-        'The user was asked if they want to do a 7-day fitness challenge. Did they say yes or no? Message: "{text}"\n'
+        'The user was asked if they want to do a 7-day fitness challenge. Did they say yes or no? Message (may be in any language): "{text}"\n'
         'Return JSON: {{"accepted": true or false}}\n'
         "accepted=true for yes/sure/let's go/in/absolutely/etc. false for no/nope/pass/later/not now/etc."
     ),
