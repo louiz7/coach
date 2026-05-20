@@ -67,28 +67,39 @@ def _run_in_thread(fn, **kwargs) -> None:
 
 
 def identify(user: User, extra: dict | None = None) -> None:
-    """Set person properties on PostHog for this user."""
+    """Set person properties on PostHog for this user.
+
+    PostHog python SDK v3 dropped the top-level ``posthog.identify`` helper —
+    the canonical v3 way to update person properties is to attach a ``$set``
+    modifier to a captured event. We fire a ``$identify`` event whose only
+    payload is the ``$set`` block; PostHog updates the person profile and
+    doesn't surface the event in normal analytics.
+    """
     _run_in_thread(
-        posthog.identify,
+        posthog.capture,
         distinct_id=str(user.id),
-        properties=_person_props(user, extra),
+        event="$identify",
+        properties={"$set": _person_props(user, extra)},
     )
 
 
 def capture(event: str, user: User, properties: dict | None = None) -> None:
-    """Identify the user, then capture an event keyed on their id.
+    """Capture an event keyed on the user's id, with fresh person properties
+    merged via ``$set``.
 
-    The identify-before-capture pattern keeps the person profile fresh: any
-    field that just changed (e.g. training_frequency was just set in
-    _handle_status_quo) becomes visible on the PostHog person page before the
-    event itself is processed.
+    Every capture carries the current snapshot of structured user fields, so
+    any field that just changed (e.g. ``training_frequency`` just set in
+    ``_handle_status_quo``) shows up on the PostHog person profile alongside
+    the event itself. This replaces the older identify-before-capture pattern
+    which depended on ``posthog.identify`` — removed in SDK v3.
     """
-    identify(user)
+    props = dict(properties or {})
+    props["$set"] = _person_props(user)
     _run_in_thread(
         posthog.capture,
         distinct_id=str(user.id),
         event=event,
-        properties=properties or {},
+        properties=props,
     )
 
 
