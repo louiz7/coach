@@ -58,6 +58,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone = Column(String(255), unique=True, nullable=False)
     email = Column(String(255), unique=True, nullable=True)
+    is_blocked = Column(Boolean, default=False, nullable=False, server_default="false")  # opt-out / blocklist
     password_hash = Column(String(255), nullable=False)
     name = Column(String(100), nullable=False)
     sport = Column(String(50), nullable=True)

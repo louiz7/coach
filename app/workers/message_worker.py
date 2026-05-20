@@ -76,6 +76,11 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         )
         user = result.scalar_one_or_none()
 
+        # --- BLOCKLIST CHECK — silently drop messages from blocked numbers ---
+        if user and getattr(user, "is_blocked", False):
+            print(f"[message_worker] blocked user {user.phone} — dropping message", flush=True)
+            return
+
         # --- NEW KANO USER — any message starts the new onboarding ---
         if not user:
             _lang = "de" if (phone or "").startswith("+49") else "en"
