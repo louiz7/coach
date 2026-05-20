@@ -216,9 +216,15 @@ _EXTRACT_PROMPTS: dict[str, str] = {
         "Always valid=true. injuries=null if none mentioned."
     ),
     "basics": (
-        'Extract body basics from: "{text}"\n'
-        'Return JSON: {{"age": <int or null>, "weight_kg": <float or null>, "gender": "male/female/other or null", "valid": true or false}}\n'
-        "valid=false only if none of age/weight/gender could be extracted."
+        'Extract body metrics from this message — fields can appear in ANY order and with ANY units.\n'
+        'Message: "{text}"\n'
+        'Return JSON: {{"age": <int or null>, "weight_kg": <float or null>, "gender": "male/female/other or null", "height_cm": <float or null>, "valid": true or false}}\n'
+        "Rules:\n"
+        "- Convert lbs → kg (1 lb = 0.453592 kg)\n"
+        "- Convert feet/inches → cm (1 ft = 30.48 cm, 1 in = 2.54 cm)\n"
+        "- Height in cm stays as-is; height like '193cm' → 193.0\n"
+        "- Gender: male/man/m/männlich → 'male'; female/woman/f/weiblich → 'female'; anything else → 'other'\n"
+        "- valid=false ONLY if none of age/weight/gender could be extracted at all."
     ),
     "constraints_intent": (
         'Does this message indicate the person has NO constraints, injuries, or special requirements? Message: "{text}"\n'
@@ -626,6 +632,8 @@ async def _handle_whoop_or_basics(user: User, chat_id: str, text: str, db: Async
             user.weight_kg = float(data["weight_kg"])
         if data.get("gender") is not None:
             user.gender = data["gender"]
+        if data.get("height_cm") is not None:
+            user.height_cm = float(data["height_cm"])
 
     await _build_plan_and_advance(user, chat_id, db)
 
