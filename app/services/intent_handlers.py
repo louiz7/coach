@@ -331,6 +331,29 @@ async def handle_calendar_link(user: User, text: str, db: AsyncSession) -> Optio
         print(f"[handle_calendar_link ERROR] {ex}")
         return None
 
+async def handle_cancel_subscription(user: User, text: str, db: AsyncSession) -> Optional[str]:
+    """User wants to cancel — send them the plan page link where they can manage their sub.
+    Sends the message directly and returns __SENT__ so the LLM doesn't also reply."""
+    try:
+        from app.services.token import create_plan_token
+        from app.config import settings as cfg
+        token = create_plan_token(user.phone)
+        base = cfg.PUBLIC_BASE_URL.rstrip('/')
+        plan_url = f"{base}/plan?token={token}"
+        lang = getattr(user, 'language', None) or 'en'
+        if lang == 'de':
+            msg = f"du kannst dein Abo jederzeit auf deiner Plan-Seite k\u00fcndigen \u2014 kein Stress\n{plan_url}"
+        else:
+            msg = f"you can cancel your subscription anytime on your plan page \u2014 no hard feelings\n{plan_url}"
+        if user.linq_chat_id:
+            await linq.send_message(user.linq_chat_id, msg)
+            await add_message(user.id, 'assistant', msg, db)
+        return "__SENT__"
+    except Exception as ex:
+        print(f"[handle_cancel_subscription ERROR] {ex}")
+        return None
+
+
 _HANDLER_MAP = {
     "PROGRESS_LOG": handle_progress_log,
     "MODIFY_PLAN": handle_modify_plan,
@@ -341,6 +364,7 @@ _HANDLER_MAP = {
     "CONNECT_WHOOP": handle_connect_whoop,
     "PERFORMANCE_DATA": handle_performance_data,
     "CALENDAR_LINK": handle_calendar_link,
+    "CANCEL_SUBSCRIPTION": handle_cancel_subscription,
 }
 
 

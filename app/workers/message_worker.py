@@ -220,7 +220,7 @@ async def _process_message_inner(chat_id: str, text: str, event_id: str, phone: 
         handler_context = await run_handlers(intents, user, text, db, image_url=image_url)
 
         # Handlers that send replies themselves — skip LLM
-        if "CALENDAR_LINK" in intents or "VIEW_PLAN" in intents:
+        if "CALENDAR_LINK" in intents or "VIEW_PLAN" in intents or "CANCEL_SUBSCRIPTION" in intents:
             await _stop_typing()
             return
 
