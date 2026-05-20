@@ -689,9 +689,8 @@
           confirmBtn.disabled = true;
           confirmBtn.textContent = 'Cancelling…';
           try {
-            var res = await fetch('/api/v1/subscription/cancel', {
+            var res = await fetch('/api/v1/subscription/cancel?token=' + encodeURIComponent(TOKEN), {
               method: 'POST',
-              headers: { 'Authorization': 'Bearer ' + TOKEN }
             });
             if (res.ok) {
               modal.hidden = true;

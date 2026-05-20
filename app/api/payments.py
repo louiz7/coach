@@ -81,22 +81,77 @@ async def create_portal(
 
 @router.post("/cancel")
 async def cancel_subscription(
-    user: User = Depends(get_current_user),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
+    """Cancel subscription and optionally delete the user.
+
+    Auth: accepts the onboarding/plan token passed as ?token= query param
+    OR as Authorization: Bearer <token> header. This matches what the plan
+    page sends (it only has an onboarding token, not a JWT user-id token).
+
+    Behaviour:
+    - If user has a Stripe subscription → cancel it immediately in Stripe,
+      mark DB status as canceled.
+    - If user has no Stripe subscription (pre-Stripe user who just wants to
+      stop texts) → delete the user row entirely so they go silent.
+    - Either way: user is done and will no longer receive messages.
+    """
+    # Accept token from query param or Authorization header
+    token = request.query_params.get("token", "")
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if not token:
+        raise HTTPException(401, "Missing token")
+
+    # Verify as onboarding token (phone-based JWT)
+    try:
+        from app.services.token import verify_onboarding_token
+        payload = verify_onboarding_token(token)
+        phone = payload["phone"]
+    except Exception:
+        raise HTTPException(401, "Invalid or expired token")
+
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    sub_result = await db.execute(
         select(Subscription).where(Subscription.user_id == user.id)
     )
-    sub = result.scalar_one_or_none()
-    if not sub or not sub.stripe_subscription_id:
-        raise HTTPException(404, "No active subscription found")
+    sub = sub_result.scalar_one_or_none()
 
-    stripe.Subscription.modify(
-        sub.stripe_subscription_id,
-        cancel_at_period_end=True,
-    )
-    sub.status = "canceled"
-    await db.commit()
+    if sub and sub.stripe_subscription_id:
+        # Cancel immediately in Stripe (not at period end — user wants out now)
+        try:
+            stripe.Subscription.cancel(sub.stripe_subscription_id)
+        except stripe.error.InvalidRequestError as e:
+            # Already cancelled / not found in Stripe — fine, just update DB
+            print(f"[cancel_subscription] Stripe cancel error (ignored): {e}", flush=True)
+        sub.status = "canceled"
+        await db.commit()
+        posthog.capture("subscription_cancelled", distinct_id=str(user.id))
+        print(f"[cancel_subscription] Stripe sub cancelled for user {user.id} ({user.phone})", flush=True)
+    else:
+        # No Stripe sub — pre-paywall user who just wants to stop getting texts.
+        # Delete them entirely so they go silent. If they text again they'll
+        # restart as a fresh user (which is fine).
+        print(f"[cancel_subscription] No Stripe sub — deleting user {user.id} ({user.phone})", flush=True)
+        from app.models.training_plan import TrainingPlan
+        from app.models.message import Message
+        from app.models.progress_entry import ProgressEntry
+        from sqlalchemy import delete
+        uid = user.id
+        await db.execute(delete(ProgressEntry).where(ProgressEntry.user_id == uid))
+        await db.execute(delete(Message).where(Message.user_id == uid))
+        await db.execute(delete(TrainingPlan).where(TrainingPlan.user_id == uid))
+        await db.execute(delete(Subscription).where(Subscription.user_id == uid))
+        await db.execute(delete(User).where(User.id == uid))
+        await db.commit()
+
     return {"ok": True}
 
 
