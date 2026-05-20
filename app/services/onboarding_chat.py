@@ -278,8 +278,8 @@ Return JSON:
   "answer": "if is_sidebar=true: your short direct answer (1-3 sentences max, casual iMessage tone). Do NOT end with a question — we will re-ask the pending question separately. null otherwise."
 }}
 
-is_sidebar=true examples: questions about privacy/data storage, how Kano works, pricing, what WHOOP is, whether it's free, fitness questions, greetings with no name, random comments.
-is_sidebar=false examples: actually answering the pending question (e.g. giving their name, stating their goal).
+is_sidebar=true examples: questions about privacy/data storage, how Kano works, pricing, what WHOOP is, whether it's free, greetings with no name, random off-topic comments, asking what iMessage bot this is.
+is_sidebar=false examples: actually answering the pending question — e.g. giving their name, stating their fitness goal, describing their training, listing constraints, giving age/weight/gender. When in doubt, treat as an answer (is_sidebar=false).
 
 Facts about Kano you MUST use if pricing or cost comes up:
 - 7-day free trial, no charge upfront
