@@ -329,6 +329,9 @@ async def create_trial_subscription(
             trial_period_days=7,
             payment_behavior="default_incomplete",
             payment_settings={"save_default_payment_method": "on_subscription"},
+            # Auto-cancel the trial if the user never confirms a payment method.
+            # Without this, Stripe leaves the sub trialing forever even with no card.
+            trial_settings={"end_behavior": {"missing_payment_method": "cancel"}},
             expand=["pending_setup_intent", "latest_invoice.payment_intent"],
             metadata={"user_id": str(user.id), "phone": user.phone},
         )
@@ -346,17 +349,22 @@ async def create_trial_subscription(
     if not client_secret:
         raise HTTPException(500, "Stripe did not return a client secret")
 
-    # Upsert the Subscription row so the webhook has something to update
+    # Upsert the Subscription row so the webhook has something to update.
+    # IMPORTANT: even though Stripe returns status="trialing" immediately (the
+    # trial period starts on creation), the user has NOT entered payment info
+    # yet. We deliberately store "incomplete" locally so /plan stays gated and
+    # plan generation doesn't fire. The webhook promotes us to "trialing" only
+    # once the SetupIntent succeeds and default_payment_method is attached.
     if existing_sub:
         existing_sub.stripe_customer_id = customer_id
         existing_sub.stripe_subscription_id = sub["id"]
-        existing_sub.status = sub["status"]
+        existing_sub.status = "incomplete"
     else:
         db.add(Subscription(
             user_id=user.id,
             stripe_customer_id=customer_id,
             stripe_subscription_id=sub["id"],
-            status=sub["status"],
+            status="incomplete",
         ))
     await db.commit()
 

@@ -155,6 +155,38 @@ async def cancel_subscription(
     return {"ok": True}
 
 
+def _has_payment_method(sub_data: dict) -> bool:
+    """True if the Stripe subscription has a payment method we can charge.
+
+    We accept either:
+      - subscription.default_payment_method (set by save_default_payment_method)
+      - customer's invoice_settings.default_payment_method (fallback)
+    Used to gate promotion of local status to "trialing" — Stripe marks the
+    sub as trialing from the moment it's created (trial starts immediately),
+    but we only want to call it trialing once the user actually entered a card.
+    """
+    if sub_data.get("default_payment_method"):
+        return True
+    # default_source is the legacy field; check it too just in case.
+    if sub_data.get("default_source"):
+        return True
+    return False
+
+
+def _effective_status(sub_data: dict) -> str:
+    """Map Stripe's reported status to what we store locally.
+
+    Stripe creates trial subs as `trialing` immediately, before any card is
+    collected. We downgrade `trialing` → `incomplete` while no payment method
+    is attached, so /plan stays gated and plan generation doesn't fire on
+    cardless subs.
+    """
+    raw = sub_data.get("status", "incomplete")
+    if raw == "trialing" and not _has_payment_method(sub_data):
+        return "incomplete"
+    return raw
+
+
 # Stripe webhook — separate endpoint, no JWT auth
 @router.post("/webhook")
 async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
@@ -288,8 +320,11 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             # Only update status if not already at a "better" state
             # (avoid overwriting trialing → incomplete due to event ordering)
             _status_rank = {"incomplete": 0, "incomplete_expired": 0, "trialing": 2, "active": 3, "past_due": 1, "canceled": -1}
+            # Gate trialing on a payment method actually being attached — Stripe
+            # reports trialing the moment the sub is created, before the user
+            # has entered card info.
+            _new_status = _effective_status(data)
             if sub:
-                _new_status = data["status"]
                 if _status_rank.get(_new_status, 0) >= _status_rank.get(sub.status, 0):
                     sub.status = _new_status
                 sub.stripe_customer_id = data["customer"]
@@ -301,7 +336,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     user_id=user_id,
                     stripe_customer_id=data["customer"],
                     stripe_subscription_id=data["id"],
-                    status=data["status"],
+                    status=_new_status,
                     current_period_end=period_end,
                 )
                 db.add(sub)
@@ -316,7 +351,13 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         sub = result.scalar_one_or_none()
         if sub:
             prev_status = sub.status
-            new_status = data.get("status", sub.status)
+            # Gate trialing on a payment method actually being attached.
+            # For the .deleted event there's no payment-method nuance — just take
+            # the status as-is (will be "canceled").
+            if event["type"] == "customer.subscription.deleted":
+                new_status = data.get("status", sub.status)
+            else:
+                new_status = _effective_status(data)
             sub.status = new_status
             if data.get("current_period_end"):
                 from datetime import datetime
